@@ -783,15 +783,15 @@ def init_db() -> None:
                 logger.info("Attempting Alembic upgrade to head...")
                 try:
                     target_schema = settings.POSTGRES_DB_SCHEMA or 'public'
-                    # Use .connect() not .begin() - let Alembic manage its own transaction
-                    # to avoid nested transaction timeout issues in Databricks Apps/Lakebase
-                    with _engine.connect() as connection:
+                    # Use begin() for explicit transaction control - prevents nested transaction issues
+                    # with Lakebase/PostgreSQL that can cause hangs
+                    with _engine.begin() as connection:
                         # Set search_path to ensure migrations run in correct schema
                         connection.execute(text(f'SET search_path TO "{target_schema}"'))
-                        connection.commit()  # Commit the SET command
-                        # Pass connection to Alembic to prevent it from creating its own
+                        # Pass connection to Alembic - don't commit before, let begin() handle it
                         alembic_cfg.attributes['connection'] = connection
                         alembic_command.upgrade(alembic_cfg, "head")
+                    # Transaction commits automatically when exiting begin() block
                     logger.info("✓ Alembic upgrade to head COMPLETED.")
                 except Exception as alembic_err:
                     logger.critical("Alembic upgrade failed! Manual intervention may be required.", exc_info=True)
@@ -837,12 +837,13 @@ def init_db() -> None:
             # Stamp the database with the baseline migration
             logger.info("Stamping database with baseline migration...")
             try:
-                # Use .connect() not .begin() - let Alembic manage its own transaction
-                with _engine.connect() as connection:
+                # Use begin() for explicit transaction control - prevents nested transaction issues
+                # with Lakebase/PostgreSQL that can cause hangs
+                with _engine.begin() as connection:
                     connection.execute(text(f'SET search_path TO "{target_schema}"'))
-                    connection.commit()  # Commit the SET command
                     alembic_cfg.attributes['connection'] = connection
                     alembic_command.stamp(alembic_cfg, "head")
+                # Transaction commits automatically when exiting begin() block
                 logger.info("✓ Database stamped with baseline migration.")
             except Exception as stamp_err:
                 logger.error(f"Failed to stamp database: {stamp_err}", exc_info=True)

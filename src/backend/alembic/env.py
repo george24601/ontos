@@ -112,14 +112,18 @@ def run_migrations_online() -> None:
     
     if connectable is not None:
         # Use the provided connection directly
+        # When a connection is provided by the caller (database.py), the caller manages
+        # the transaction via engine.begin(). We should NOT use begin_transaction() here
+        # as it can cause nested transaction (SAVEPOINT) issues with PostgreSQL/Lakebase
+        # that result in hangs during commit.
         context.configure(
             connection=connectable,
             target_metadata=target_metadata,
             include_object=include_object
         )
         
-        with context.begin_transaction():
-            context.run_migrations()
+        # Don't wrap in begin_transaction() - caller's begin() block handles the transaction
+        context.run_migrations()
     else:
         # Create our own engine and connection (normal standalone mode)
         # Use a dictionary to pass the URL directly
