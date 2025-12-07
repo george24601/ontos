@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
-import { Plus, Pencil, Trash2, AlertCircle, Database, ChevronDown, Upload, Loader2, Sparkles, KeyRound, Table as TableIcon, Workflow, Bell, BellOff } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Pencil, Trash2, AlertCircle, Database, ChevronDown, Upload, Loader2, Sparkles, KeyRound, Table as TableIcon, Workflow, Bell, BellOff, HelpCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ViewModeToggle } from '@/components/common/view-mode-toggle';
 import {
@@ -314,6 +315,35 @@ export default function DataProducts() {
       }
   };
 
+  // Helper to extract human-readable error message from API error responses
+  const extractErrorMessage = (error: any): string => {
+    if (!error) return 'Unknown error';
+    if (typeof error === 'string') return error;
+    if (typeof error === 'object') {
+      // Handle structured error objects from the API
+      if (error.message) return error.message;
+      if (error.detail) {
+        if (typeof error.detail === 'string') return error.detail;
+        if (error.detail.message) return error.detail.message;
+      }
+      // Handle array of errors
+      if (error.errors && Array.isArray(error.errors)) {
+        const firstError = error.errors[0];
+        if (typeof firstError === 'string') return firstError;
+        if (firstError?.message) return firstError.message;
+        return `${error.errors.length} validation error(s) occurred`;
+      }
+      // Try to stringify, but limit length
+      try {
+        const str = JSON.stringify(error);
+        return str.length > 200 ? str.substring(0, 200) + '...' : str;
+      } catch {
+        return 'Unknown error format';
+      }
+    }
+    return String(error);
+  };
+
   // Keep File Upload Handlers
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!canWrite) {
@@ -331,7 +361,21 @@ export default function DataProducts() {
       const response = await post<{ count: number }>('/api/data-products/upload', formData);
 
       if (response.error) {
-         throw new Error(response.error || 'Unknown upload error');
+        // Extract meaningful message from potentially complex error object
+        const errorMsg = extractErrorMessage(response.error);
+        
+        // Check if this might be a Data Contract file uploaded by mistake
+        const isLikelyODCSContract = errorMsg.toLowerCase().includes('validation') || 
+          errorMsg.toLowerCase().includes('schema') ||
+          errorMsg.toLowerCase().includes('odcs');
+        
+        if (isLikelyODCSContract) {
+          throw new Error(
+            `${errorMsg}\n\nHint: This page is for Data Products (ODPS format). ` +
+            `If you're trying to upload a Data Contract (ODCS format), please use the Data Contracts page instead.`
+          );
+        }
+        throw new Error(errorMsg);
       }
 
       const count = response.data?.count ?? 0;
@@ -347,7 +391,8 @@ export default function DataProducts() {
       toast({
           title: "Upload Failed",
           description: errorMsg,
-          variant: "destructive"
+          variant: "destructive",
+          duration: 10000, // Show longer for detailed errors
       });
       setError(errorMsg);
     } finally {
@@ -597,15 +642,26 @@ export default function DataProducts() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
-      ) : error ? (
-         // 4. Check Data Loading Error (if permissions OK and data loading finished)
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription> {/* Display the actual data loading error */}
-        </Alert>
       ) : (
-        // 5. Render Content (if permissions OK and data loaded without error)
+        // 5. Render Content (if permissions OK and data loaded)
         <div className="space-y-4">
+          {/* Show dismissible error alert if there's an error (e.g., upload failure) */}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <AlertDescription className="whitespace-pre-wrap flex-1">{error}</AlertDescription>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
+                onClick={() => setError(null)}
+                title="Dismiss"
+              >
+                <span className="sr-only">Dismiss</span>
+                ×
+              </Button>
+            </Alert>
+          )}
           <div className="flex items-center justify-end">
             <ViewModeToggle
               currentView={viewMode}
@@ -648,16 +704,31 @@ export default function DataProducts() {
                     Create Product
                   </Button>
                   {/* Upload Button - Conditionally enabled */}
-                  <Button
-                      onClick={triggerFileUpload}
-                      className="gap-2 h-9"
-                      variant="outline"
-                      disabled={isUploading || !canWrite || permissionsLoading}
-                      title={canWrite ? "Upload Data Product File" : "Upload (Permission Denied)"}
-                  >
-                    <Upload className="h-4 w-4" />
-                    {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : 'Upload File'}
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                            onClick={triggerFileUpload}
+                            className="gap-2 h-9"
+                            variant="outline"
+                            disabled={isUploading || !canWrite || permissionsLoading}
+                        >
+                          <Upload className="h-4 w-4" />
+                          {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : 'Upload File'}
+                          <HelpCircle className="h-3 w-3 ml-1 opacity-50" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="font-medium">Upload Data Product (ODPS format)</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Accepts YAML or JSON files following the ODPS (Open Data Product Standard) schema.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          For Data Contracts (ODCS), use the Data Contracts page instead.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <input
                     type="file"
                     ref={fileInputRef}

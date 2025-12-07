@@ -120,10 +120,25 @@ export const useApi = () => {
           }
 
           // Extract meaningful error message (FastAPI detail format or fallback)
-          const errorMsg = errorBody?.detail?.[0]?.msg || // FastAPI validation detail
-                           errorBody?.detail ||             // FastAPI simple detail string
-                           (typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody)) || // Raw body or stringified obj
-                           `HTTP error! status: ${response.status}`;         // Fallback
+          let errorMsg: string;
+          if (errorBody?.detail?.[0]?.msg) {
+            // FastAPI validation detail array
+            errorMsg = errorBody.detail[0].msg;
+          } else if (errorBody?.detail) {
+            // FastAPI detail - could be string or object
+            if (typeof errorBody.detail === 'string') {
+              errorMsg = errorBody.detail;
+            } else if (typeof errorBody.detail === 'object') {
+              // Structured error object (e.g., {message: "...", errors: [...]})
+              errorMsg = errorBody.detail.message || JSON.stringify(errorBody.detail);
+            } else {
+              errorMsg = String(errorBody.detail);
+            }
+          } else if (typeof errorBody === 'string') {
+            errorMsg = errorBody;
+          } else {
+            errorMsg = JSON.stringify(errorBody) || `HTTP error! status: ${response.status}`;
+          }
 
           console.error("[useApi] POST error response from", url, "(", response.status, "):", errorBody);
           return { data: {} as T, error: errorMsg };
