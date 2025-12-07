@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Search as SearchIcon } from 'lucide-react';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import AppSearch from '@/components/search/app-search';
 import KGSearch from '@/components/search/kg-search';
 import ConceptsSearch from '@/components/search/concepts-search';
+import LLMSearch from '@/components/search/llm-search';
 
 
 export default function SearchView() {
@@ -90,7 +90,7 @@ export default function SearchView() {
           <TabsTrigger value="app">App Search</TabsTrigger>
           <TabsTrigger value="kg">Knowledge Graph</TabsTrigger>
           <TabsTrigger value="concepts">Concepts</TabsTrigger>
-          <TabsTrigger value="llm">LLM (coming soon)</TabsTrigger>
+          <TabsTrigger value="llm">Ask Ontos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="app">
@@ -115,12 +115,7 @@ export default function SearchView() {
         </TabsContent>
 
         <TabsContent value="llm">
-          <Card>
-            <CardHeader>
-              <CardTitle>LLM-Assisted Search (Coming Soon)</CardTitle>
-              <CardDescription>Ask questions in natural language to explore the graph.</CardDescription>
-            </CardHeader>
-          </Card>
+          <LLMSearch />
         </TabsContent>
       </Tabs>
     </div>

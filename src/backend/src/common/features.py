@@ -122,6 +122,11 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
         'name': 'Tags',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS # READ_WRITE can create tags, ADMIN can manage taxonomy
     },
+    # Search & Discovery
+    'llm-search': {
+        'name': 'LLM Search',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS  # Anyone with read access can use LLM search
+    },
     # 'about': { ... } # About page doesn't need explicit permissions here
 
 }

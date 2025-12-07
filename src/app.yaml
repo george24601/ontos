@@ -38,8 +38,11 @@ env:
   - name: "APP_AUDIT_LOG_DIR"
     value: "audit_logs"
     #value: "/Volumes/${workspace.env.DATABRICKS_CATALOG}/${workspace.env.DATABRICKS_SCHEMA}/${workspace.env.DATABRICKS_VOLUME}/audit_logs"
-  
+
+  - name: "LLM_ENABLED"
+    value: "True"
   - name: "LLM_ENDPOINT"
     valueFrom: "serving-endpoint"
+  
   - name: "WORKSPACE_DEPLOYMENT_PATH"
     value: "/Workspace/Users/lars.george@databricks.com/ontos-jobs"

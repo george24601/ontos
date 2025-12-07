@@ -34,6 +34,7 @@ from src.routes import (
     entitlements_sync_routes,
     estate_manager_routes,
     jobs_routes,
+    llm_search_routes,
     master_data_management_routes,
     mdm_routes,
     metadata_routes,
@@ -201,6 +202,7 @@ metadata_routes.register_routes(app)
 comments_routes.register_routes(app)
 notifications_routes.register_routes(app)
 search_routes.register_routes(app)
+llm_search_routes.register_routes(app)
 jobs_routes.register_routes(app)
 settings_routes.register_routes(app)
 access_requests_routes.register_routes(app)
