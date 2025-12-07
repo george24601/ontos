@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, Loader2, KeyRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, Loader2, KeyRound, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import DataContractBasicFormDialog from '@/components/data-contracts/data-contract-basic-form-dialog'
 import { useDropzone } from 'react-dropzone';
 import { ColumnDef } from "@tanstack/react-table"
@@ -186,11 +187,41 @@ export default function DataContracts() {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to upload contract');
+          // Parse error response for detailed message
+          let errorMsg = 'Failed to upload contract';
+          try {
+            const contentType = response.headers.get('Content-Type');
+            if (contentType?.includes('application/json')) {
+              const errorBody = await response.json();
+              if (errorBody?.detail) {
+                errorMsg = typeof errorBody.detail === 'string' 
+                  ? errorBody.detail 
+                  : errorBody.detail.message || JSON.stringify(errorBody.detail);
+              } else if (errorBody?.message) {
+                errorMsg = errorBody.message;
+              }
+            } else {
+              errorMsg = await response.text() || errorMsg;
+            }
+          } catch {
+            // Keep default error message
+          }
+          
+          // Check if this might be a Data Product file uploaded by mistake
+          const isLikelyODPS = errorMsg.toLowerCase().includes('validation') || 
+            errorMsg.toLowerCase().includes('odps') ||
+            errorMsg.toLowerCase().includes('outputports');
+          
+          if (isLikelyODPS) {
+            errorMsg += '\n\nHint: This page is for Data Contracts (ODCS format). If you\'re trying to upload a Data Product (ODPS format), please use the Data Products page instead.';
+          }
+          
+          throw new Error(errorMsg);
         }
 
         await fetchContracts();
         setOpenUploadDialog(false);
+        toast({ title: 'Success', description: 'Contract uploaded successfully' });
       } catch (err) {
         setUploadError(err instanceof Error ? err.message : 'Failed to upload contract');
       } finally {
@@ -362,8 +393,18 @@ export default function DataContracts() {
 
       {error && (
         <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <AlertDescription className="whitespace-pre-wrap flex-1">{error}</AlertDescription>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
+            onClick={() => setError(null)}
+            title="Dismiss"
+          >
+            <span className="sr-only">Dismiss</span>
+            ×
+          </Button>
         </Alert>
       )}
 
@@ -383,10 +424,26 @@ export default function DataContracts() {
                 <Plus className="h-4 w-4" />
                 New Contract
               </Button>
-              <Button onClick={() => setOpenUploadDialog(true)} variant="outline" className="gap-2 h-9" title="Upload Contract">
-                <Upload className="h-4 w-4" />
-                Upload File
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={() => setOpenUploadDialog(true)} variant="outline" className="gap-2 h-9">
+                      <Upload className="h-4 w-4" />
+                      Upload File
+                      <HelpCircle className="h-3 w-3 ml-1 opacity-50" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-medium">Upload Data Contract (ODCS format)</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Accepts JSON, YAML, or text files following the ODCS (Open Data Contract Standard) schema.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      For Data Products (ODPS), use the Data Products page instead.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </>
           }
           bulkActions={(selectedRows) => (
@@ -428,8 +485,18 @@ export default function DataContracts() {
           </DialogHeader>
           {uploadError && (
             <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{uploadError}</AlertDescription>
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <AlertDescription className="whitespace-pre-wrap flex-1">{uploadError}</AlertDescription>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
+                onClick={() => setUploadError(null)}
+                title="Dismiss"
+              >
+                <span className="sr-only">Dismiss</span>
+                ×
+              </Button>
             </Alert>
           )}
           <div
