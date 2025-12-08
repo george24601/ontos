@@ -203,6 +203,16 @@ class CachingWorkspaceClient(WorkspaceClient):
                     # Convert generator to list for caching
                     lambda: list(self._parent._client.tables.list(catalog_name=catalog_name, schema_name=schema_name))
                 )()
+            
+            # Get a single table by full name - delegate to underlying client
+            def get(self, full_name_arg: str = None, **kwargs):
+                # Use cache for individual table lookups too
+                if full_name_arg:
+                    cache_key = f'tables.get::{full_name_arg}'
+                    return self._parent._cache_result(cache_key)(
+                        lambda: self._parent._client.tables.get(full_name_arg=full_name_arg, **kwargs)
+                    )()
+                return self._parent._client.tables.get(**kwargs)
 
         return CachedTables(self)
 
