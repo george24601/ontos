@@ -4,8 +4,18 @@ import json
 import argparse
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from uuid import uuid4
+
+
+def json_serializer(obj):
+    """Custom JSON serializer for objects not serializable by default."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -403,7 +413,7 @@ def profile_and_generate_suggestions(
         raise RuntimeError(error_summary)
     
     summary_data["total_suggestions"] = total_suggestions
-    return json.dumps(summary_data)
+    return json.dumps(summary_data, default=json_serializer)
 
 
 def main():
