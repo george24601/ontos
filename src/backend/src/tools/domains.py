@@ -207,7 +207,6 @@ class CreateDomainTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[create_domain] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -299,7 +298,6 @@ class UpdateDomainTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[update_domain] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -356,5 +354,4 @@ class DeleteDomainTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[delete_domain] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")

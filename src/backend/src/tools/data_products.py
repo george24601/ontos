@@ -137,7 +137,6 @@ class DeleteDataProductTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[delete_data_product] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 

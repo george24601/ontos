@@ -216,7 +216,6 @@ class CreateTagTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[create_tag] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -306,7 +305,6 @@ class UpdateTagTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[update_tag] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -360,7 +358,6 @@ class DeleteTagTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[delete_tag] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -497,7 +494,6 @@ class AssignTagToEntityTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[assign_tag_to_entity] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -565,6 +561,5 @@ class RemoveTagFromEntityTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[remove_tag_from_entity] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 

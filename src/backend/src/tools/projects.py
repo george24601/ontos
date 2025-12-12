@@ -227,7 +227,6 @@ class CreateProjectTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[create_project] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -324,7 +323,6 @@ class UpdateProjectTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[update_project] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
@@ -374,5 +372,4 @@ class DeleteProjectTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[delete_project] FAILED: {type(e).__name__}: {e}", exc_info=True)
-            ctx.db.rollback()
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
