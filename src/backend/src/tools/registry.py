@@ -173,12 +173,17 @@ def create_default_registry() -> ToolRegistry:
     """
     from src.tools.data_products import (
         SearchDataProductsTool,
+        GetDataProductTool,
         CreateDraftDataProductTool,
-        UpdateDataProductTool
+        UpdateDataProductTool,
+        DeleteDataProductTool
     )
     from src.tools.data_contracts import (
+        SearchDataContractsTool,
+        GetDataContractTool,
         CreateDraftDataContractTool,
-        UpdateDataContractTool
+        UpdateDataContractTool,
+        DeleteDataContractTool
     )
     from src.tools.semantic_models import (
         SearchGlossaryTermsTool,
@@ -192,17 +197,64 @@ def create_default_registry() -> ToolRegistry:
         ExploreCatalogSchemaTool
     )
     from src.tools.costs import GetDataProductCostsTool
+    from src.tools.domains import (
+        SearchDomainsTool,
+        GetDomainTool,
+        CreateDomainTool,
+        UpdateDomainTool,
+        DeleteDomainTool
+    )
+    from src.tools.teams import (
+        SearchTeamsTool,
+        GetTeamTool,
+        CreateTeamTool,
+        UpdateTeamTool,
+        DeleteTeamTool
+    )
+    from src.tools.projects import (
+        SearchProjectsTool,
+        GetProjectTool,
+        CreateProjectTool,
+        UpdateProjectTool,
+        DeleteProjectTool
+    )
     
     registry = ToolRegistry()
     
-    # Data Products tools
+    # Data Products tools (full CRUD)
     registry.register(SearchDataProductsTool())
+    registry.register(GetDataProductTool())
     registry.register(CreateDraftDataProductTool())
     registry.register(UpdateDataProductTool())
+    registry.register(DeleteDataProductTool())
     
-    # Data Contracts tools
+    # Data Contracts tools (full CRUD)
+    registry.register(SearchDataContractsTool())
+    registry.register(GetDataContractTool())
     registry.register(CreateDraftDataContractTool())
     registry.register(UpdateDataContractTool())
+    registry.register(DeleteDataContractTool())
+    
+    # Domains tools (full CRUD)
+    registry.register(SearchDomainsTool())
+    registry.register(GetDomainTool())
+    registry.register(CreateDomainTool())
+    registry.register(UpdateDomainTool())
+    registry.register(DeleteDomainTool())
+    
+    # Teams tools (full CRUD)
+    registry.register(SearchTeamsTool())
+    registry.register(GetTeamTool())
+    registry.register(CreateTeamTool())
+    registry.register(UpdateTeamTool())
+    registry.register(DeleteTeamTool())
+    
+    # Projects tools (full CRUD)
+    registry.register(SearchProjectsTool())
+    registry.register(GetProjectTool())
+    registry.register(CreateProjectTool())
+    registry.register(UpdateProjectTool())
+    registry.register(DeleteProjectTool())
     
     # Semantic Models tools
     registry.register(SearchGlossaryTermsTool())

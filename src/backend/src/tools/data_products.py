@@ -1,7 +1,7 @@
 """
 Data Products tools for LLM.
 
-Tools for searching, creating, and updating data products.
+Tools for searching, creating, updating, and deleting data products.
 """
 
 import json
@@ -12,6 +12,133 @@ from src.common.logging import get_logger
 from src.tools.base import BaseTool, ToolContext, ToolResult
 
 logger = get_logger(__name__)
+
+
+class GetDataProductTool(BaseTool):
+    """Get a single data product by ID."""
+    
+    name = "get_data_product"
+    description = "Get detailed information about a specific data product by its ID."
+    parameters = {
+        "product_id": {
+            "type": "string",
+            "description": "The ID of the data product to retrieve"
+        }
+    }
+    required_params = ["product_id"]
+    
+    async def execute(
+        self,
+        ctx: ToolContext,
+        product_id: str
+    ) -> ToolResult:
+        """Get a data product by ID."""
+        logger.info(f"[get_data_product] Starting - product_id={product_id}")
+        
+        try:
+            from src.db_models.data_products import DataProductDb
+            
+            product = ctx.db.query(DataProductDb).filter(DataProductDb.id == product_id).first()
+            
+            if not product:
+                return ToolResult(
+                    success=False,
+                    error=f"Data product '{product_id}' not found"
+                )
+            
+            # Extract description purpose from JSON
+            desc_purpose = None
+            if product.description:
+                try:
+                    desc_dict = json.loads(product.description) if isinstance(product.description, str) else product.description
+                    if isinstance(desc_dict, dict):
+                        desc_purpose = desc_dict.get('purpose')
+                except Exception:
+                    pass
+            
+            # Extract output tables from output_ports JSON
+            output_tables = []
+            if product.output_ports:
+                try:
+                    ports = json.loads(product.output_ports) if isinstance(product.output_ports, str) else product.output_ports
+                    if isinstance(ports, list):
+                        for port in ports:
+                            if isinstance(port, dict):
+                                output_tables.append(port.get('name', 'Unknown'))
+                except Exception:
+                    pass
+            
+            logger.info(f"[get_data_product] SUCCESS: Found product {product_id}")
+            return ToolResult(
+                success=True,
+                data={
+                    "id": str(product.id),
+                    "name": product.name,
+                    "domain": product.domain,
+                    "description": desc_purpose,
+                    "status": product.status,
+                    "version": product.version,
+                    "output_tables": output_tables,
+                    "created_at": product.created_at.isoformat() if product.created_at else None,
+                    "updated_at": product.updated_at.isoformat() if product.updated_at else None
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"[get_data_product] FAILED: {type(e).__name__}: {e}", exc_info=True)
+            return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
+
+
+class DeleteDataProductTool(BaseTool):
+    """Delete a data product."""
+    
+    name = "delete_data_product"
+    description = "Delete a data product by its ID. This action cannot be undone."
+    parameters = {
+        "product_id": {
+            "type": "string",
+            "description": "The ID of the data product to delete"
+        }
+    }
+    required_params = ["product_id"]
+    
+    async def execute(
+        self,
+        ctx: ToolContext,
+        product_id: str
+    ) -> ToolResult:
+        """Delete a data product."""
+        logger.info(f"[delete_data_product] Starting - product_id={product_id}")
+        
+        if not ctx.data_products_manager:
+            logger.error(f"[delete_data_product] FAILED: Data products manager not available")
+            return ToolResult(success=False, error="Data products manager not available")
+        
+        try:
+            success = ctx.data_products_manager.delete_product(product_id)
+            
+            if not success:
+                return ToolResult(
+                    success=False,
+                    error=f"Data product '{product_id}' not found or could not be deleted"
+                )
+            
+            ctx.db.commit()
+            
+            logger.info(f"[delete_data_product] SUCCESS: Deleted product {product_id}")
+            return ToolResult(
+                success=True,
+                data={
+                    "success": True,
+                    "message": f"Data product '{product_id}' deleted successfully",
+                    "product_id": product_id
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"[delete_data_product] FAILED: {type(e).__name__}: {e}", exc_info=True)
+            ctx.db.rollback()
+            return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 
 
 class SearchDataProductsTool(BaseTool):
@@ -334,5 +461,208 @@ class UpdateDataProductTool(BaseTool):
             
         except Exception as e:
             logger.error(f"[update_data_product] FAILED: {type(e).__name__}: {e}", exc_info=True)
+            return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
+
+
+class GetDataProductTool(BaseTool):
+    """Get a data product by ID."""
+    
+    name = "get_data_product"
+    description = "Get detailed information about a specific data product by its ID."
+    parameters = {
+        "product_id": {
+            "type": "string",
+            "description": "ID of the data product to retrieve"
+        }
+    }
+    required_params = ["product_id"]
+    
+    async def execute(self, ctx: ToolContext, product_id: str) -> ToolResult:
+        """Get a data product by ID."""
+        logger.info(f"[get_data_product] Starting - product_id={product_id}")
+        
+        if not ctx.data_products_manager:
+            logger.error(f"[get_data_product] FAILED: Data products manager not available")
+            return ToolResult(success=False, error="Data products manager not available")
+        
+        try:
+            product = ctx.data_products_manager.get_product(product_id)
+            
+            if not product:
+                return ToolResult(
+                    success=False,
+                    error=f"Data product '{product_id}' not found"
+                )
+            
+            # Extract description purpose
+            desc_purpose = None
+            if product.description:
+                if isinstance(product.description, dict):
+                    desc_purpose = product.description.get('purpose')
+                elif isinstance(product.description, str):
+                    try:
+                        desc_dict = json.loads(product.description)
+                        if isinstance(desc_dict, dict):
+                            desc_purpose = desc_dict.get('purpose')
+                    except Exception:
+                        desc_purpose = product.description
+            
+            logger.info(f"[get_data_product] SUCCESS: Found product {product.name}")
+            return ToolResult(
+                success=True,
+                data={
+                    "id": product.id,
+                    "name": product.name,
+                    "domain": product.domain,
+                    "description": desc_purpose,
+                    "status": product.status,
+                    "version": product.version,
+                    "owner_team_id": getattr(product, 'owner_team_id', None),
+                    "tenant": getattr(product, 'tenant', None),
+                    "url": f"/data-products/{product.id}"
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"[get_data_product] FAILED: {type(e).__name__}: {e}", exc_info=True)
+            return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
+
+
+class ListDataProductsTool(BaseTool):
+    """List all data products with optional filters."""
+    
+    name = "list_data_products"
+    description = "List all data products with optional filtering by domain, status, or limit."
+    parameters = {
+        "domain": {
+            "type": "string",
+            "description": "Optional filter by domain"
+        },
+        "status": {
+            "type": "string",
+            "enum": ["active", "draft", "deprecated", "retired"],
+            "description": "Optional filter by status"
+        },
+        "limit": {
+            "type": "integer",
+            "description": "Maximum number of products to return (default: 50)"
+        }
+    }
+    required_params = []
+    
+    async def execute(
+        self,
+        ctx: ToolContext,
+        domain: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50
+    ) -> ToolResult:
+        """List all data products."""
+        logger.info(f"[list_data_products] Starting - domain={domain}, status={status}, limit={limit}")
+        
+        if not ctx.data_products_manager:
+            logger.error(f"[list_data_products] FAILED: Data products manager not available")
+            return ToolResult(success=False, error="Data products manager not available")
+        
+        try:
+            # Use list_products method with filters
+            products = ctx.data_products_manager.list_products(
+                skip=0,
+                limit=limit,
+                domain=domain,
+                status=status
+            )
+            
+            result_list = []
+            for p in products:
+                desc_purpose = None
+                if p.description:
+                    if isinstance(p.description, dict):
+                        desc_purpose = p.description.get('purpose')
+                    elif isinstance(p.description, str):
+                        try:
+                            desc_dict = json.loads(p.description)
+                            if isinstance(desc_dict, dict):
+                                desc_purpose = desc_dict.get('purpose')
+                        except Exception:
+                            pass
+                
+                result_list.append({
+                    "id": p.id,
+                    "name": p.name,
+                    "domain": p.domain,
+                    "description": desc_purpose,
+                    "status": p.status,
+                    "version": p.version
+                })
+            
+            logger.info(f"[list_data_products] SUCCESS: Found {len(result_list)} products")
+            return ToolResult(
+                success=True,
+                data={
+                    "products": result_list,
+                    "total_found": len(result_list)
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"[list_data_products] FAILED: {type(e).__name__}: {e}", exc_info=True)
+            return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
+
+
+class DeleteDataProductTool(BaseTool):
+    """Delete a data product by ID."""
+    
+    name = "delete_data_product"
+    description = "Delete a data product by its ID. This action cannot be undone."
+    parameters = {
+        "product_id": {
+            "type": "string",
+            "description": "ID of the data product to delete"
+        }
+    }
+    required_params = ["product_id"]
+    
+    async def execute(self, ctx: ToolContext, product_id: str) -> ToolResult:
+        """Delete a data product."""
+        logger.info(f"[delete_data_product] Starting - product_id={product_id}")
+        
+        if not ctx.data_products_manager:
+            logger.error(f"[delete_data_product] FAILED: Data products manager not available")
+            return ToolResult(success=False, error="Data products manager not available")
+        
+        try:
+            # Get product name first for the response
+            product = ctx.data_products_manager.get_product(product_id)
+            if not product:
+                return ToolResult(
+                    success=False,
+                    error=f"Data product '{product_id}' not found"
+                )
+            
+            product_name = product.name
+            
+            # Delete the product
+            success = ctx.data_products_manager.delete_product(product_id)
+            
+            if not success:
+                return ToolResult(
+                    success=False,
+                    error=f"Failed to delete data product '{product_id}'"
+                )
+            
+            logger.info(f"[delete_data_product] SUCCESS: Deleted product {product_name}")
+            return ToolResult(
+                success=True,
+                data={
+                    "success": True,
+                    "product_id": product_id,
+                    "name": product_name,
+                    "message": f"Data product '{product_name}' deleted successfully."
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"[delete_data_product] FAILED: {type(e).__name__}: {e}", exc_info=True)
             return ToolResult(success=False, error=f"{type(e).__name__}: {str(e)}")
 

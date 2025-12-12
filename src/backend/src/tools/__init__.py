@@ -44,14 +44,46 @@ from src.tools.registry import ToolRegistry, create_default_registry
 # Data Products tools
 from src.tools.data_products import (
     SearchDataProductsTool,
+    GetDataProductTool,
     CreateDraftDataProductTool,
-    UpdateDataProductTool
+    UpdateDataProductTool,
+    DeleteDataProductTool
 )
 
 # Data Contracts tools
 from src.tools.data_contracts import (
+    SearchDataContractsTool,
+    GetDataContractTool,
     CreateDraftDataContractTool,
-    UpdateDataContractTool
+    UpdateDataContractTool,
+    DeleteDataContractTool
+)
+
+# Domains tools
+from src.tools.domains import (
+    SearchDomainsTool,
+    GetDomainTool,
+    CreateDomainTool,
+    UpdateDomainTool,
+    DeleteDomainTool
+)
+
+# Teams tools
+from src.tools.teams import (
+    SearchTeamsTool,
+    GetTeamTool,
+    CreateTeamTool,
+    UpdateTeamTool,
+    DeleteTeamTool
+)
+
+# Projects tools
+from src.tools.projects import (
+    SearchProjectsTool,
+    GetProjectTool,
+    CreateProjectTool,
+    UpdateProjectTool,
+    DeleteProjectTool
 )
 
 # Semantic Models tools
@@ -82,14 +114,40 @@ __all__ = [
     "ToolRegistry",
     "create_default_registry",
     
-    # Data Products tools
+    # Data Products tools (full CRUD)
     "SearchDataProductsTool",
+    "GetDataProductTool",
     "CreateDraftDataProductTool",
     "UpdateDataProductTool",
+    "DeleteDataProductTool",
     
-    # Data Contracts tools
+    # Data Contracts tools (full CRUD)
+    "SearchDataContractsTool",
+    "GetDataContractTool",
     "CreateDraftDataContractTool",
     "UpdateDataContractTool",
+    "DeleteDataContractTool",
+    
+    # Domains tools (full CRUD)
+    "SearchDomainsTool",
+    "GetDomainTool",
+    "CreateDomainTool",
+    "UpdateDomainTool",
+    "DeleteDomainTool",
+    
+    # Teams tools (full CRUD)
+    "SearchTeamsTool",
+    "GetTeamTool",
+    "CreateTeamTool",
+    "UpdateTeamTool",
+    "DeleteTeamTool",
+    
+    # Projects tools (full CRUD)
+    "SearchProjectsTool",
+    "GetProjectTool",
+    "CreateProjectTool",
+    "UpdateProjectTool",
+    "DeleteProjectTool",
     
     # Semantic Models tools
     "SearchGlossaryTermsTool",
@@ -105,4 +163,3 @@ __all__ = [
     # Costs tools
     "GetDataProductCostsTool",
 ]
-

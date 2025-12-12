@@ -26,16 +26,53 @@ class MessageRole(str, Enum):
 
 class ToolName(str, Enum):
     """Available tools for the LLM to call."""
+    # Data Products (full CRUD)
     SEARCH_DATA_PRODUCTS = "search_data_products"
-    SEARCH_GLOSSARY_TERMS = "search_glossary_terms"
-    GET_DATA_PRODUCT_COSTS = "get_data_product_costs"
-    GET_TABLE_SCHEMA = "get_table_schema"
-    EXECUTE_ANALYTICS_QUERY = "execute_analytics_query"
-    EXPLORE_CATALOG_SCHEMA = "explore_catalog_schema"
-    CREATE_DRAFT_DATA_CONTRACT = "create_draft_data_contract"
+    GET_DATA_PRODUCT = "get_data_product"
     CREATE_DRAFT_DATA_PRODUCT = "create_draft_data_product"
     UPDATE_DATA_PRODUCT = "update_data_product"
+    DELETE_DATA_PRODUCT = "delete_data_product"
+    
+    # Data Contracts (full CRUD)
+    SEARCH_DATA_CONTRACTS = "search_data_contracts"
+    GET_DATA_CONTRACT = "get_data_contract"
+    CREATE_DRAFT_DATA_CONTRACT = "create_draft_data_contract"
     UPDATE_DATA_CONTRACT = "update_data_contract"
+    DELETE_DATA_CONTRACT = "delete_data_contract"
+    
+    # Domains (full CRUD)
+    SEARCH_DOMAINS = "search_domains"
+    GET_DOMAIN = "get_domain"
+    CREATE_DOMAIN = "create_domain"
+    UPDATE_DOMAIN = "update_domain"
+    DELETE_DOMAIN = "delete_domain"
+    
+    # Teams (full CRUD)
+    SEARCH_TEAMS = "search_teams"
+    GET_TEAM = "get_team"
+    CREATE_TEAM = "create_team"
+    UPDATE_TEAM = "update_team"
+    DELETE_TEAM = "delete_team"
+    
+    # Projects (full CRUD)
+    SEARCH_PROJECTS = "search_projects"
+    GET_PROJECT = "get_project"
+    CREATE_PROJECT = "create_project"
+    UPDATE_PROJECT = "update_project"
+    DELETE_PROJECT = "delete_project"
+    
+    # Discovery
+    SEARCH_GLOSSARY_TERMS = "search_glossary_terms"
+    EXPLORE_CATALOG_SCHEMA = "explore_catalog_schema"
+    
+    # Schema & Query
+    GET_TABLE_SCHEMA = "get_table_schema"
+    EXECUTE_ANALYTICS_QUERY = "execute_analytics_query"
+    
+    # Cost Analysis
+    GET_DATA_PRODUCT_COSTS = "get_data_product_costs"
+    
+    # Semantic Linking
     ADD_SEMANTIC_LINK = "add_semantic_link"
     LIST_SEMANTIC_LINKS = "list_semantic_links"
     REMOVE_SEMANTIC_LINK = "remove_semantic_link"
