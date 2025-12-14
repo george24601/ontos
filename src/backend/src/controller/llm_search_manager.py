@@ -8,6 +8,7 @@ business questions about data products, glossary terms, costs, and analytics.
 
 import json
 import os
+import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
@@ -423,16 +424,59 @@ class LLMSearchManager:
             
         except Exception as e:
             logger.error(f"Error processing chat: {e}", exc_info=True)
-            error_msg = self._session_store.add_message(
-                self._db, session.id, MessageRole.ASSISTANT,
-                content=f"I apologize, but I encountered an error processing your request: {str(e)}"
-            )
-            return ChatResponse(
-                session_id=session.id,
-                message=error_msg,
-                tool_calls_executed=0,
-                sources=[]
-            )
+            
+            # Create a user-friendly error message
+            error_type = type(e).__name__
+            if "ValidationError" in str(e):
+                user_message = (
+                    "I encountered a validation error while processing a request. "
+                    "This typically happens when data doesn't match expected formats. "
+                    f"Details: {str(e)[:200]}"
+                )
+            elif "timeout" in str(e).lower() or "timed out" in str(e).lower():
+                user_message = (
+                    "The request timed out. This might happen with complex queries. "
+                    "Please try a simpler question or try again later."
+                )
+            elif "connection" in str(e).lower() or "network" in str(e).lower():
+                user_message = (
+                    "I had trouble connecting to a required service. "
+                    "Please try again in a moment."
+                )
+            else:
+                user_message = (
+                    f"I encountered an error while processing your request ({error_type}). "
+                    "Please try rephrasing your question or try again."
+                )
+            
+            # Try to persist the error message to the session
+            try:
+                error_msg = self._session_store.add_message(
+                    self._db, session.id, MessageRole.ASSISTANT,
+                    content=user_message
+                )
+                return ChatResponse(
+                    session_id=session.id,
+                    message=error_msg,
+                    tool_calls_executed=0,
+                    sources=[]
+                )
+            except Exception as persist_error:
+                # If we can't persist the error message (e.g., session was lost),
+                # return a synthetic response without persisting
+                logger.error(f"Failed to persist error message to session: {persist_error}", exc_info=True)
+                synthetic_msg = ChatMessage(
+                    id=str(uuid.uuid4()),
+                    role=MessageRole.ASSISTANT,
+                    content=user_message,
+                    timestamp=datetime.utcnow()
+                )
+                return ChatResponse(
+                    session_id=session.id,
+                    message=synthetic_msg,
+                    tool_calls_executed=0,
+                    sources=[]
+                )
     
     # ========================================================================
     # LLM Processing
