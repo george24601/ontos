@@ -24,6 +24,8 @@ packages = ["src/backend"]
 python = "3.10"
 
 [tool.hatch.envs.dev]
+type = "virtual"
+builder = true
 dependencies = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
