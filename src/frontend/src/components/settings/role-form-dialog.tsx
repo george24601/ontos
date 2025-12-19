@@ -11,11 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { AppRole, FeatureConfig, FeatureAccessLevel, HomeSection, ApprovalEntity } from '@/types/settings';
+import { AppRole, FeatureConfig, FeatureAccessLevel, HomeSection, ApprovalEntity, NO_ROLE_SENTINEL } from '@/types/settings';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { ACCESS_LEVEL_ORDER } from '../../lib/permissions';
 import { features as orderedFeatures } from '@/config/features'; // Import the ordered features
+import { usePermissions } from '@/stores/permissions-store';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface RoleFormDialogProps {
     isOpen: boolean;
@@ -65,6 +67,7 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
     const { post, put } = useApi();
     const { toast } = useToast();
     const { t } = useTranslation('settings');
+    const { availableRoles } = usePermissions();
     const isEditMode = !!initialRole;
     const [formError, setFormError] = useState<string | null>(null);
 
@@ -100,6 +103,8 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
         home_sections: initialRole?.home_sections || [],
         approval_privileges: normalizeApprovalPrivileges(initialRole?.approval_privileges),
         deployment_policy: normalizeDeploymentPolicy(initialRole?.deployment_policy),
+        requestable_by_roles: initialRole?.requestable_by_roles || [],
+        approver_roles: initialRole?.approver_roles || [],
     } as AppRole;
 
     const {
@@ -122,6 +127,8 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
                 home_sections: initialRole.home_sections || [],
                 approval_privileges: normalizeApprovalPrivileges(initialRole.approval_privileges),
                 deployment_policy: normalizeDeploymentPolicy(initialRole.deployment_policy),
+                requestable_by_roles: initialRole.requestable_by_roles || [],
+                approver_roles: initialRole.approver_roles || [],
             } : { 
                 id: '', 
                 name: '', 
@@ -131,6 +138,8 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
                 home_sections: [],
                 approval_privileges: {},
                 deployment_policy: null,
+                requestable_by_roles: [],
+                approver_roles: [],
             };
 
             // Adjust permissions before resetting
@@ -163,6 +172,8 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
                 home_sections: [],
                 approval_privileges: {},
                 deployment_policy: null,
+                requestable_by_roles: [],
+                approver_roles: [],
             } as AppRole);
         }
     }, [isOpen, initialRole, reset, featuresConfig]);
@@ -279,6 +290,7 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
                             <TabsTrigger value="privileges">{t('roles.tabs.privileges')}</TabsTrigger>
                             <TabsTrigger value="permissions">{t('roles.tabs.permissions')}</TabsTrigger>
                             <TabsTrigger value="deployment">{t('roles.tabs.deployment')}</TabsTrigger>
+                            <TabsTrigger value="access-control">{t('roles.tabs.accessControl', 'Access Control')}</TabsTrigger>
                         </TabsList>
 
                         {/* General Tab */}
@@ -542,6 +554,123 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
                                                 </label>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </ScrollArea>
+                        </TabsContent>
+
+                        {/* Access Control Tab */}
+                        <TabsContent value="access-control" className="flex-1 mt-4">
+                            <ScrollArea className="h-[calc(90vh-280px)]">
+                                <div className="space-y-6 pr-4 px-1 py-1">
+                                    {/* Requestable By Roles */}
+                                    <div className="space-y-3">
+                                        <h4 className="font-medium">{t('roles.accessControl.requestableBy.title', 'Who can request this role?')}</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('roles.accessControl.requestableBy.description', 'Select which roles are allowed to request access to this role. Users with these roles will see this role in their requestable roles list.')}
+                                        </p>
+                                        <Controller
+                                            name="requestable_by_roles"
+                                            control={control}
+                                            render={({ field }) => {
+                                                const selectedRoles = field.value || [];
+                                                const toggleRole = (roleId: string) => {
+                                                    if (selectedRoles.includes(roleId)) {
+                                                        field.onChange(selectedRoles.filter((r: string) => r !== roleId));
+                                                    } else {
+                                                        field.onChange([...selectedRoles, roleId]);
+                                                    }
+                                                };
+                                                return (
+                                                    <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                                                        {/* Special "No Role" option */}
+                                                        <label className="flex items-center gap-2 text-sm p-2 rounded hover:bg-muted cursor-pointer">
+                                                            <Checkbox
+                                                                checked={selectedRoles.includes(NO_ROLE_SENTINEL)}
+                                                                onCheckedChange={() => toggleRole(NO_ROLE_SENTINEL)}
+                                                            />
+                                                            <span className="font-medium text-primary">
+                                                                {t('roles.accessControl.noRole', 'Users with no role (new users)')}
+                                                            </span>
+                                                        </label>
+                                                        <div className="border-t my-2" />
+                                                        {/* Available roles (excluding current role being edited) */}
+                                                        {availableRoles
+                                                            .filter(r => r.id !== initialRole?.id)
+                                                            .map(role => (
+                                                                <label key={role.id} className="flex items-center gap-2 text-sm p-2 rounded hover:bg-muted cursor-pointer">
+                                                                    <Checkbox
+                                                                        checked={selectedRoles.includes(role.id)}
+                                                                        onCheckedChange={() => toggleRole(role.id)}
+                                                                    />
+                                                                    <span>{role.name}</span>
+                                                                    {role.description && (
+                                                                        <span className="text-xs text-muted-foreground ml-1">- {role.description}</span>
+                                                                    )}
+                                                                </label>
+                                                            ))
+                                                        }
+                                                        {availableRoles.length === 0 && (
+                                                            <p className="text-sm text-muted-foreground italic">
+                                                                {t('roles.accessControl.noRolesAvailable', 'No other roles available')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Approver Roles */}
+                                    <div className="space-y-3 pt-4 border-t">
+                                        <h4 className="font-medium">{t('roles.accessControl.approvers.title', 'Who can approve requests for this role?')}</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('roles.accessControl.approvers.description', 'Select which roles can approve access requests for this role. Users with these roles will receive notifications when someone requests this role.')}
+                                        </p>
+                                        <Controller
+                                            name="approver_roles"
+                                            control={control}
+                                            render={({ field }) => {
+                                                const selectedApprovers = field.value || [];
+                                                const toggleApprover = (roleId: string) => {
+                                                    if (selectedApprovers.includes(roleId)) {
+                                                        field.onChange(selectedApprovers.filter((r: string) => r !== roleId));
+                                                    } else {
+                                                        field.onChange([...selectedApprovers, roleId]);
+                                                    }
+                                                };
+                                                return (
+                                                    <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                                                        {/* Available roles (including Admin as default approver) */}
+                                                        {availableRoles
+                                                            .filter(r => r.id !== initialRole?.id)
+                                                            .map(role => (
+                                                                <label key={role.id} className="flex items-center gap-2 text-sm p-2 rounded hover:bg-muted cursor-pointer">
+                                                                    <Checkbox
+                                                                        checked={selectedApprovers.includes(role.id)}
+                                                                        onCheckedChange={() => toggleApprover(role.id)}
+                                                                    />
+                                                                    <span>{role.name}</span>
+                                                                    {role.name === 'Admin' && (
+                                                                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                                                            {t('roles.accessControl.defaultApprover', 'Default')}
+                                                                        </span>
+                                                                    )}
+                                                                </label>
+                                                            ))
+                                                        }
+                                                        {availableRoles.length === 0 && (
+                                                            <p className="text-sm text-muted-foreground italic">
+                                                                {t('roles.accessControl.noRolesAvailable', 'No other roles available')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }}
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                            {t('roles.accessControl.approvers.hint', 'If no approvers are selected, requests will be sent to Admin by default.')}
+                                        </p>
                                     </div>
                                 </div>
                             </ScrollArea>

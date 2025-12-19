@@ -9,11 +9,13 @@ interface PermissionsState {
     isLoading: boolean;
     error: string | null;
     availableRoles: AppRole[];    // List of all possible roles
+    requestableRoles: AppRole[];  // List of roles the user can request
     appliedRoleId: string | null; // ID of the role currently being impersonated/applied
     _isInitializing: boolean; // Internal flag to prevent concurrent initializations
     fetchPermissions: () => Promise<void>;
     fetchActualPermissions: () => Promise<void>; // Fetch actual non-overridden permissions
     fetchAvailableRoles: () => Promise<void>; // New action
+    fetchRequestableRoles: () => Promise<void>; // Fetch roles the user can request
     fetchAppliedOverride: () => Promise<void>; // New action to read persisted override
     setRoleOverride: (roleId: string | null) => void; // New action
     hasPermission: (featureId: string, requiredLevel: FeatureAccessLevel) => boolean;
@@ -42,6 +44,7 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
     isLoading: false,
     error: null,
     availableRoles: [],
+    requestableRoles: [],
     appliedRoleId: null,
     _isInitializing: false, // Initialize the flag
 
@@ -105,6 +108,26 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
         }
     },
 
+    fetchRequestableRoles: async () => {
+        try {
+            const response = await fetch('/api/user/requestable-roles', { cache: 'no-store' });
+            if (!response.ok) {
+                 let errorMsg = `HTTP error! status: ${response.status}`;
+                 try {
+                      const errData = await response.json();
+                      errorMsg = errData.detail || errorMsg;
+                 } catch (e) { /* Ignore */ }
+                 throw new Error(errorMsg);
+            }
+            const data: AppRole[] = await response.json();
+            set({ requestableRoles: data, error: null });
+        } catch (error: any) {
+             console.error("Failed to fetch requestable roles:", error);
+             set({ requestableRoles: [], error: error.message || 'Failed to load requestable roles.' });
+             // Don't throw - this is not critical for app operation
+        }
+    },
+
     fetchAppliedOverride: async () => {
         try {
             const response = await fetch('/api/user/role-override', { cache: 'no-store' });
@@ -142,6 +165,7 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
                 get().fetchPermissions(),
                 get().fetchActualPermissions(),
                 get().fetchAvailableRoles(),
+                get().fetchRequestableRoles(),
                 get().fetchAppliedOverride()
             ]);
             // NOTE: isLoading and _isInitializing are reset in finally block

@@ -33,6 +33,9 @@ export enum ApprovalEntity {
 
 export type ApprovalPrivileges = Partial<Record<ApprovalEntity, boolean>>;
 
+// Sentinel value for "no role required" in role request permissions
+export const NO_ROLE_SENTINEL = '__NO_ROLE__';
+
 export interface AppRole {
     id: string;
     name: string;
@@ -42,6 +45,9 @@ export interface AppRole {
     home_sections?: HomeSection[];
     approval_privileges?: ApprovalPrivileges;
     deployment_policy?: DeploymentPolicy | null;
+    // Role hierarchy fields
+    requestable_by_roles?: string[];  // Role IDs that can request this role (use '__NO_ROLE__' for users without any role)
+    approver_roles?: string[];  // Role IDs that can approve access requests for this role
 }
 
 export type UserPermissions = Record<string, FeatureAccessLevel>;

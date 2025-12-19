@@ -9,6 +9,13 @@
     "semanticModels": "Semantic Models",
     "tags": "Tags"
   },
+  "accessDenied": {
+    "title": "Access Denied",
+    "message": "You do not have permission to access the Settings page. This page is restricted to users with administrative privileges.",
+    "action": "If you believe you should have access, please contact your administrator or ",
+    "returnHome": "return to the home page",
+    "requestRole": " to request an appropriate role."
+  },
   "general": {
     "title": "General Settings",
     "description": "Configure basic application settings",
@@ -115,7 +122,8 @@
       "general": "General",
       "privileges": "Privileges",
       "permissions": "Permissions",
-      "deployment": "Deployment"
+      "deployment": "Deployment",
+      "accessControl": "Access Control"
     },
     "general": {
       "roleName": "Role Name",
@@ -166,6 +174,20 @@
       },
       "requireApproval": "Require approval for deployments",
       "canApprove": "Can approve deployment requests"
+    },
+    "accessControl": {
+      "requestableBy": {
+        "title": "Who can request this role?",
+        "description": "Select which roles are allowed to request access to this role. Users with these roles will see this role in their requestable roles list."
+      },
+      "approvers": {
+        "title": "Who can approve requests for this role?",
+        "description": "Select which roles can approve access requests for this role. Users with these roles will receive notifications when someone requests this role.",
+        "hint": "If no approvers are selected, requests will be sent to Admin by default."
+      },
+      "noRole": "Users with no role (new users)",
+      "noRolesAvailable": "No other roles available",
+      "defaultApprover": "Default"
     },
     "actions": {
       "cancel": "Cancel",

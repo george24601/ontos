@@ -6,7 +6,7 @@ import { AppRole, FeatureConfig, FeatureAccessLevel } from '@/types/settings'; /
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, AlertCircle, MoreHorizontal, ChevronDown, UserPlus } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, AlertCircle, ChevronDown, UserPlus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import RoleFormDialog from './role-form-dialog'; // Uncomment and import
 import RequestRoleAccessDialog from './request-role-access-dialog'; // Import role access request dialog
@@ -19,14 +19,6 @@ import {
     Column, // Import Column type for header context
 } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table"; // Import DataTable
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { usePermissions } from '@/stores/permissions-store'; // Import the permissions hook
 
 export default function RolesSettings() {
@@ -215,37 +207,35 @@ export default function RolesSettings() {
         },
         {
             id: "actions",
+            header: () => <div className="text-right">{t('roles.actions.actions')}</div>,
             cell: ({ row }) => {
                 const role = row.original;
                 const isAdminRole = role.name.toLowerCase() === 'admin';
 
                 return (
-                    <div className="flex justify-end">
-                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>{t('roles.actions.actions')}</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                    onClick={() => handleOpenDialog(role)}
-                                    disabled={!canWrite} 
-                                >
-                                    <Pencil className="mr-2 h-4 w-4" /> {t('roles.actions.editRole')}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onClick={() => handleDeleteRole(role.id, role.name)}
-                                    className="text-destructive focus:text-destructive"
-                                    disabled={isAdminRole || !canAdmin} 
-                                >
-                                     <Trash2 className="mr-2 h-4 w-4" /> {t('roles.actions.deleteRole')}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                    <div className="flex justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleOpenDialog(role)}
+                            disabled={!canWrite}
+                            title={t('roles.actions.editRole')}
+                        >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">{t('roles.actions.editRole')}</span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteRole(role.id, role.name)}
+                            disabled={isAdminRole || !canAdmin}
+                            title={isAdminRole ? 'Cannot delete Admin role' : t('roles.actions.deleteRole')}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">{t('roles.actions.deleteRole')}</span>
+                        </Button>
                     </div>
                 );
             },

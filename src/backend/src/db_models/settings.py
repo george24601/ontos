@@ -1,9 +1,13 @@
 import json
 import uuid
-from sqlalchemy import Column, String, Text, func, UniqueConstraint, TIMESTAMP
+from sqlalchemy import Column, String, Text, func, UniqueConstraint, TIMESTAMP, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB # Use JSONB if available, falls back for others
+from sqlalchemy.orm import relationship
 
 from src.common.database import Base
+
+# Sentinel value for "no role required" in role_request_permissions
+NO_ROLE_SENTINEL = '__NO_ROLE__'
 
 class AppRoleDb(Base):
     __tablename__ = 'app_roles'
@@ -31,4 +35,57 @@ class AppRoleDb(Base):
     __table_args__ = (UniqueConstraint('name', name='uq_app_roles_name'),)
 
     def __repr__(self):
-        return f"<AppRoleDb(id='{self.id}', name='{self.name}')>" 
+        return f"<AppRoleDb(id='{self.id}', name='{self.name}')>"
+
+
+class RoleRequestPermissionDb(Base):
+    """Maps which roles can request access to other roles.
+    
+    requestable_by_role_id can be:
+    - A valid role ID: Users with that role can request access
+    - '__NO_ROLE__': Users without any role can request access
+    """
+    __tablename__ = 'role_request_permissions'
+
+    role_id = Column(
+        String, 
+        ForeignKey('app_roles.id', ondelete='CASCADE'), 
+        primary_key=True,
+        comment='The role that can be requested'
+    )
+    requestable_by_role_id = Column(
+        String, 
+        primary_key=True,
+        comment='Role that can request (use __NO_ROLE__ for users without any role)'
+    )
+    
+    # Relationship to the role being requested
+    role = relationship("AppRoleDb", foreign_keys=[role_id], backref="request_permissions")
+    
+    def __repr__(self):
+        return f"<RoleRequestPermissionDb(role_id='{self.role_id}', requestable_by='{self.requestable_by_role_id}')>"
+
+
+class RoleApprovalPermissionDb(Base):
+    """Maps which roles can approve access requests for other roles."""
+    __tablename__ = 'role_approval_permissions'
+
+    role_id = Column(
+        String, 
+        ForeignKey('app_roles.id', ondelete='CASCADE'), 
+        primary_key=True,
+        comment='The role being requested'
+    )
+    approver_role_id = Column(
+        String, 
+        ForeignKey('app_roles.id', ondelete='CASCADE'), 
+        primary_key=True,
+        comment='Role that can approve the request'
+    )
+    
+    # Relationships
+    role = relationship("AppRoleDb", foreign_keys=[role_id], backref="approval_permissions")
+    approver_role = relationship("AppRoleDb", foreign_keys=[approver_role_id])
+    
+    def __repr__(self):
+        return f"<RoleApprovalPermissionDb(role_id='{self.role_id}', approver='{self.approver_role_id}')>"

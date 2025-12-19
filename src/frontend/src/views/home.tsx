@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import DiscoverySection from '@/components/home/discovery-section';
 import DataCurationSection from '@/components/home/data-curation-section';
 import RequiredActionsSection from '@/components/home/required-actions-section';
+import RequestRoleSection from '@/components/home/request-role-section';
 import QuickActions from '@/components/home/quick-actions';
 import RecentActivity from '@/components/home/recent-activity';
 import { useUserStore } from '@/stores/user-store';
@@ -67,7 +68,7 @@ export default function Home() {
   const [complianceLoading, setComplianceLoading] = useState(true);
   const [complianceError, setComplianceError] = useState<string | null>(null);
   const allowedMaturities = useFeatureVisibilityStore((state) => state.allowedMaturities);
-  const { permissions, isLoading: permissionsLoading, hasPermission } = usePermissions();
+  const { permissions, isLoading: permissionsLoading, hasPermission, requestableRoles } = usePermissions();
 
   useEffect(() => {
     fetch('/api/data-products')
@@ -481,12 +482,19 @@ export default function Home() {
          </div>
        )}
 
-      {/* Message for users with no access */}
-      {!permissionsLoading && !hasAnyAccess && (
+      {/* Request Role Section for users with no access */}
+      {!permissionsLoading && !hasAnyAccess && requestableRoles && requestableRoles.length > 0 && (
+          <div className="mb-8">
+            <RequestRoleSection />
+          </div>
+      )}
+
+      {/* Fallback message for users with no access and no requestable roles */}
+      {!permissionsLoading && !hasAnyAccess && (!requestableRoles || requestableRoles.length === 0) && (
           <Alert variant="default" className="mb-8 bg-blue-50 border-blue-200 text-blue-800">
-            <AlertCircle className="h-4 w-4 !text-blue-600" /> {/* Use ! to force color */}
+            <AlertCircle className="h-4 w-4 !text-blue-600" />
             <AlertDescription className="ml-2">
-                 {t('home:noAccess.message')} {t('home:noAccess.action')} <Link to="/settings?tab=roles" className="font-semibold underline hover:text-blue-900">{t('home:noAccess.link')}</Link>.
+                 {t('home:noAccess.message')} {t('home:noAccess.contactAdmin', 'Please contact an administrator to request access to the application.')}
             </AlertDescription>
           </Alert>
       )}

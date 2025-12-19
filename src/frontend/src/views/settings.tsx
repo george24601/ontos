@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Settings as SettingsIcon, ShieldX, Loader2 } from 'lucide-react';
 import RolesSettings from '@/components/settings/roles-settings';
 import SemanticModelsSettings from '@/components/settings/semantic-models-settings';
 import TagsSettings from '@/components/settings/tags-settings';
 import JobsSettings from '@/components/settings/jobs-settings';
+import { usePermissions } from '@/stores/permissions-store';
+import { FeatureAccessLevel } from '@/types/settings';
 
 interface AppSettings {
   id: string;
@@ -28,6 +32,11 @@ interface AppSettings {
 
 export default function Settings() {
   const { t } = useTranslation(['settings', 'common']);
+  const { isLoading: permissionsLoading, hasPermission } = usePermissions();
+  
+  // Check if user has at least READ_ONLY access to settings
+  const hasSettingsAccess = hasPermission('settings', FeatureAccessLevel.READ_ONLY);
+  
   // Legacy general/databricks/git settings state (kept for existing tabs)
   const [settings, setSettings] = useState<AppSettings>({
     id: '',
@@ -48,6 +57,43 @@ export default function Settings() {
   // const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {}, []);
+  
+  // Show loading while permissions are being fetched
+  if (permissionsLoading) {
+    return (
+      <div className="py-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  // Show access denied if user doesn't have settings access
+  if (!hasSettingsAccess) {
+    return (
+      <div className="py-6">
+        <div className="max-w-2xl mx-auto">
+          <Alert variant="destructive" className="border-2">
+            <ShieldX className="h-5 w-5" />
+            <AlertTitle className="text-lg font-semibold">
+              {t('settings:accessDenied.title', 'Access Denied')}
+            </AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="mb-4">
+                {t('settings:accessDenied.message', 'You do not have permission to access the Settings page. This page is restricted to users with administrative privileges.')}
+              </p>
+              <p className="text-sm">
+                {t('settings:accessDenied.action', 'If you believe you should have access, please contact your administrator or ')}
+                <Link to="/" className="font-semibold underline hover:text-destructive-foreground">
+                  {t('settings:accessDenied.returnHome', 'return to the home page')}
+                </Link>
+                {t('settings:accessDenied.requestRole', ' to request an appropriate role.')}
+              </p>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
   // Jobs save is handled within JobsSettings; keep no-op here to preserve structure
 

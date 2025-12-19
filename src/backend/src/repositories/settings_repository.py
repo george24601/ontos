@@ -7,7 +7,7 @@ from sqlalchemy import func
 from uuid import uuid4
 
 from src.common.repository import CRUDBase
-from src.db_models.settings import AppRoleDb
+from src.db_models.settings import AppRoleDb, RoleRequestPermissionDb, RoleApprovalPermissionDb, NO_ROLE_SENTINEL
 from src.models.settings import AppRole as AppRoleApi, AppRoleCreate, AppRoleUpdate
 from src.common.logging import get_logger
 
@@ -24,6 +24,9 @@ class AppRoleRepository(CRUDBase[AppRoleDb, AppRoleCreate, AppRoleUpdate]):
         """Creates an AppRole, serializing JSON fields."""
         # Remove exclude_unset=True to ensure all fields are included
         db_obj_data = obj_in.model_dump() 
+        # Remove fields that are stored in separate tables (role hierarchy)
+        db_obj_data.pop('requestable_by_roles', None)
+        db_obj_data.pop('approver_roles', None)
         # Serialize complex fields
         # Make sure assigned_groups and feature_permissions exist on obj_in
         db_obj_data['assigned_groups'] = json.dumps(getattr(obj_in, 'assigned_groups', []))
@@ -62,6 +65,10 @@ class AppRoleRepository(CRUDBase[AppRoleDb, AppRoleCreate, AppRoleUpdate]):
             update_data = obj_in
         else:
             update_data = obj_in.model_dump(exclude_unset=True)
+
+        # Remove fields that are stored in separate tables (role hierarchy)
+        update_data.pop('requestable_by_roles', None)
+        update_data.pop('approver_roles', None)
 
         # Serialize complex fields if they are present in the update data
         if 'assigned_groups' in update_data and update_data['assigned_groups'] is not None:
@@ -112,4 +119,117 @@ class AppRoleRepository(CRUDBase[AppRoleDb, AppRoleCreate, AppRoleUpdate]):
 
 
 # Create singleton instance of the repository
-app_role_repo = AppRoleRepository(AppRoleDb) 
+app_role_repo = AppRoleRepository(AppRoleDb)
+
+
+class RoleHierarchyRepository:
+    """Repository for role request and approval permission operations."""
+
+    # --- Request Permissions ---
+    
+    def get_requestable_by_roles(self, db: Session, role_id: str) -> List[str]:
+        """Get list of role IDs that can request the given role.
+        
+        Returns list of role IDs. '__NO_ROLE__' indicates users without any role can request.
+        """
+        permissions = db.query(RoleRequestPermissionDb).filter(
+            RoleRequestPermissionDb.role_id == role_id
+        ).all()
+        return [p.requestable_by_role_id for p in permissions]
+
+    def set_requestable_by_roles(self, db: Session, role_id: str, requestable_by_role_ids: List[str]) -> None:
+        """Set which roles can request the given role.
+        
+        Replaces all existing request permissions for this role.
+        Use '__NO_ROLE__' in the list to allow users without any role to request.
+        """
+        # Delete existing permissions
+        db.query(RoleRequestPermissionDb).filter(
+            RoleRequestPermissionDb.role_id == role_id
+        ).delete(synchronize_session=False)
+        
+        # Add new permissions
+        for requestable_by_id in requestable_by_role_ids:
+            permission = RoleRequestPermissionDb(
+                role_id=role_id,
+                requestable_by_role_id=requestable_by_id
+            )
+            db.add(permission)
+        
+        db.flush()
+        logger.debug(f"Set requestable_by_roles for role {role_id}: {requestable_by_role_ids}")
+
+    def get_roles_requestable_by_role(self, db: Session, requester_role_id: str) -> List[str]:
+        """Get list of role IDs that the given role can request."""
+        permissions = db.query(RoleRequestPermissionDb).filter(
+            RoleRequestPermissionDb.requestable_by_role_id == requester_role_id
+        ).all()
+        return [p.role_id for p in permissions]
+
+    def get_roles_requestable_by_no_role(self, db: Session) -> List[str]:
+        """Get list of role IDs that users with no role can request."""
+        permissions = db.query(RoleRequestPermissionDb).filter(
+            RoleRequestPermissionDb.requestable_by_role_id == NO_ROLE_SENTINEL
+        ).all()
+        return [p.role_id for p in permissions]
+
+    # --- Approval Permissions ---
+    
+    def get_approver_roles(self, db: Session, role_id: str) -> List[str]:
+        """Get list of role IDs that can approve access to the given role."""
+        permissions = db.query(RoleApprovalPermissionDb).filter(
+            RoleApprovalPermissionDb.role_id == role_id
+        ).all()
+        return [p.approver_role_id for p in permissions]
+
+    def set_approver_roles(self, db: Session, role_id: str, approver_role_ids: List[str]) -> None:
+        """Set which roles can approve access to the given role.
+        
+        Replaces all existing approval permissions for this role.
+        """
+        # Delete existing permissions
+        db.query(RoleApprovalPermissionDb).filter(
+            RoleApprovalPermissionDb.role_id == role_id
+        ).delete(synchronize_session=False)
+        
+        # Add new permissions
+        for approver_id in approver_role_ids:
+            permission = RoleApprovalPermissionDb(
+                role_id=role_id,
+                approver_role_id=approver_id
+            )
+            db.add(permission)
+        
+        db.flush()
+        logger.debug(f"Set approver_roles for role {role_id}: {approver_role_ids}")
+
+    def get_roles_approvable_by_role(self, db: Session, approver_role_id: str) -> List[str]:
+        """Get list of role IDs that the given role can approve."""
+        permissions = db.query(RoleApprovalPermissionDb).filter(
+            RoleApprovalPermissionDb.approver_role_id == approver_role_id
+        ).all()
+        return [p.role_id for p in permissions]
+
+    def delete_role_hierarchy_for_role(self, db: Session, role_id: str) -> None:
+        """Delete all request and approval permissions involving a role.
+        
+        Note: This is typically handled by CASCADE on the FK, but can be called explicitly.
+        """
+        db.query(RoleRequestPermissionDb).filter(
+            RoleRequestPermissionDb.role_id == role_id
+        ).delete(synchronize_session=False)
+        db.query(RoleRequestPermissionDb).filter(
+            RoleRequestPermissionDb.requestable_by_role_id == role_id
+        ).delete(synchronize_session=False)
+        db.query(RoleApprovalPermissionDb).filter(
+            RoleApprovalPermissionDb.role_id == role_id
+        ).delete(synchronize_session=False)
+        db.query(RoleApprovalPermissionDb).filter(
+            RoleApprovalPermissionDb.approver_role_id == role_id
+        ).delete(synchronize_session=False)
+        db.flush()
+        logger.debug(f"Deleted all role hierarchy permissions for role {role_id}")
+
+
+# Create singleton instance of the role hierarchy repository
+role_hierarchy_repo = RoleHierarchyRepository()

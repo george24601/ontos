@@ -1,6 +1,6 @@
 import uuid # Import uuid
 from datetime import datetime # Import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from fastapi import APIRouter, Request, Depends, HTTPException
 from databricks.sdk import WorkspaceClient
@@ -9,7 +9,7 @@ from databricks.sdk.errors import NotFound
 from src.models.users import UserInfo
 from src.models.users import UserPermissions
 from src.models.notifications import Notification, NotificationType
-from src.models.settings import RoleAccessRequest
+from src.models.settings import RoleAccessRequest, AppRole
 from src.common.config import get_settings, Settings
 from src.controller.authorization_manager import AuthorizationManager
 from src.common.dependencies import get_auth_manager, get_db # Import get_db
@@ -186,6 +186,32 @@ async def get_actual_role(
     role = settings_manager.get_canonical_role_for_groups(user_details.groups)
     return {"role": role.dict() if role else None}
 
+
+# --- Requestable Roles Endpoint ---
+@router.get("/user/requestable-roles", response_model=List[AppRole])
+async def get_requestable_roles(
+    user_details: UserInfo = Depends(get_user_details_from_sdk),
+    settings_manager: SettingsManager = Depends(get_settings_manager)
+) -> List[AppRole]:
+    """Get list of roles that the current user can request based on their current role(s).
+    
+    For users with no role, returns roles that are configured to be requestable by 
+    users without any role (__NO_ROLE__).
+    """
+    logger.info(f"Request received for /api/user/requestable-roles for user '{user_details.user or user_details.email}'")
+    
+    try:
+        requestable_roles = settings_manager.get_requestable_roles_for_user(user_details.groups)
+        logger.info(f"User '{user_details.email}' can request {len(requestable_roles)} roles")
+        return requestable_roles
+    except Exception as e:
+        logger.error(f"Error getting requestable roles for user '{user_details.email}': {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error retrieving requestable roles."
+        )
+
+
 # --- Role Access Request Endpoint ---
 @router.post("/user/request-role/{role_id}")
 async def request_role_access(
@@ -214,6 +240,21 @@ async def request_role_access(
         logger.error(f"Error retrieving role {role_id}: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving role details.")
 
+    # Validate that the user can request this role based on their current roles
+    if not settings_manager.can_user_request_role(role_id, user_details.groups):
+        logger.warning(f"User '{requester_email}' is not authorized to request role '{role_name}'")
+        raise HTTPException(
+            status_code=403,
+            detail=f"You are not authorized to request the role '{role_name}'. Please check which roles you can request."
+        )
+
+    # Get the approver role names for this role
+    approver_role_names = settings_manager.get_approver_role_names(role_id)
+    if not approver_role_names:
+        # Default to Admin if no approvers configured
+        approver_role_names = ["Admin"]
+        logger.warning(f"No approvers configured for role '{role_name}', defaulting to Admin")
+
     # Check for duplicate pending requests
     from src.db_models.notifications import NotificationDb
     import json
@@ -234,7 +275,7 @@ async def request_role_access(
                         logger.warning(f"Duplicate role request detected for user '{requester_email}' and role '{role_id}'")
                         raise HTTPException(
                             status_code=400,
-                            detail=f"You already have a pending request for the role '{role_name}'. Please wait for admin review."
+                            detail=f"You already have a pending request for the role '{role_name}'. Please wait for review."
                         )
                 except json.JSONDecodeError:
                     continue  # Skip malformed payload
@@ -251,7 +292,8 @@ async def request_role_access(
     try:
         # 1. Create notification for the requester
         user_message = request_body.message.strip() if request_body.message else None
-        user_desc = f"Your request to access the role '{role_name}' has been submitted for review."
+        approver_list = ", ".join(approver_role_names)
+        user_desc = f"Your request to access the role '{role_name}' has been submitted for review by: {approver_list}."
         if user_message:
             user_desc += f"\n\nYour message: {user_message}"
 
@@ -269,33 +311,34 @@ async def request_role_access(
         notifications_manager.create_notification(db=db, notification=user_notification)
         logger.info(f"Created notification for requester '{requester_email}'")
 
-        # 2. Create notification for Admins
-        admin_desc = f"User '{requester_email}' has requested access to the role '{role_name}'."
+        # 2. Create notification for each approver role
+        approver_desc = f"User '{requester_email}' has requested access to the role '{role_name}'."
         if user_message:
-            admin_desc += f"\n\nRequester's message: {user_message}"
+            approver_desc += f"\n\nRequester's message: {user_message}"
 
-        admin_notification = Notification(
-            id=str(uuid.uuid4()), # Generate another placeholder ID
-            created_at=now, # Provide placeholder
-            type=NotificationType.ACTION_REQUIRED,
-            title="Role Access Request Received",
-            subtitle=f"User: {requester_email}",
-            description=admin_desc,
-            recipient="Admin",
-            can_delete=False,
-            action_type="handle_role_request",
-            action_payload={
-                "requester_email": requester_email,
-                "role_id": role_id,
-                "role_name": role_name,
-                "requester_message": user_message  # Include the requester's message
-            }
-        )
-        # Pass db session to the manager
-        notifications_manager.create_notification(db=db, notification=admin_notification)
-        logger.info(f"Created notification for Admin role recipients")
+        for approver_role_name in approver_role_names:
+            approver_notification = Notification(
+                id=str(uuid.uuid4()), # Generate unique ID for each notification
+                created_at=now, # Provide placeholder
+                type=NotificationType.ACTION_REQUIRED,
+                title="Role Access Request Received",
+                subtitle=f"User: {requester_email}",
+                description=approver_desc,
+                recipient=approver_role_name,  # Send to the approver role name
+                can_delete=False,
+                action_type="handle_role_request",
+                action_payload={
+                    "requester_email": requester_email,
+                    "role_id": role_id,
+                    "role_name": role_name,
+                    "requester_message": user_message  # Include the requester's message
+                }
+            )
+            # Pass db session to the manager
+            notifications_manager.create_notification(db=db, notification=approver_notification)
+            logger.info(f"Created notification for approver role '{approver_role_name}'")
 
-        db.commit() # Commit the transaction after both notifications are added
+        db.commit() # Commit the transaction after all notifications are added
         return {"message": "Role access request submitted successfully."} 
 
     except Exception as e:

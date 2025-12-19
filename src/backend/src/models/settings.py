@@ -68,6 +68,9 @@ class DeploymentPolicy(BaseModel):
         description="Whether users with this role can approve deployment requests from others"
     )
 
+# Sentinel value for "no role required" in role request permissions
+NO_ROLE_SENTINEL = '__NO_ROLE__'
+
 # Base model for common fields
 class AppRoleBase(BaseModel):
     name: str
@@ -77,6 +80,15 @@ class AppRoleBase(BaseModel):
     home_sections: List[HomeSection] = Field(default_factory=list, description="Home sections visible for this role")
     approval_privileges: Dict[ApprovalEntity, bool] = Field(default_factory=dict, description="Entity-level approval capabilities")
     deployment_policy: Optional[DeploymentPolicy] = Field(None, description="Policy for catalog/schema deployment restrictions")
+    # Role hierarchy fields
+    requestable_by_roles: List[str] = Field(
+        default_factory=list, 
+        description="Role IDs that can request this role. Use '__NO_ROLE__' for users without any role."
+    )
+    approver_roles: List[str] = Field(
+        default_factory=list, 
+        description="Role IDs that can approve access requests for this role."
+    )
 
 # Model for creating a new role (input)
 class AppRoleCreate(AppRoleBase):
@@ -94,6 +106,8 @@ class AppRoleUpdate(AppRoleBase):
     home_sections: Optional[List[HomeSection]] = None
     approval_privileges: Optional[Dict[ApprovalEntity, bool]] = None
     deployment_policy: Optional[DeploymentPolicy] = None
+    requestable_by_roles: Optional[List[str]] = None
+    approver_roles: Optional[List[str]] = None
 
 # Model representing a role as returned by the API (output)
 class AppRole(AppRoleBase):

@@ -20,9 +20,9 @@ from src.models.settings import JobCluster, AppRole, AppRoleCreate, AppRoleUpdat
 from src.models.workflow_installations import WorkflowInstallation
 from src.common.features import get_feature_config, FeatureAccessLevel, get_all_access_levels, APP_FEATURES, ACCESS_LEVEL_ORDER
 from src.common.logging import get_logger
-from src.repositories.settings_repository import app_role_repo
+from src.repositories.settings_repository import app_role_repo, role_hierarchy_repo
 from src.repositories.workflow_installations_repository import workflow_installation_repo
-from src.db_models.settings import AppRoleDb
+from src.db_models.settings import AppRoleDb, NO_ROLE_SENTINEL
 from src.repositories.teams_repository import team_repo
 from src.repositories.projects_repository import project_repo
 from src.db_models.teams import TeamDb, TeamMemberDb
@@ -1077,6 +1077,19 @@ class SettingsManager:
             logger.warning(f"Could not parse or convert deployment_policy JSON for role ID {role_db.id}: {getattr(role_db, 'deployment_policy', None)}. Error: {e}")
             deployment_policy = None
 
+        # Get role hierarchy data from the hierarchy tables
+        try:
+            requestable_by_roles = role_hierarchy_repo.get_requestable_by_roles(self._db, str(role_db.id))
+        except Exception as e:
+            logger.warning(f"Could not get requestable_by_roles for role ID {role_db.id}: {e}")
+            requestable_by_roles = []
+
+        try:
+            approver_roles = role_hierarchy_repo.get_approver_roles(self._db, str(role_db.id))
+        except Exception as e:
+            logger.warning(f"Could not get approver_roles for role ID {role_db.id}: {e}")
+            approver_roles = []
+
         return AppRole(
             id=role_db.id, # Keep UUID
             name=role_db.name,
@@ -1086,6 +1099,8 @@ class SettingsManager:
             home_sections=home_sections,
             approval_privileges=approval_privileges,
             deployment_policy=deployment_policy,
+            requestable_by_roles=requestable_by_roles,
+            approver_roles=approver_roles,
             # created_at=role_db.created_at, # Uncomment if needed
             # updated_at=role_db.updated_at  # Uncomment if needed
         )
@@ -1203,6 +1218,17 @@ class SettingsManager:
         try:
             # Pass the Pydantic model directly to the repository
             role_db = self.app_role_repo.create(db=self._db, obj_in=role)
+            
+            # Handle role hierarchy (requestable_by_roles and approver_roles)
+            if hasattr(role, 'requestable_by_roles') and role.requestable_by_roles:
+                role_hierarchy_repo.set_requestable_by_roles(
+                    self._db, str(role_db.id), role.requestable_by_roles
+                )
+            if hasattr(role, 'approver_roles') and role.approver_roles:
+                role_hierarchy_repo.set_approver_roles(
+                    self._db, str(role_db.id), role.approver_roles
+                )
+            
             # Commit is handled by the request lifecycle or calling function
             # self._db.commit() # Remove commit from manager method
             # self._db.refresh(role_db) # Refresh is handled in repo
@@ -1251,6 +1277,17 @@ class SettingsManager:
 
             # Pass the Pydantic model (AppRoleUpdate) directly to the repository update method
             updated_role_db = self.app_role_repo.update(db=self._db, db_obj=role_db, obj_in=role_update)
+            
+            # Handle role hierarchy updates (requestable_by_roles and approver_roles)
+            if hasattr(role_update, 'requestable_by_roles') and role_update.requestable_by_roles is not None:
+                role_hierarchy_repo.set_requestable_by_roles(
+                    self._db, role_id, role_update.requestable_by_roles
+                )
+            if hasattr(role_update, 'approver_roles') and role_update.approver_roles is not None:
+                role_hierarchy_repo.set_approver_roles(
+                    self._db, role_id, role_update.approver_roles
+                )
+            
             # Commit handled by request lifecycle
             logger.info(f"Successfully updated role (ID: {role_id})")
             return self._map_db_to_api(updated_role_db)
@@ -1293,6 +1330,95 @@ class SettingsManager:
             logger.error(f"Unexpected error deleting role {role_id}: {e}", exc_info=True)
             self._db.rollback()
             raise
+
+    def get_requestable_roles_for_user(self, user_groups: Optional[List[str]] = None) -> List[AppRole]:
+        """Get list of roles that the user can request based on their current role(s).
+        
+        Args:
+            user_groups: List of groups the user belongs to. If None or empty, returns 
+                        roles requestable by users with no role.
+        
+        Returns:
+            List of AppRole objects that the user can request.
+        """
+        try:
+            # First, determine what role(s) the user currently has
+            user_role_ids: List[str] = []
+            if user_groups:
+                all_roles = self.list_app_roles()
+                for role in all_roles:
+                    if role.assigned_groups:
+                        # Check if any of the user's groups match the role's assigned groups
+                        if any(group in role.assigned_groups for group in user_groups):
+                            user_role_ids.append(str(role.id))
+            
+            # Get roles requestable based on user's current roles
+            requestable_role_ids: set = set()
+            
+            if not user_role_ids:
+                # User has no roles - get roles requestable by __NO_ROLE__
+                no_role_requestable = role_hierarchy_repo.get_roles_requestable_by_no_role(self._db)
+                requestable_role_ids.update(no_role_requestable)
+            else:
+                # User has roles - get roles requestable by each of their roles
+                for role_id in user_role_ids:
+                    roles = role_hierarchy_repo.get_roles_requestable_by_role(self._db, role_id)
+                    requestable_role_ids.update(roles)
+            
+            # Filter out roles the user already has
+            requestable_role_ids = requestable_role_ids - set(user_role_ids)
+            
+            # Get full role objects
+            result = []
+            for role_id in requestable_role_ids:
+                role = self.get_app_role(role_id)
+                if role:
+                    result.append(role)
+            
+            logger.debug(f"User with groups {user_groups} can request {len(result)} roles")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting requestable roles for user: {e}", exc_info=True)
+            return []
+
+    def get_approver_role_names(self, role_id: str) -> List[str]:
+        """Get list of role names that can approve access to the given role.
+        
+        Args:
+            role_id: ID of the role being requested
+            
+        Returns:
+            List of role names that can approve access requests for this role.
+        """
+        try:
+            approver_role_ids = role_hierarchy_repo.get_approver_roles(self._db, role_id)
+            approver_names = []
+            for approver_id in approver_role_ids:
+                role = self.get_app_role(approver_id)
+                if role:
+                    approver_names.append(role.name)
+            return approver_names
+        except Exception as e:
+            logger.error(f"Error getting approver role names for role {role_id}: {e}", exc_info=True)
+            return []
+
+    def can_user_request_role(self, role_id: str, user_groups: Optional[List[str]] = None) -> bool:
+        """Check if a user can request a specific role.
+        
+        Args:
+            role_id: ID of the role the user wants to request
+            user_groups: List of groups the user belongs to
+            
+        Returns:
+            True if the user can request the role, False otherwise.
+        """
+        try:
+            requestable_roles = self.get_requestable_roles_for_user(user_groups)
+            return any(str(role.id) == role_id for role in requestable_roles)
+        except Exception as e:
+            logger.error(f"Error checking if user can request role {role_id}: {e}", exc_info=True)
+            return False
 
     def handle_role_request_decision(
         self,
