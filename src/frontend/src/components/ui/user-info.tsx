@@ -21,6 +21,7 @@ import { FeatureAccessLevel, AppRole } from '@/types/settings';
 import { ACCESS_LEVEL_ORDER } from '../../lib/permissions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
+import UserProfileDialog from '@/components/ui/user-profile-dialog';
 
 interface UserInfoData {
   email: string | null;
@@ -78,9 +79,12 @@ export default function UserInfo() {
       setRoleOverride,
       initializeStore,
   } = usePermissions();
-  
+
   // Use a string state for the radio group value, mapping null to 'actual'
   const [radioValue, setRadioValue] = useState<string>(appliedRoleId || 'actual');
+
+  // Profile dialog state
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
   // Get navigate function
   const navigate = useNavigate();
@@ -191,6 +195,7 @@ export default function UserInfo() {
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -218,7 +223,7 @@ export default function UserInfo() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem onSelect={() => setProfileDialogOpen(true)}>
                 <UserIcon className="mr-2 h-4 w-4" />
                 <span>{t('userMenu.profile')}</span>
             </DropdownMenuItem>
@@ -290,6 +295,12 @@ export default function UserInfo() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    <UserProfileDialog
+      open={profileDialogOpen}
+      onOpenChange={setProfileDialogOpen}
+    />
+  </>
   );
 }
 
