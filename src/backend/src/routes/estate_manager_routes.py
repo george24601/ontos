@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from src.common.authorization import PermissionChecker
 from src.common.config import Settings, get_settings
+from src.common.features import FeatureAccessLevel
 from src.common.workspace_client import get_workspace_client, WorkspaceClient
 from src.common.dependencies import DBSessionDep, AuditManagerDep, AuditCurrentUserDep
 from src.models.estate import Estate, CloudType, SyncStatus
@@ -19,13 +21,20 @@ def get_estate_manager(client: WorkspaceClient = Depends(get_workspace_client), 
     return EstateManager(client, settings)
 
 @router.get("/estates", response_model=list[Estate])
-async def list_estates(estate_manager: EstateManager = Depends(get_estate_manager)):
+async def list_estates(
+    estate_manager: EstateManager = Depends(get_estate_manager),
+    _: bool = Depends(PermissionChecker('estates', FeatureAccessLevel.READ_ONLY))
+):
     """List all configured estates"""
     logger.info("Listing estates")
     return await estate_manager.list_estates()
 
 @router.get("/estates/{estate_id}", response_model=Estate)
-async def get_estate(estate_id: str, estate_manager: EstateManager = Depends(get_estate_manager)):
+async def get_estate(
+    estate_id: str,
+    estate_manager: EstateManager = Depends(get_estate_manager),
+    _: bool = Depends(PermissionChecker('estates', FeatureAccessLevel.READ_ONLY))
+):
     """Get a specific estate by ID"""
     estate = await estate_manager.get_estate(estate_id)
     if not estate:
@@ -39,7 +48,8 @@ async def create_estate(
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
     audit_user: AuditCurrentUserDep,
-    estate_manager: EstateManager = Depends(get_estate_manager)
+    estate_manager: EstateManager = Depends(get_estate_manager),
+    _: bool = Depends(PermissionChecker('estates', FeatureAccessLevel.ADMIN))
 ):
     """Create a new estate"""
     success = False
@@ -82,7 +92,8 @@ async def update_estate(
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
     audit_user: AuditCurrentUserDep,
-    estate_manager: EstateManager = Depends(get_estate_manager)
+    estate_manager: EstateManager = Depends(get_estate_manager),
+    _: bool = Depends(PermissionChecker('estates', FeatureAccessLevel.ADMIN))
 ):
     """Update an existing estate"""
     success = False
@@ -125,7 +136,8 @@ async def delete_estate(
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
     audit_user: AuditCurrentUserDep,
-    estate_manager: EstateManager = Depends(get_estate_manager)
+    estate_manager: EstateManager = Depends(get_estate_manager),
+    _: bool = Depends(PermissionChecker('estates', FeatureAccessLevel.ADMIN))
 ):
     """Delete an estate"""
     success = False
@@ -162,7 +174,8 @@ async def sync_estate(
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
     audit_user: AuditCurrentUserDep,
-    estate_manager: EstateManager = Depends(get_estate_manager)
+    estate_manager: EstateManager = Depends(get_estate_manager),
+    _: bool = Depends(PermissionChecker('estates', FeatureAccessLevel.ADMIN))
 ):
     """Trigger a sync for a specific estate"""
     success = False

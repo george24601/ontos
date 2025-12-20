@@ -1,7 +1,9 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
 
+from src.common.authorization import PermissionChecker
 from src.common.dependencies import DBSessionDep, AuditCurrentUserDep, AuditManagerDep
+from src.common.features import FeatureAccessLevel
 from src.common.logging import get_logger
 from src.controller.semantic_links_manager import SemanticLinksManager
 from src.controller.semantic_models_manager import SemanticModelsManager
@@ -42,7 +44,8 @@ async def add_link(
     current_user: AuditCurrentUserDep,
     audit_manager: AuditManagerDep,
     db: DBSessionDep = None,
-    manager: SemanticLinksManager = Depends(get_manager)
+    manager: SemanticLinksManager = Depends(get_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_WRITE))
 ):
     success = False
     details = {
@@ -53,13 +56,14 @@ async def add_link(
             "label": payload.label
         }
     }
+    created_link_id = None
 
     try:
         created = manager.add(payload, created_by=(current_user.username if current_user else None))
         if db is not None:
             db.commit()
         success = True
-        details["link_id"] = created.id
+        created_link_id = created.id
         return created
     except HTTPException as e:
         details["exception"] = {"type": "HTTPException", "status_code": e.status_code, "detail": e.detail}
@@ -69,10 +73,12 @@ async def add_link(
         details["exception"] = {"type": type(e).__name__, "message": str(e)}
         raise HTTPException(status_code=400, detail="Failed to add semantic link")
     finally:
+        if created_link_id:
+            details["created_resource_id"] = created_link_id
         if db is not None:
             audit_manager.log_action(
                 db=db,
-                username=current_user.username,
+                username=current_user.username if current_user else "anonymous",
                 ip_address=request.client.host if request.client else None,
                 feature="semantic-links",
                 action="CREATE",
@@ -88,7 +94,8 @@ async def delete_link(
     current_user: AuditCurrentUserDep,
     audit_manager: AuditManagerDep,
     db: DBSessionDep = None,
-    manager: SemanticLinksManager = Depends(get_manager)
+    manager: SemanticLinksManager = Depends(get_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_WRITE))
 ):
     success = False
     details = {
@@ -116,7 +123,7 @@ async def delete_link(
         if db is not None:
             audit_manager.log_action(
                 db=db,
-                username=current_user.username,
+                username=current_user.username if current_user else "anonymous",
                 ip_address=request.client.host if request.client else None,
                 feature="semantic-links",
                 action="DELETE",

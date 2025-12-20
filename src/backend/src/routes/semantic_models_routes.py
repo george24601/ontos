@@ -38,7 +38,10 @@ def get_semantic_models_manager(request: Request) -> SemanticModelsManager:
 # --- Semantic Models endpoints ---
 
 @router.get('/semantic-models')
-async def get_semantic_models(manager: SemanticModelsManager = Depends(get_semantic_models_manager)) -> dict:
+async def get_semantic_models(
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
+) -> dict:
     """Get all available semantic models (database + file-based + built-in schemas)"""
     try:
         logger.info("Retrieving all semantic models from database and graph")
@@ -394,7 +397,8 @@ async def delete_semantic_model(
 async def list_simple_concepts(
     q: Optional[str] = Query(None, description="Simple text filter for concepts"),
     limit: int = Query(50, description="Maximum number of results"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> List[dict]:
     """Return a simple flat list of concepts for selection dialogs.
 
@@ -412,7 +416,8 @@ async def list_concept_suggestions(
     q: Optional[str] = Query(None, description="Simple text filter for concepts"),
     parent_iris: Optional[str] = Query(None, description="Comma-separated parent concept IRIs"),
     limit: int = Query(50, description="Maximum number of results"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Return suggested child concepts (if parent_iris provided) and other matches.
 
@@ -430,7 +435,8 @@ async def list_concept_suggestions(
 async def list_simple_properties(
     q: Optional[str] = Query(None, description="Simple text filter for properties"),
     limit: int = Query(50, description="Maximum number of results"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> List[dict]:
     """Return a simple flat list of properties for selection dialogs.
 
@@ -448,7 +454,8 @@ async def list_property_suggestions(
     q: Optional[str] = Query(None, description="Simple text filter for properties"),
     parent_iris: Optional[str] = Query(None, description="Comma-separated parent concept IRIs (unused for properties)"),
     limit: int = Query(50, description="Maximum number of results"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Return suggested properties (typically empty) and other matches.
 
@@ -464,7 +471,8 @@ async def list_property_suggestions(
 
 @router.get('/semantic-models/concepts-grouped')
 async def get_concepts_grouped(
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Get all concepts grouped by taxonomy source"""
     try:
@@ -484,7 +492,8 @@ async def get_concepts_grouped(
 @router.get('/semantic-models/concepts/hierarchy')
 async def get_concept_hierarchy(
     iri: str = Query(..., description="Concept IRI"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Get hierarchical relationships for a concept"""
     try:
@@ -504,7 +513,8 @@ async def get_concept_hierarchy(
 @router.get('/semantic-models/concepts/{concept_iri:path}')
 async def get_concept_details(
     concept_iri: str,
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Get detailed information about a specific concept"""
     try:
@@ -523,7 +533,8 @@ async def get_concept_details(
 
 @router.get('/semantic-models/stats')
 async def get_taxonomy_stats(
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Get statistics about loaded taxonomies"""
     try:
@@ -539,7 +550,8 @@ async def search_concepts(
     q: str = Query(..., description="Search query"),
     taxonomy: Optional[str] = Query(None, description="Filter by taxonomy name"),
     limit: int = Query(50, description="Maximum number of results"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> dict:
     """Search for concepts by text query"""
     try:
@@ -558,7 +570,8 @@ async def search_concepts(
 async def get_neighbors(
     iri: str = Query(..., description="Resource IRI to get neighbors for"),
     limit: int = Query(200, description="Maximum number of neighbors to return"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> List[dict]:
     """Get all neighboring triples for a resource (for graph navigation).
 
@@ -577,7 +590,8 @@ async def get_neighbors(
 async def prefix_search(
     q: str = Query(..., description="IRI prefix substring to search for"),
     limit: int = Query(25, description="Maximum number of results"),
-    manager: SemanticModelsManager = Depends(get_semantic_models_manager)
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
 ) -> List[dict]:
     """Search for resources and properties by IRI prefix/substring.
 

@@ -1,9 +1,11 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from src.common.authorization import PermissionChecker
 from src.common.dependencies import DBSessionDep, AuditManagerDep, AuditCurrentUserDep
+from src.common.features import FeatureAccessLevel
 from ..controller.master_data_management_manager import MasterDataManagementManager
 from ..models.master_data_management import (
     MasterDataManagementComparisonResult,
@@ -18,12 +20,18 @@ router = APIRouter(prefix="/api", tags=["master-data-management"])
 manager = MasterDataManagementManager()
 
 @router.get("/master-data-management/datasets", response_model=List[MasterDataManagementDataset])
-async def get_datasets(entity_type: Optional[str] = None):
+async def get_datasets(
+    entity_type: Optional[str] = None,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.READ_ONLY))
+):
     """Get all datasets, optionally filtered by entity type"""
     return manager.get_datasets(entity_type)
 
 @router.get("/master-data-management/datasets/{dataset_id}", response_model=MasterDataManagementDataset)
-async def get_dataset(dataset_id: str):
+async def get_dataset(
+    dataset_id: str,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.READ_ONLY))
+):
     """Get a specific dataset by ID"""
     dataset = manager.get_dataset_by_id(dataset_id)
     if not dataset:
@@ -36,7 +44,8 @@ async def create_dataset(
     request: Request,
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
-    audit_user: AuditCurrentUserDep
+    audit_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.ADMIN))
 ):
     """Create a new dataset"""
     success = False
@@ -78,7 +87,8 @@ async def update_dataset(
     request: Request,
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
-    audit_user: AuditCurrentUserDep
+    audit_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.ADMIN))
 ):
     """Update an existing dataset"""
     success = False
@@ -120,7 +130,8 @@ async def delete_dataset(
     request: Request,
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
-    audit_user: AuditCurrentUserDep
+    audit_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.ADMIN))
 ):
     """Delete a dataset"""
     success = False
@@ -155,7 +166,8 @@ async def compare_datasets(
     request: Request,
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
-    audit_user: AuditCurrentUserDep
+    audit_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.ADMIN))
 ):
     """Compare selected datasets"""
     success = False
@@ -192,12 +204,18 @@ async def compare_datasets(
         )
 
 @router.get("/master-data-management/comparisons", response_model=List[MasterDataManagementComparisonResult])
-async def get_comparisons():
+async def get_comparisons(
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.READ_ONLY))
+):
     """Get all comparison results"""
     return manager.get_comparison_results()
 
 @router.get("/master-data-management/comparisons/{dataset_a}/{dataset_b}", response_model=MasterDataManagementComparisonResult)
-async def get_comparison(dataset_a: str, dataset_b: str):
+async def get_comparison(
+    dataset_a: str,
+    dataset_b: str,
+    _: bool = Depends(PermissionChecker('mdm', FeatureAccessLevel.READ_ONLY))
+):
     """Get comparison result for specific datasets"""
     comparison = manager.get_comparison_by_datasets(dataset_a, dataset_b)
     if not comparison:

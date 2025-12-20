@@ -155,7 +155,7 @@ async def handle_access_request(
     audit_user: AuditCurrentUserDep,
     notifications: NotificationsManagerDep,
     request_data: HandleAccessRequest = Body(...),
-    comments_manager: CommentsManager = Depends(get_comments_manager),
+    comments_manager: CommentsManager = Depends(get_comments_manager)
 ):
     """Handle an access request decision by approvers (approve/deny/clarify)."""
     success = False

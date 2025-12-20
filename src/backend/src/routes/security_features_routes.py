@@ -3,9 +3,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from src.common.authorization import PermissionChecker
+from src.common.dependencies import DBSessionDep, AuditManagerDep, AuditCurrentUserDep
+from src.common.features import FeatureAccessLevel
 from src.controller.security_features_manager import SecurityFeaturesManager
 from src.models.security_features import SecurityFeature, SecurityFeatureType
 
@@ -62,10 +65,28 @@ class SecurityFeatureResponse(BaseModel):
         from_attributes = True
 
 @router.post("/security-features", response_model=SecurityFeatureResponse)
-async def create_security_feature(feature: SecurityFeatureCreate) -> SecurityFeatureResponse:
+async def create_security_feature(
+    feature: SecurityFeatureCreate,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('security-features', FeatureAccessLevel.ADMIN))
+) -> SecurityFeatureResponse:
     """Create a new security feature"""
+    success = False
+    details = {
+        "params": {
+            "feature_name": feature.name,
+            "feature_type": feature.type.value if feature.type else None,
+            "target": feature.target,
+            "status": feature.status
+        }
+    }
+    created_feature_id = None
+
     try:
-        logging.info(f"Creating security feature: {feature}")
+        logger.info(f"Creating security feature: {feature.name}")
         new_feature = SecurityFeature(
             id=str(len(manager.features) + 1),
             name=feature.name,
@@ -76,53 +97,149 @@ async def create_security_feature(feature: SecurityFeatureCreate) -> SecurityFea
             conditions=feature.conditions
         )
         created_feature = manager.create_feature(new_feature)
+        success = True
+        created_feature_id = created_feature.id
         return SecurityFeatureResponse.from_orm(created_feature)
+    except HTTPException as e:
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
+        raise
     except Exception as e:
-        logging.exception("Error creating security feature")
+        logger.error("Error creating security feature", exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Failed to create security feature")
+    finally:
+        if created_feature_id:
+            details["created_resource_id"] = created_feature_id
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="security-features",
+            action="CREATE",
+            success=success,
+            details=details
+        )
 
 @router.get("/security-features", response_model=List[SecurityFeatureResponse])
-async def list_security_features():
+async def list_security_features(
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('security-features', FeatureAccessLevel.ADMIN))
+):
+    """List all security features"""
+    success = False
+    details = {"params": {}}
+
     try:
         features = manager.list_features()
         logger.debug(f"Found {len(features)} security features")
-        logger.debug(f"Features: {features}")
-        # Add detailed logging for each feature
-        for feature in features:
-            try:
-                logger.debug(f"Feature details: {feature.to_dict()}")
-                # Try to convert to response model
-                response = SecurityFeatureResponse.from_orm(feature)
-                logger.debug(f"Response model: {response.dict()}")
-            except Exception as e:
-                logger.error(f"Error processing feature {feature.id}: {e!s}")
-                logger.error(f"Feature data: {feature.to_dict()}")
-                raise
+        success = True
+        details["feature_count"] = len(features)
         return [SecurityFeatureResponse.from_orm(feature) for feature in features]
+    except HTTPException as e:
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
+        raise
     except Exception as e:
         logger.error("Error listing security features", exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Failed to list security features")
+    finally:
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="security-features",
+            action="LIST",
+            success=success,
+            details=details
+        )
 
 @router.get("/security-features/{feature_id}", response_model=SecurityFeatureResponse)
-async def get_security_feature(feature_id: str) -> SecurityFeatureResponse:
+async def get_security_feature(
+    feature_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('security-features', FeatureAccessLevel.ADMIN))
+) -> SecurityFeatureResponse:
     """Get a security feature by ID"""
+    success = False
+    details = {
+        "params": {
+            "feature_id": feature_id
+        }
+    }
+
     try:
-        logging.debug(f"Getting security feature: {feature_id}")
+        logger.debug(f"Getting security feature: {feature_id}")
         feature = manager.get_feature(feature_id)
         if not feature:
             raise HTTPException(status_code=404, detail="Security feature not found")
+        success = True
         return SecurityFeatureResponse.from_orm(feature)
-    except HTTPException:
+    except HTTPException as e:
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
         raise
     except Exception as e:
-        logging.exception("Error getting security feature %s", feature_id)
+        logger.error("Error getting security feature %s", feature_id, exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Failed to get security feature")
+    finally:
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="security-features",
+            action="GET",
+            success=success,
+            details=details
+        )
 
 @router.put("/security-features/{feature_id}", response_model=SecurityFeatureResponse)
-async def update_security_feature(feature_id: str, feature_update: SecurityFeatureUpdate) -> SecurityFeatureResponse:
+async def update_security_feature(
+    feature_id: str,
+    feature_update: SecurityFeatureUpdate,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('security-features', FeatureAccessLevel.ADMIN))
+) -> SecurityFeatureResponse:
     """Update a security feature"""
+    success = False
+    details = {
+        "params": {
+            "feature_id": feature_id,
+            "updates": feature_update.dict(exclude_unset=True)
+        }
+    }
+
     try:
-        logging.debug(f"Updating security feature: {feature_id}")
+        logger.debug(f"Updating security feature: {feature_id}")
         existing_feature = manager.get_feature(feature_id)
         if not existing_feature:
             raise HTTPException(status_code=404, detail="Security feature not found")
@@ -142,26 +259,80 @@ async def update_security_feature(feature_id: str, feature_update: SecurityFeatu
         result = manager.update_feature(feature_id, updated_feature)
         if not result:
             raise HTTPException(status_code=500, detail="Failed to update security feature")
+        success = True
         return SecurityFeatureResponse.from_orm(result)
-    except HTTPException:
+    except HTTPException as e:
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
         raise
     except Exception as e:
-        logging.exception("Error updating security feature %s", feature_id)
+        logger.error("Error updating security feature %s", feature_id, exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Failed to update security feature")
+    finally:
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="security-features",
+            action="UPDATE",
+            success=success,
+            details=details
+        )
 
 @router.delete("/security-features/{feature_id}")
-async def delete_security_feature(feature_id: str):
+async def delete_security_feature(
+    feature_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('security-features', FeatureAccessLevel.ADMIN))
+):
     """Delete a security feature"""
+    success = False
+    details = {
+        "params": {
+            "feature_id": feature_id
+        }
+    }
+
     try:
-        logging.debug(f"Deleting security feature: {feature_id}")
+        logger.debug(f"Deleting security feature: {feature_id}")
         if not manager.delete_feature(feature_id):
             raise HTTPException(status_code=404, detail="Security feature not found")
+        success = True
         return {"message": "Security feature deleted successfully"}
-    except HTTPException:
+    except HTTPException as e:
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
         raise
     except Exception as e:
-        logging.exception("Error deleting security feature %s", feature_id)
+        logger.error("Error deleting security feature %s", feature_id, exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Failed to delete security feature")
+    finally:
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="security-features",
+            action="DELETE",
+            success=success,
+            details=details
+        )
 
 def register_routes(app):
     """Register security features routes with the app"""

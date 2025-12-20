@@ -2,13 +2,15 @@ import os
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 
+from src.common.authorization import PermissionChecker
+from src.common.dependencies import NotificationsManagerDep, DBSessionDep, CurrentUserDep, AuditManagerDep, AuditCurrentUserDep
+from src.common.features import FeatureAccessLevel
 from src.models.users import UserInfo
 from src.controller.notifications_manager import NotificationNotFoundError, NotificationsManager
 from src.models.notifications import Notification
-from src.common.dependencies import NotificationsManagerDep, DBSessionDep, CurrentUserDep
 
 # Configure logging
 from src.common.logging import get_logger
@@ -35,43 +37,120 @@ async def get_notifications(
 @router.post('/notifications', response_model=Notification)
 async def create_notification(
     notification: Notification,
+    request: Request,
     db: DBSessionDep,
-    manager: NotificationsManagerDep
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: NotificationsManagerDep,
+    _: bool = Depends(PermissionChecker('notifications', FeatureAccessLevel.ADMIN))
 ):
     """Create a new notification."""
+    success = False
+    details = {
+        "params": {
+            "notification_type": notification.type if hasattr(notification, 'type') else None,
+            "user_email": notification.user_email if hasattr(notification, 'user_email') else None
+        }
+    }
+    created_notification_id = None
+
     try:
         created_notification = manager.create_notification(db=db, notification=notification)
+        success = True
+        created_notification_id = created_notification.id if hasattr(created_notification, 'id') else None
         return created_notification
+    except HTTPException as e:
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
+        raise
     except Exception as e:
         logger.error(f"Error creating notification: {e!s}", exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Internal server error creating notification.")
+    finally:
+        if created_notification_id:
+            details["created_resource_id"] = created_notification_id
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="notifications",
+            action="CREATE",
+            success=success,
+            details=details
+        )
 
 @router.delete('/notifications/{notification_id}', status_code=204)
 async def delete_notification(
     notification_id: str,
+    request: Request,
     db: DBSessionDep,
-    manager: NotificationsManagerDep
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: NotificationsManagerDep,
+    _: bool = Depends(PermissionChecker('notifications', FeatureAccessLevel.ADMIN))
 ):
     """Delete a notification by ID."""
+    success = False
+    details = {
+        "params": {
+            "notification_id": notification_id
+        }
+    }
+
     try:
         deleted = manager.delete_notification(db=db, notification_id=notification_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Notification not found")
+        success = True
         return None
     except HTTPException as e:
-        raise e
+        details["exception"] = {
+            "type": "HTTPException",
+            "status_code": e.status_code,
+            "detail": e.detail
+        }
+        raise
     except Exception as e:
         logger.error(f"Error deleting notification {notification_id}: {e!s}", exc_info=True)
+        details["exception"] = {
+            "type": type(e).__name__,
+            "message": str(e)
+        }
         raise HTTPException(status_code=500, detail="Internal server error deleting notification.")
+    finally:
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="notifications",
+            action="DELETE",
+            success=success,
+            details=details
+        )
 
 @router.put('/notifications/{notification_id}/read', response_model=Notification)
 async def mark_notification_read(
     notification_id: str,
     db: DBSessionDep,
+    user_info: CurrentUserDep,
     manager: NotificationsManagerDep
 ):
     """Mark a notification as read."""
     try:
+        # Verify notification belongs to current user
+        notification = manager.get_notification_by_id(db=db, notification_id=notification_id)
+        if not notification:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        if notification.user_email != user_info.email:
+            raise HTTPException(status_code=403, detail="Cannot modify other user's notifications")
+
         updated_notification = manager.mark_notification_read(db=db, notification_id=notification_id)
         if updated_notification is None:
             raise HTTPException(status_code=404, detail="Notification not found")
