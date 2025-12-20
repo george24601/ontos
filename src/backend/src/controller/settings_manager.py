@@ -1263,8 +1263,18 @@ class SettingsManager:
             logger.warning(f"Could not parse assigned_groups JSON for role ID {role_db.id}: {role_db.assigned_groups}")
             assigned_groups = []
 
+        # Feature ID migrations (renamed features)
+        FEATURE_ID_MIGRATIONS = {
+            'security': 'security-features',
+        }
+
         try:
             feature_permissions_raw = json.loads(role_db.feature_permissions or '{}') # Handle None
+            # Apply feature ID migrations for renamed features
+            feature_permissions_raw = {
+                FEATURE_ID_MIGRATIONS.get(k, k): v 
+                for k, v in feature_permissions_raw.items()
+            }
             feature_permissions = {
                 k: FeatureAccessLevel(v) 
                 for k, v in feature_permissions_raw.items() 
