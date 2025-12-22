@@ -1,5 +1,4 @@
 import {
-    Database,
     FileTextIcon,
     Network,
     Users, // Using Users icon from About for MDM for now
@@ -17,7 +16,8 @@ import {
     UserCheck, // Added icon for Teams
     FolderOpen, // Added icon for Projects
     ScrollText, // Added icon for Audit Trail
-    HardDrive, // Added icon for Datasets
+    Table2, // Icon for Datasets (matching marketplace)
+    Package, // Icon for Data Products (matching marketplace)
     type LucideIcon, // Import LucideIcon type
   } from 'lucide-react';
   
@@ -72,7 +72,7 @@ import {
       name: 'Datasets',
       path: '/datasets',
       description: 'Physical implementations of data contracts (tables, views).',
-      icon: HardDrive,
+      icon: Table2,
       group: 'Data Products',
       maturity: 'ga',
       showInLanding: true,
@@ -92,7 +92,7 @@ import {
       name: 'Products',
       path: '/data-products',
       description: 'Group and manage related Databricks assets with tags.',
-      icon: Database,
+      icon: Package,
       group: 'Data Products',
       maturity: 'ga',
       showInLanding: true,

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, Loader2, KeyRound, HelpCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, Loader2, KeyRound, HelpCircle, FileText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import DataContractBasicFormDialog from '@/components/data-contracts/data-contract-basic-form-dialog'
 import { useDropzone } from 'react-dropzone';
@@ -450,6 +450,7 @@ export default function DataContracts() {
   return (
     <div className="py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
+        <FileText className="w-8 h-8" />
         Data Contracts
       </h1>
 

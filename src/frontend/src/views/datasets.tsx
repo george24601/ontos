@@ -22,7 +22,7 @@ import {
   Trash2,
   AlertCircle,
   Search,
-  HardDrive,
+  Table2,
   FileText,
   Users,
 } from 'lucide-react';
@@ -168,7 +168,7 @@ export default function Datasets() {
       header: 'Type',
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <HardDrive className="h-3 w-3 text-muted-foreground" />
+          <Table2 className="h-3 w-3 text-muted-foreground" />
           <span className="text-sm">
             {DATASET_ASSET_TYPE_LABELS[row.original.asset_type as DatasetAssetType] || row.original.asset_type}
           </span>
@@ -299,11 +299,14 @@ export default function Datasets() {
   ];
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="py-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Datasets</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Table2 className="w-8 h-8" />
+            Datasets
+          </h1>
           <p className="text-muted-foreground">
             Physical implementations of data contracts (tables and views)
           </p>
@@ -315,7 +318,7 @@ export default function Datasets() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
