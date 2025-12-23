@@ -6,16 +6,16 @@
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 # Ontos Application Terms
-@prefix ontos: <http://ontos.app/terms#> .
+@prefix ontos: <http://ontos.app/ontology#> .
 
 # ============================================================================
-# ONTOS APPLICATION TERMS
+# ONTOS APPLICATION ONTOLOGY
 # Vocabulary for Ontos data governance application entities
 # ============================================================================
 
 # Ontology Header
 ontos: a owl:Ontology ;
-    rdfs:label "Ontos Application Terms" ;
+    rdfs:label "Ontos Application Ontology" ;
     rdfs:comment "Vocabulary for Ontos data governance application entities" ;
     owl:versionInfo "1.0.0" ;
     dc:created "2024-09-22" ;
@@ -113,6 +113,12 @@ ontos:SemanticModel a rdfs:Class ;
     rdfs:subClassOf ontos:Entity ;
     rdfs:label "Semantic Model" ;
     rdfs:comment "Conceptual model linking data structures to business semantics and ontology concepts" .
+
+ontos:semanticAssignment a rdf:Property ;
+    rdfs:label "semantic assignment" ;
+    rdfs:comment "Links any resource (Databricks assets, ODCS entities, etc.) to a semantic concept from a loaded taxonomy or ontology." ;
+    rdfs:range ontos:OntologyConcept ;
+    skos:definition "Enables semantic classification and discovery by connecting physical assets to conceptual definitions." .
 
 # ============================================================================
 # OBJECT PROPERTIES - ORGANIZATIONAL RELATIONSHIPS

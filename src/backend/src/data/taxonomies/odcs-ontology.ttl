@@ -6,16 +6,16 @@
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 # ODCS Terms
-@prefix odcs: <http://odcs.bitol.io/terms#> .
+@prefix odcs: <http://odcs.bitol.io/ontology#> .
 
 # ============================================================================
-# OPEN DATA CONTRACT STANDARD (ODCS) TERMS
+# OPEN DATA CONTRACT STANDARD (ODCS) ONTOLOGY
 # Based on ODCS v3.0.2 specification
 # ============================================================================
 
 # Ontology Header
 odcs: a owl:Ontology ;
-    rdfs:label "Open Data Contract Standard Terms" ;
+    rdfs:label "Open Data Contract Standard Ontology" ;
     rdfs:comment "Vocabulary for Open Data Contract Standard v3.0.2 entities" ;
     owl:versionInfo "3.0.2" ;
     dc:created "2024-09-22" ;

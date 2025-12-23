@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 from rdflib import Graph, ConjunctiveGraph, Dataset
 from rdflib.namespace import RDF, RDFS, SKOS, OWL
 from rdflib import URIRef, Literal, Namespace
+
+# Ontos application ontology namespace
+ONTOS = Namespace("http://ontos.app/ontology#")
 from sqlalchemy.orm import Session
 import signal
 from contextlib import contextmanager
@@ -269,7 +272,7 @@ class SemanticModelsManager:
             for link in links:
                 subj = URIRef(f"urn:ontos:{link.entity_type}:{link.entity_id}")
                 obj = URIRef(link.iri)
-                context.add((subj, RDFS.seeAlso, obj))
+                context.add((subj, ONTOS.semanticAssignment, obj))
         except Exception as e:
             logger.warning(f"Failed to incorporate semantic entity links into graph: {e}")
 
@@ -382,6 +385,7 @@ class SemanticModelsManager:
                 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
                 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+                PREFIX owl: <http://www.w3.org/2002/07/owl#>
                 SELECT (COUNT(DISTINCT ?concept) AS ?count) WHERE {
                     {
                         ?concept a rdfs:Class .
@@ -390,20 +394,23 @@ class SemanticModelsManager:
                     } UNION {
                         ?concept a skos:ConceptScheme .
                     } UNION {
+                        ?concept a owl:Class .
+                    } UNION {
                         # Include any resource that is used as a class (has instances or subclasses)
                         ?concept rdfs:subClassOf ?parent .
                     } UNION {
                         ?instance a ?concept .
-                        FILTER(?concept != rdfs:Class && ?concept != skos:Concept && ?concept != rdf:Property)
+                        FILTER(?concept != rdfs:Class && ?concept != skos:Concept && ?concept != rdf:Property && ?concept != owl:Class)
                     } UNION {
                         # Include resources with semantic properties that make them conceptual
                         ?concept rdfs:label ?someLabel .
                         ?concept rdfs:comment ?someComment .
                     }
-                    # Filter out basic RDF/RDFS/SKOS vocabulary terms
+                    # Filter out basic RDF/RDFS/SKOS/OWL vocabulary terms
                     FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/1999/02/22-rdf-syntax-ns#"))
                     FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/2000/01/rdf-schema#"))
                     FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/2004/02/skos/core#"))
+                    FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/2002/07/owl#"))
                 }
                 """
 
@@ -584,6 +591,7 @@ class SemanticModelsManager:
         sparql_query = f"""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
         SELECT DISTINCT ?class_iri ?label
         WHERE {{
             {{
@@ -596,6 +604,10 @@ class SemanticModelsManager:
             UNION
             {{
                 ?class_iri a skos:Concept .
+            }}
+            UNION
+            {{
+                ?class_iri a owl:Class .
             }}
             OPTIONAL {{ ?class_iri rdfs:label ?label }}
             OPTIONAL {{ ?class_iri skos:prefLabel ?label }}
@@ -905,7 +917,7 @@ class SemanticModelsManager:
             context = self._graph.get_context("urn:semantic-links")
             subj = URIRef(f"urn:ontos:{entity_type}:{entity_id}")
             obj = URIRef(iri)
-            context.add((subj, RDFS.seeAlso, obj))
+            context.add((subj, ONTOS.semanticAssignment, obj))
         except Exception as e:
             logger.warning(f"Failed to add semantic link incrementally: {e}")
 
@@ -915,7 +927,7 @@ class SemanticModelsManager:
             context = self._graph.get_context("urn:semantic-links")
             subj = URIRef(f"urn:ontos:{entity_type}:{entity_id}")
             obj = URIRef(iri)
-            context.remove((subj, RDFS.seeAlso, obj))
+            context.remove((subj, ONTOS.semanticAssignment, obj))
         except Exception as e:
             logger.warning(f"Failed to remove semantic link incrementally: {e}")
 
