@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, Depends, Body, Query, Request
@@ -28,15 +26,9 @@ manager = ComplianceManager()
 FEATURE_ID = 'compliance'
 
 
-@router.on_event("startup")
-def _load_yaml_on_startup():
-    try:
-        yaml_path = Path(__file__).parent.parent / 'data' / 'compliance.yaml'
-        if os.path.exists(yaml_path):
-            # Defer DB provision via dependency in endpoints; here we just note file exists
-            logger.info(f"Compliance YAML available at {yaml_path}")
-    except Exception:
-        logger.exception("Compliance YAML detection failed")
+# DEPRECATED: Demo data loading has been moved to SQL-based approach.
+# Demo data is now loaded via POST /api/settings/demo-data/load
+# The demo data SQL file is located at: src/backend/src/data/demo_data.sql
 
 
 @router.get("/compliance/policies")
@@ -45,8 +37,7 @@ async def get_policies(
     _: bool = Depends(PermissionChecker(FEATURE_ID, FeatureAccessLevel.READ_ONLY)),
 ):
     """Get all compliance policies with stats and scores."""
-    yaml_path = Path(__file__).parent.parent / 'data' / 'compliance.yaml'
-    return manager.get_policies_with_stats(db, yaml_path=str(yaml_path))
+    return manager.get_policies_with_stats(db)
 
 
 @router.get("/compliance/policies/{policy_id}")
@@ -56,8 +47,7 @@ async def get_policy(
     _: bool = Depends(PermissionChecker(FEATURE_ID, FeatureAccessLevel.READ_ONLY)),
 ):
     """Get a specific compliance policy with examples."""
-    yaml_path = Path(__file__).parent.parent / 'data' / 'compliance.yaml'
-    policy = manager.get_policy_with_examples(db, policy_id, yaml_path=str(yaml_path))
+    policy = manager.get_policy_with_examples(db, policy_id)
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     return policy

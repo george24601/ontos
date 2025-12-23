@@ -244,40 +244,6 @@ class TestNotificationsManager:
         assert result[1].title == "Third"
         assert result[2].title == "First"
 
-    # Load Initial Data Tests
-
-    def test_load_initial_data_skips_if_not_empty(self, manager):
-        """Test that initial data loading is skipped if table not empty."""
-        mock_db = Mock()
-        manager._repo.is_empty.return_value = False
-
-        result = manager.load_initial_data(mock_db)
-
-        assert result is False
-        manager._repo.is_empty.assert_called_once()
-
-    def test_load_initial_data_file_not_found(self, manager):
-        """Test handling when YAML file doesn't exist."""
-        mock_db = Mock()
-        manager._repo.is_empty.return_value = True
-
-        with patch('pathlib.Path.is_file', return_value=False):
-            result = manager.load_initial_data(mock_db)
-
-        assert result is False
-
-    @patch('builtins.open', new_callable=mock_open, read_data="[]")
-    @patch('pathlib.Path.is_file', return_value=True)
-    def test_load_initial_data_empty_yaml(self, mock_is_file, mock_file, manager):
-        """Test loading empty YAML file."""
-        mock_db = Mock()
-        manager._repo.is_empty.return_value = True
-
-        result = manager.load_initial_data(mock_db)
-
-        # No notifications to load
-        assert result is False
-
     # Mark as Read Tests
 
     def test_mark_as_read_success(self, manager):

@@ -69,7 +69,6 @@ from src.controller.authorization_manager import AuthorizationManager
 from src.utils.startup_tasks import (
     initialize_database,
     initialize_managers,
-    load_initial_data,
     startup_event_handler,
     shutdown_event_handler
 )
@@ -105,12 +104,10 @@ async def startup_event():
     initialize_database(settings=settings)
     initialize_managers(app)
     
-    # Load Initial/Demo Data - Pass the app instance
-    # The function now gets settings/managers from app.state
-    logger.info("Attempting to load initial data...")
-    load_initial_data(app=app)
+    # Demo data is loaded on-demand via POST /api/settings/demo-data/load
+    # See: src/backend/src/data/demo_data.sql
     
-    # After initial data load, ensure SearchManager is initialized and index built
+    # Ensure SearchManager is initialized and index built
     try:
         from src.common.search_interfaces import SearchableAsset
         from src.controller.search_manager import SearchManager

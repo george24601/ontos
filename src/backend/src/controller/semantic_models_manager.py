@@ -182,55 +182,6 @@ class SemanticModelsManager:
             updatedAt=db_obj.updated_at,
         )
 
-    # --- Initial Data Loading ---
-    def load_initial_data(self, db: Session) -> None:
-        try:
-            base_dir = Path(self._data_dir) / "semantic_models"
-            if not base_dir.exists() or not base_dir.is_dir():
-                logger.info(f"Semantic models directory not found: {base_dir}")
-                return
-            from src.models.semantic_models import SemanticModelCreate
-
-            def detect_format(filename: str, content_type: Optional[str]) -> str:
-                lower = (filename or "").lower()
-                if lower.endswith(".ttl"):
-                    return "skos"
-                return "rdfs"
-
-            for f in base_dir.iterdir():
-                if not f.is_file():
-                    continue
-                if not any(str(f.name).lower().endswith(ext) for ext in [".ttl", ".rdf", ".xml", ".skos"]):
-                    continue
-                try:
-                    content = f.read_text(encoding="utf-8")
-                except Exception as e:
-                    logger.warning(f"Skipping semantic model file {f}: {e}")
-                    continue
-
-                existing = semantic_models_repo.get_by_name(self._db, name=f.name)
-                if existing:
-                    logger.debug(f"Semantic model already exists, skipping: {f.name}")
-                    continue
-
-                fmt = detect_format(f.name, None)
-                create = SemanticModelCreate(
-                    name=f.name,
-                    format=fmt,  # type: ignore
-                    content_text=content,
-                    original_filename=f.name,
-                    content_type=None,
-                    size_bytes=len(content.encode("utf-8")),
-                    enabled=True,
-                )
-                self.create(create, created_by="system@startup")
-            db.commit()
-            logger.info("Semantic models initial data loaded (if any).")
-            # Build the in-memory graph from enabled models after initial load
-            self.on_models_changed()
-        except Exception as e:
-            logger.error(f"Failed loading initial semantic models: {e}")
-
     # --- Graph Management ---
     def _parse_into_graph(self, content_text: str, fmt: str) -> None:
         if fmt == "skos":

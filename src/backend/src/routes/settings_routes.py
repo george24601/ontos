@@ -318,6 +318,255 @@ async def handle_role_request_decision(
         logger.error(f"Error handling role request decision: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process role request decision due to an internal error.")
 
+# --- Demo Data Loading ---
+
+@router.post("/settings/demo-data/load", status_code=status.HTTP_200_OK)
+async def load_demo_data(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """
+    Load demo data from SQL file into the database.
+    
+    This endpoint is Admin-only and loads all demo/example data including:
+    - Data Domains
+    - Teams and Team Members
+    - Projects
+    - Data Contracts with schemas
+    - Data Products with ports
+    - Data Asset Reviews
+    - Notifications
+    - Compliance Policies and Runs
+    - Cost Items
+    - Semantic Links
+    - Metadata (notes, links, documents)
+    
+    The SQL uses ON CONFLICT DO NOTHING to avoid duplicate key errors on re-runs.
+    """
+    success = False
+    details = {"action": "load_demo_data"}
+    
+    try:
+        from pathlib import Path
+        from sqlalchemy import text
+        
+        # Locate the demo data SQL file
+        data_dir = Path(__file__).parent.parent / "data"
+        sql_file = data_dir / "demo_data.sql"
+        
+        if not sql_file.exists():
+            details["exception"] = "demo_data.sql not found"
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Demo data SQL file not found at {sql_file}"
+            )
+        
+        # Read and execute the SQL file
+        sql_content = sql_file.read_text(encoding="utf-8")
+        
+        # Execute the SQL within a transaction
+        # The SQL file already has BEGIN/COMMIT, so we need to handle it appropriately
+        # For SQLAlchemy, we'll use raw connection execution
+        connection = db.connection()
+        
+        # Split by semicolons and execute each statement
+        # This is safer than executing the entire file at once
+        statements = []
+        current_statement = []
+        in_dollar_quote = False
+        
+        for line in sql_content.split('\n'):
+            stripped = line.strip()
+            
+            # Skip empty lines and comments at statement level
+            if not stripped or stripped.startswith('--'):
+                if current_statement:  # Keep comments within statements
+                    current_statement.append(line)
+                continue
+            
+            # Track dollar-quoted strings (for E'' strings with newlines)
+            if "E'" in line or "$$" in line:
+                in_dollar_quote = not in_dollar_quote if "$$" in line else in_dollar_quote
+            
+            current_statement.append(line)
+            
+            # Check if this line ends a statement
+            if stripped.endswith(';') and not in_dollar_quote:
+                full_statement = '\n'.join(current_statement).strip()
+                if full_statement and not full_statement.startswith('--'):
+                    # Skip BEGIN/COMMIT as SQLAlchemy manages transactions
+                    if full_statement.upper() not in ('BEGIN;', 'COMMIT;'):
+                        statements.append(full_statement)
+                current_statement = []
+        
+        # Execute all statements
+        executed_count = 0
+        for stmt in statements:
+            if stmt.strip():
+                try:
+                    connection.execute(text(stmt))
+                    executed_count += 1
+                except Exception as stmt_error:
+                    logger.warning(f"Statement execution warning: {stmt_error}")
+                    # Continue with other statements - ON CONFLICT should handle duplicates
+        
+        db.commit()
+        
+        success = True
+        details["statements_executed"] = executed_count
+        
+        logger.info(f"Demo data loaded successfully. Executed {executed_count} statements.")
+        
+        return {
+            "status": "success",
+            "message": f"Demo data loaded successfully. Executed {executed_count} SQL statements.",
+            "statements_executed": executed_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error loading demo data", exc_info=True)
+        details["exception"] = str(e)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load demo data: {str(e)}"
+        )
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=SETTINGS_FEATURE_ID,
+            action="LOAD_DEMO_DATA",
+            success=success,
+            details=details
+        )
+
+
+@router.delete("/settings/demo-data", status_code=status.HTTP_200_OK)
+async def clear_demo_data(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """
+    Clear all demo data from the database.
+    
+    This endpoint is Admin-only and removes all demo data that was loaded
+    via the /settings/demo-data/load endpoint.
+    
+    WARNING: This will delete all data with IDs matching the demo data patterns.
+    """
+    success = False
+    details = {"action": "clear_demo_data"}
+    
+    try:
+        from sqlalchemy import text
+        
+        # Delete in reverse dependency order
+        delete_statements = [
+            # Metadata
+            "DELETE FROM document_metadata WHERE id::text LIKE 'md00000%'",
+            "DELETE FROM link_metadata WHERE id::text LIKE 'ml00000%'",
+            "DELETE FROM rich_text_metadata WHERE id::text LIKE 'mt00000%'",
+            
+            # Semantic Links
+            "DELETE FROM entity_semantic_links WHERE id::text LIKE 'sl00000%'",
+            
+            # Cost Items
+            "DELETE FROM cost_items WHERE id::text LIKE 'ct00000%'",
+            
+            # Compliance
+            "DELETE FROM compliance_results WHERE id LIKE 'cx00000%'",
+            "DELETE FROM compliance_runs WHERE id LIKE 'cr00000%'",
+            "DELETE FROM compliance_policies WHERE id LIKE 'cp00000%'",
+            
+            # Notifications
+            "DELETE FROM notifications WHERE id LIKE 'nt00000%'",
+            
+            # Reviews
+            "DELETE FROM reviewed_assets WHERE id LIKE 'ra00000%'",
+            "DELETE FROM data_asset_review_requests WHERE id LIKE 'rv00000%'",
+            
+            # Data Products (child tables first)
+            "DELETE FROM data_product_team_members WHERE id LIKE 'pm00000%'",
+            "DELETE FROM data_product_teams WHERE id LIKE 'pt00000%'",
+            "DELETE FROM data_product_support_channels WHERE id LIKE 'sc00000%'",
+            "DELETE FROM data_product_input_ports WHERE id LIKE 'ip00000%'",
+            "DELETE FROM data_product_output_ports WHERE id LIKE 'op00000%'",
+            "DELETE FROM data_product_descriptions WHERE id LIKE 'dd00000%'",
+            "DELETE FROM data_products WHERE id LIKE 'dp00000%'",
+            
+            # Data Contracts (child tables first)
+            "DELETE FROM data_contract_schema_properties WHERE id LIKE 'sp00000%'",
+            "DELETE FROM data_contract_schema_objects WHERE id LIKE 'so00000%'",
+            "DELETE FROM data_contracts WHERE id LIKE 'dc00000%'",
+            
+            # Projects
+            "DELETE FROM project_teams WHERE project_id LIKE 'pj00000%'",
+            "DELETE FROM projects WHERE id LIKE 'pj00000%'",
+            
+            # Teams
+            "DELETE FROM team_members WHERE id LIKE 'mb00000%'",
+            "DELETE FROM teams WHERE id LIKE 'tm00000%'",
+            
+            # Domains (children first)
+            "DELETE FROM data_domains WHERE id LIKE 'dd00001%'",  # Level 2
+            "DELETE FROM data_domains WHERE id LIKE 'dd00000%'",  # Level 0-1
+        ]
+        
+        deleted_counts = {}
+        for stmt in delete_statements:
+            try:
+                result = db.execute(text(stmt))
+                table_name = stmt.split("FROM ")[1].split(" ")[0]
+                deleted_counts[table_name] = result.rowcount
+            except Exception as e:
+                logger.warning(f"Delete statement warning: {e}")
+        
+        db.commit()
+        
+        success = True
+        details["deleted_counts"] = deleted_counts
+        
+        total_deleted = sum(deleted_counts.values())
+        logger.info(f"Demo data cleared. Deleted {total_deleted} records.")
+        
+        return {
+            "status": "success",
+            "message": f"Demo data cleared. Deleted {total_deleted} records.",
+            "deleted_counts": deleted_counts
+        }
+        
+    except Exception as e:
+        logger.error("Error clearing demo data", exc_info=True)
+        details["exception"] = str(e)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear demo data: {str(e)}"
+        )
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=SETTINGS_FEATURE_ID,
+            action="CLEAR_DEMO_DATA",
+            success=success,
+            details=details
+        )
+
+
 # --- Registration --- 
 
 def register_routes(app):

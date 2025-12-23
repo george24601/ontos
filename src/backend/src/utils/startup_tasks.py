@@ -4,6 +4,7 @@ import json # Import json for parsing
 
 from fastapi import FastAPI
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from src.common.config import get_settings, Settings
 from src.common.logging import get_logger
@@ -27,7 +28,6 @@ from src.controller.audit_manager import AuditManager
 from src.controller.data_domains_manager import DataDomainManager # Import new manager
 from src.controller.tags_manager import TagsManager # Import TagsManager
 from src.controller.semantic_models_manager import SemanticModelsManager
-from src.controller.compliance_manager import ComplianceManager
 from src.controller.teams_manager import TeamsManager
 from src.controller.projects_manager import ProjectsManager
 from src.controller.datasets_manager import DatasetsManager
@@ -48,7 +48,6 @@ from src.db_models.audit_log import AuditLogDb
 from src.db_models.data_asset_reviews import DataAssetReviewRequestDb
 # Import the DataProductDb DB model
 from src.db_models.data_products import DataProductDb, InputPortDb, OutputPortDb
-from src.db_models.compliance import CompliancePolicyDb
 
 # Import the CORRECT base class for type checking
 from src.common.search_interfaces import SearchableAsset
@@ -64,6 +63,52 @@ from src.repositories.tags_repository import (
 from src.common.search_registry import SEARCHABLE_ASSET_MANAGERS
 
 logger = get_logger(__name__)
+
+# Demo data SQL file path
+DEMO_DATA_SQL_FILE = Path(__file__).parent.parent / "data" / "demo_data.sql"
+
+
+def load_demo_data_from_sql() -> bool:
+    """
+    Load demo data from the SQL file into the database.
+    
+    This function should only be called when:
+    - APP_DEMO_MODE is True
+    - APP_DB_DROP_ON_START is True (schema was recreated)
+    
+    Returns:
+        True if demo data was loaded successfully, False otherwise.
+    """
+    logger.info("Loading demo data from SQL file...")
+    
+    if not DEMO_DATA_SQL_FILE.exists():
+        logger.warning(f"Demo data SQL file not found: {DEMO_DATA_SQL_FILE}")
+        return False
+    
+    session_factory = get_session_factory()
+    if not session_factory:
+        logger.error("Cannot load demo data: Database session factory not available.")
+        return False
+    
+    try:
+        with open(DEMO_DATA_SQL_FILE, 'r', encoding='utf-8') as f:
+            sql_commands = f.read()
+        
+        if not sql_commands.strip():
+            logger.warning("Demo data SQL file is empty.")
+            return False
+        
+        with session_factory() as db:
+            db.execute(text(sql_commands))
+            db.commit()
+        
+        logger.info("✓ Demo data loaded successfully from SQL file.")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to load demo data from SQL: {e}", exc_info=True)
+        return False
+
 
 def initialize_database(settings: Settings): # Keep settings param for future use if needed
     """Initializes the database by calling the main init_db function."""
@@ -232,22 +277,6 @@ def initialize_managers(app: FastAPI):
         # --- Ensure default team and project exist for admins ---
         app.state.settings_manager.ensure_default_team_and_project()
 
-        # --- Preload Compliance demo data so home dashboard has data on first load ---
-        try:
-            yaml_path = Path(__file__).parent.parent / "data" / "compliance.yaml"
-            if yaml_path.exists():
-                # Seed only if there are no policies yet
-                existing_count = db_session.query(CompliancePolicyDb).count()
-                if existing_count == 0:
-                    ComplianceManager().load_from_yaml(db_session, str(yaml_path))
-                    logger.info("Seeded compliance policies and sample runs from YAML during startup.")
-                else:
-                    logger.debug("Compliance policies already present; skipping YAML seeding.")
-            else:
-                logger.debug(f"Compliance YAML not found at {yaml_path}; skipping preload.")
-        except Exception as e:
-            logger.error(f"Failed preloading compliance data at startup: {e}", exc_info=True)
-
         # --- Commit session potentially used for default role creation ---
         # This commit is crucial AFTER all managers are initialized AND
         # default roles are potentially created by the SettingsManager
@@ -264,6 +293,21 @@ def initialize_managers(app: FastAPI):
             logger.error(f"Failed to start background job polling: {e}", exc_info=True)
             # Don't fail startup if polling fails to start
 
+        # --- Load demo data if conditions are met ---
+        # Only load demo data when:
+        # 1. APP_DEMO_MODE is enabled
+        # 2. APP_DB_DROP_ON_START is enabled (schema was recreated)
+        if settings.APP_DEMO_MODE and settings.APP_DB_DROP_ON_START:
+            logger.info("APP_DEMO_MODE and APP_DB_DROP_ON_START both enabled - loading demo data...")
+            try:
+                load_demo_data_from_sql()
+            except Exception as e:
+                logger.error(f"Failed to load demo data: {e}", exc_info=True)
+                # Don't fail startup if demo data loading fails
+        elif settings.APP_DEMO_MODE:
+            logger.info("APP_DEMO_MODE enabled but APP_DB_DROP_ON_START disabled - skipping automatic demo data loading.")
+            logger.info("Use POST /api/settings/demo-data/load to load demo data manually.")
+
     except Exception as e:
         logger.critical(f"Failed during application startup (manager init or default roles): {e}", exc_info=True)
         if db_session: db_session.rollback() # Rollback if any part fails
@@ -273,33 +317,13 @@ def initialize_managers(app: FastAPI):
         # It will be managed at application shutdown.
         pass
 
-def load_initial_data(app: FastAPI) -> None:
-    """Loads initial demo data if configured."""
-    settings: Settings = get_settings()
-    if not settings.APP_DEMO_MODE:
-        logger.info("APP_DEMO_MODE is disabled. Skipping initial data loading.")
-        return
-
-    logger.info("APP_DEMO_MODE is enabled. Loading initial data...")
-    db_session_factory = get_session_factory()
-    if not db_session_factory:
-        logger.error("Cannot load initial data: Database session factory not available.")
-        return
-
-    db: Session = db_session_factory()
-    try:
-        # Use centralized demo data loader
-        from src.utils.demo_data_loader import load_all_demo_data
-        load_all_demo_data(app, db)
-        logger.info("Initial data loading process completed for all managers.")
-
-    except Exception as e:
-        logger.exception(f"Error during initial data loading: {e}")
-        db.rollback()
-    finally:
-        db.close() 
-
 async def startup_event_handler(app: FastAPI):
+    """
+    Application startup event handler.
+    
+    Note: Demo data is loaded on-demand via POST /api/settings/demo-data/load
+    The demo data SQL file is located at: src/backend/src/data/demo_data.sql
+    """
     logger.info("Executing application startup event handler...")
     try:
         initialize_database() # Step 1: Setup Database
@@ -311,14 +335,9 @@ async def startup_event_handler(app: FastAPI):
         initialize_managers(app) # Pass the app to store managers in app.state
         logger.info("Managers initialization sequence complete.")
 
-        # Step 3: Load initial data (requires managers to be initialized)
-        # This function now creates its own session for data loading operations.
-        load_initial_data(app)
-        logger.info("Initial data loading sequence complete.")
-
-        # Step 4: Build the SearchManager AFTER data has been loaded
+        # Step 3: Build the SearchManager
         try:
-            logger.info("Initializing SearchManager after managers and initial data are ready...")
+            logger.info("Initializing SearchManager...")
             searchable_managers_instances = []
             for attr_name, manager_instance in list(getattr(app.state, '_state', {}).items()):
                 try:
@@ -332,7 +351,7 @@ async def startup_event_handler(app: FastAPI):
             app.state.search_manager.build_index()
             logger.info("Search index initialized and built from DB-backed managers.")
         except Exception as e:
-            logger.error(f"Failed initializing or building search index after data load: {e}", exc_info=True)
+            logger.error(f"Failed initializing or building search index: {e}", exc_info=True)
 
         logger.info("Application startup event handler finished successfully.")
     except Exception as e:
