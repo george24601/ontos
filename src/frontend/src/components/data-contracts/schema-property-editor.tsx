@@ -16,6 +16,62 @@ import QualityRuleFormDialog from './quality-rule-form-dialog'
 const LOGICAL_TYPES = ['string', 'date', 'number', 'integer', 'object', 'array', 'boolean']
 const CLASSIFICATION_LEVELS = ['public', 'internal', 'confidential', 'restricted', 'pii', '1', '2', '3', '4', '5']
 
+// Helper function to detect which tabs have values for a column property
+const getTabsWithValues = (prop: ColumnProperty) => ({
+  constraints: !!(prop.required || prop.unique || prop.primaryKey || prop.partitioned ||
+                  prop.minLength || prop.maxLength || prop.pattern ||
+                  prop.minimum || prop.maximum || prop.multipleOf || prop.precision ||
+                  prop.format || prop.timezone || prop.customFormat ||
+                  prop.itemType || prop.minItems || prop.maxItems),
+  quality: !!((prop as any).quality?.length),
+  governance: !!(prop.classification || prop.examples || (prop as any).tags?.length),
+  business: !!(prop.businessName || prop.encryptedName || prop.criticalDataElement),
+  transform: !!(prop.transformLogic || prop.transformSourceObjects || prop.transformDescription),
+  semantics: !!(prop.authoritativeDefinitions?.length || (prop as any).semanticConcepts?.length)
+})
+
+// Compact 6-square indicator showing which tabs have values configured
+const TabIndicator = ({ prop }: { prop: ColumnProperty }) => {
+  const tabs = getTabsWithValues(prop)
+  const indicators = [
+    { key: 'constraints', label: 'Constraints', active: tabs.constraints },
+    { key: 'quality', label: 'Quality', active: tabs.quality },
+    { key: 'governance', label: 'Governance', active: tabs.governance },
+    { key: 'business', label: 'Business', active: tabs.business },
+    { key: 'transform', label: 'Transform', active: tabs.transform },
+    { key: 'semantics', label: 'Semantics', active: tabs.semantics },
+  ]
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex gap-[2px] mr-1.5">
+            {indicators.map(i => (
+              <span
+                key={i.key}
+                className={`w-[2px] h-[6px] ${
+                  i.active ? 'bg-primary' : 'bg-muted-foreground/25'
+                }`}
+              />
+            ))}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <div className="text-xs">
+            {indicators.map(i => (
+              <div key={i.key} className="flex items-center gap-1.5">
+                <span className={`w-[4px] h-2 ${i.active ? 'bg-primary' : 'bg-muted'}`} />
+                <span className={i.active ? '' : 'text-muted-foreground'}>{i.label}</span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 interface SchemaPropertyEditorProps {
   properties: ColumnProperty[]
   onChange: (properties: ColumnProperty[]) => void
@@ -165,9 +221,11 @@ export default function SchemaPropertyEditor({ properties, onChange, readOnly = 
     setAuthoritativeDefinitions(prop.authoritativeDefinitions || [])
     // When loading, derive semanticConcepts from authoritativeDefinitions for display if needed
     const concepts = (prop as any).semanticConcepts as { iri: string; label?: string }[] | undefined
-    if (concepts && Array.isArray(concepts)) {
+    if (concepts && Array.isArray(concepts) && concepts.length > 0) {
+      // Use explicitly set semanticConcepts if available
       setSemanticConcepts(concepts)
     } else if (prop.authoritativeDefinitions && prop.authoritativeDefinitions.length > 0) {
+      // Derive from authoritativeDefinitions
       setSemanticConcepts(prop.authoritativeDefinitions.map(def => ({ iri: def.url })))
     } else {
       setSemanticConcepts([])
@@ -862,9 +920,12 @@ export default function SchemaPropertyEditor({ properties, onChange, readOnly = 
                     onClick={() => handleEdit(idx)}
                   >
                     <td className="p-2">
-                      <div className="font-mono text-xs font-medium">{prop.name}</div>
+                      <div className="flex items-center">
+                        <TabIndicator prop={prop} />
+                        <span className="font-mono text-xs font-medium">{prop.name}</span>
+                      </div>
                       {prop.physicalName && (
-                        <div className="text-xs text-muted-foreground mt-0.5">→ {prop.physicalName}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 ml-[21px]">→ {prop.physicalName}</div>
                       )}
                     </td>
                     <td className="p-2">
