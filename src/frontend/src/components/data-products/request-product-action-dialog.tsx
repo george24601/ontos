@@ -1,22 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { useNotificationsStore } from '@/stores/notifications-store';
-import { Loader2, AlertCircle, Eye, RefreshCw, Sparkles, CopyPlus, Info } from 'lucide-react';
-import {
-  getAllowedTransitions,
-  getStatusConfig,
-  getRecommendedAction,
-} from '@/lib/odps-lifecycle';
+import { Loader2, AlertCircle, FileText, Eye, Rocket, RefreshCw } from 'lucide-react';
 
-type RequestType = 'access' | 'status_change' | 'genie_space' | 'new_version';
+type RequestType = 'access' | 'review' | 'publish' | 'status_change';
 
 interface RequestProductActionDialogProps {
   isOpen: boolean;
@@ -24,8 +18,49 @@ interface RequestProductActionDialogProps {
   productId: string;
   productName?: string;
   productStatus?: string;
-  currentVersion?: string;
   onSuccess?: () => void;
+  /** If true, status changes are applied directly without approval workflow */
+  canDirectStatusChange?: boolean;
+}
+
+// ODPS lifecycle transitions
+const ALLOWED_TRANSITIONS: Record<string, { target: string; label: string }[]> = {
+  'draft': [
+    { target: 'sandbox', label: 'Move to Sandbox' },
+    { target: 'proposed', label: 'Submit for Review' },
+  ],
+  'sandbox': [
+    { target: 'draft', label: 'Return to Draft' },
+    { target: 'proposed', label: 'Submit for Review' },
+  ],
+  'proposed': [
+    { target: 'draft', label: 'Return to Draft' },
+    { target: 'under_review', label: 'Start Review' },
+  ],
+  'under_review': [
+    { target: 'approved', label: 'Approve' },
+    { target: 'draft', label: 'Reject (Return to Draft)' },
+  ],
+  'approved': [
+    { target: 'active', label: 'Publish/Activate' },
+    { target: 'draft', label: 'Return to Draft' },
+  ],
+  'active': [
+    { target: 'certified', label: 'Certify' },
+    { target: 'deprecated', label: 'Deprecate' },
+  ],
+  'certified': [
+    { target: 'deprecated', label: 'Deprecate' },
+  ],
+  'deprecated': [
+    { target: 'retired', label: 'Retire' },
+    { target: 'active', label: 'Reactivate' },
+  ],
+  'retired': [],
+};
+
+function getAllowedTransitions(status: string): { target: string; label: string }[] {
+  return ALLOWED_TRANSITIONS[status.toLowerCase()] || [];
 }
 
 export default function RequestProductActionDialog({
@@ -34,20 +69,30 @@ export default function RequestProductActionDialog({
   productId,
   productName,
   productStatus,
-  currentVersion,
-  onSuccess
+  onSuccess,
+  canDirectStatusChange = false
 }: RequestProductActionDialogProps) {
   const { post } = useApi();
   const { toast } = useToast();
   const refreshNotifications = useNotificationsStore((state) => state.refreshNotifications);
   
-  const [requestType, setRequestType] = useState<RequestType>('access');
+  const [requestType, setRequestType] = useState<RequestType>('status_change');
   const [message, setMessage] = useState('');
   const [justification, setJustification] = useState('');
   const [targetStatus, setTargetStatus] = useState('');
-  const [newVersion, setNewVersion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setRequestType('status_change');
+      setMessage('');
+      setJustification('');
+      setTargetStatus('');
+      setError(null);
+    }
+  }, [isOpen]);
 
   const getRequestTypeConfig = (type: RequestType) => {
     switch (type) {
@@ -59,30 +104,34 @@ export default function RequestProductActionDialog({
           enabled: true,
           endpoint: '/api/access-requests',
         };
+      case 'review':
+        return {
+          icon: <FileText className="h-5 w-5" />,
+          title: 'Request Data Steward Review',
+          description: 'Submit this product for review by a data steward (transitions to PROPOSED status).',
+          enabled: productStatus?.toLowerCase() === 'draft' || productStatus?.toLowerCase() === 'sandbox',
+          endpoint: `/api/data-products/${productId}/request-review`,
+        };
+      case 'publish':
+        return {
+          icon: <Rocket className="h-5 w-5" />,
+          title: 'Request Publish to Marketplace',
+          description: 'Request to publish this approved product to the organization-wide marketplace.',
+          enabled: productStatus?.toLowerCase() === 'approved' || productStatus?.toLowerCase() === 'active',
+          endpoint: `/api/data-products/${productId}/request-publish`,
+        };
       case 'status_change':
         const allowedTransitions = productStatus ? getAllowedTransitions(productStatus) : [];
         return {
           icon: <RefreshCw className="h-5 w-5" />,
-          title: 'Request Status Change',
-          description: 'Request approval to change the lifecycle status of this product.',
+          title: canDirectStatusChange ? 'Change Status' : 'Request Status Change',
+          description: canDirectStatusChange 
+            ? 'Directly change the lifecycle status of this product.'
+            : 'Request approval to change the lifecycle status of this product.',
           enabled: allowedTransitions.length > 0,
-          endpoint: `/api/data-products/${productId}/request-status-change`,
-        };
-      case 'genie_space':
-        return {
-          icon: <Sparkles className="h-5 w-5" />,
-          title: 'Request Genie Space Creation',
-          description: 'Request approval to create a Genie Space for this data product.',
-          enabled: true,
-          endpoint: '/api/data-products/genie-space',
-        };
-      case 'new_version':
-        return {
-          icon: <CopyPlus className="h-5 w-5" />,
-          title: 'Request New Version',
-          description: 'Request approval to create a new version of this data product.',
-          enabled: true,
-          endpoint: `/api/data-products/${productId}/request-version`,
+          endpoint: canDirectStatusChange 
+            ? `/api/data-products/${productId}/change-status`
+            : `/api/data-products/${productId}/request-status-change`,
         };
     }
   };
@@ -106,32 +155,16 @@ export default function RequestProductActionDialog({
         setError('Please select a target status');
         return false;
       }
-      if (!justification.trim()) {
-        setError('Please provide a justification for the status change');
-        return false;
-      }
-      if (justification.trim().length < 20) {
-        setError('Please provide a more detailed justification (at least 20 characters)');
-        return false;
-      }
-    }
-    
-    if (requestType === 'genie_space') {
-      // Justification is optional but message can be provided
-    }
-    
-    if (requestType === 'new_version') {
-      if (!newVersion.trim()) {
-        setError('Please provide a version number');
-        return false;
-      }
-      if (!justification.trim()) {
-        setError('Please provide a justification for the new version');
-        return false;
-      }
-      if (justification.trim().length < 20) {
-        setError('Please provide a more detailed justification (at least 20 characters)');
-        return false;
+      // Justification is only required for approval requests, not direct changes
+      if (!canDirectStatusChange) {
+        if (!justification.trim()) {
+          setError('Please provide a justification for the status change');
+          return false;
+        }
+        if (justification.trim().length < 20) {
+          setError('Please provide a more detailed justification (at least 20 characters)');
+          return false;
+        }
       }
     }
     
@@ -156,28 +189,31 @@ export default function RequestProductActionDialog({
       let payload: any;
       
       if (requestType === 'access') {
-        // Use existing access request endpoint
         payload = {
           entity_type: 'data_product',
           entity_ids: [productId],
           message: message.trim(),
         };
-      } else if (requestType === 'status_change') {
+      } else if (requestType === 'review') {
         payload = {
-          target_status: targetStatus,
-          justification: justification.trim(),
-          current_status: productStatus,
+          message: message.trim() || undefined,
         };
-      } else if (requestType === 'genie_space') {
+      } else if (requestType === 'publish') {
         payload = {
-          product_ids: [productId],
           justification: justification.trim() || undefined,
         };
-      } else if (requestType === 'new_version') {
-        payload = {
-          new_version: newVersion.trim(),
-          justification: justification.trim(),
-        };
+      } else if (requestType === 'status_change') {
+        if (canDirectStatusChange) {
+          payload = {
+            new_status: targetStatus,
+          };
+        } else {
+          payload = {
+            target_status: targetStatus,
+            justification: justification.trim(),
+            current_status: productStatus,
+          };
+        }
       }
 
       const response = await post(config.endpoint, payload);
@@ -186,10 +222,18 @@ export default function RequestProductActionDialog({
         throw new Error(response.error);
       }
 
-      toast({
-        title: 'Request Submitted',
-        description: `Your ${requestType.replace('_', ' ')} request has been submitted and you will be notified of the decision.`
-      });
+      // Different success messages for direct changes vs requests
+      if (requestType === 'status_change' && canDirectStatusChange) {
+        toast({
+          title: 'Status Changed',
+          description: `Product status changed from "${productStatus}" to "${targetStatus}".`
+        });
+      } else {
+        toast({
+          title: 'Request Submitted',
+          description: `Your ${requestType} request has been submitted and you will be notified of the decision.`
+        });
+      }
 
       // Refresh notifications
       refreshNotifications();
@@ -203,7 +247,6 @@ export default function RequestProductActionDialog({
       setMessage('');
       setJustification('');
       setTargetStatus('');
-      setNewVersion('');
       onOpenChange(false);
 
     } catch (e: any) {
@@ -218,272 +261,151 @@ export default function RequestProductActionDialog({
     }
   };
 
-  const handleCancel = () => {
-    setMessage('');
-    setJustification('');
-    setTargetStatus('');
-    setNewVersion('');
-    setError(null);
-    onOpenChange(false);
-  };
-  
-  const currentConfig = getRequestTypeConfig(requestType);
+  const allowedTransitions = productStatus ? getAllowedTransitions(productStatus) : [];
+  const config = getRequestTypeConfig(requestType);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Request Action
+            {config.icon}
+            {config.title}
           </DialogTitle>
           <DialogDescription>
-            Select the type of request you want to submit for this data product.
+            {productName && <span className="font-medium">{productName}</span>}
+            {productStatus && <span className="text-muted-foreground ml-2">({productStatus})</span>}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Product Information */}
-          <div className="p-3 bg-muted/50 rounded-lg border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-medium">Product:</span>
-              <span className="font-mono">{productId}</span>
-            </div>
-            {productName && (
-              <div className="text-sm font-medium mt-1">{productName}</div>
-            )}
-            {productStatus && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Status: <span className="uppercase">{productStatus}</span>
-              </div>
-            )}
-            {currentVersion && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Version: <span>{currentVersion}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Request Type Selection */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Request Type *</Label>
+        <div className="space-y-4 py-4">
+          {/* Request Type Selector */}
+          <div className="space-y-2">
+            <Label htmlFor="request-type">Request Type</Label>
             <Select value={requestType} onValueChange={(value) => setRequestType(value as RequestType)}>
-              <SelectTrigger>
-                <SelectValue>
-                  <div className="flex items-center gap-2">
-                    {currentConfig.icon}
-                    <span>{currentConfig.title}</span>
-                  </div>
-                </SelectValue>
+              <SelectTrigger id="request-type">
+                <SelectValue placeholder="Select request type" />
               </SelectTrigger>
               <SelectContent>
-                {(['access', 'status_change', 'genie_space', 'new_version'] as RequestType[]).map((type) => {
-                  const config = getRequestTypeConfig(type);
-                  return (
-                    <SelectItem key={type} value={type} disabled={!config.enabled}>
-                      <div className="flex items-center gap-2">
-                        {config.icon}
-                        <span>{config.title}</span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
+                <SelectItem value="status_change">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    {canDirectStatusChange ? 'Change Status' : 'Request Status Change'}
+                  </div>
+                </SelectItem>
+                <SelectItem value="review" disabled={!getRequestTypeConfig('review').enabled}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Request Review
+                  </div>
+                </SelectItem>
+                <SelectItem value="publish" disabled={!getRequestTypeConfig('publish').enabled}>
+                  <div className="flex items-center gap-2">
+                    <Rocket className="h-4 w-4" />
+                    Request Publish
+                  </div>
+                </SelectItem>
+                <SelectItem value="access">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Request Access
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
-            <div className="p-3 bg-muted/50 rounded-lg border text-sm">
-              <p className="text-muted-foreground">{currentConfig.description}</p>
-              {!currentConfig.enabled && requestType === 'status_change' && (
-                <p className="text-destructive mt-2 text-xs">
-                  No transitions available for status '{productStatus}'
-                </p>
-              )}
-            </div>
+            <p className="text-xs text-muted-foreground">{config.description}</p>
           </div>
 
-          {/* Dynamic Form Fields */}
+          {/* Status Change Fields */}
+          {requestType === 'status_change' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="target-status">Target Status *</Label>
+                <Select value={targetStatus} onValueChange={setTargetStatus} disabled={submitting}>
+                  <SelectTrigger id="target-status">
+                    <SelectValue placeholder="Select target status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedTransitions.map((transition) => (
+                      <SelectItem key={transition.target} value={transition.target}>
+                        {transition.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {allowedTransitions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No status transitions available from current status.
+                  </p>
+                )}
+              </div>
+
+              {/* Justification - only for approval requests */}
+              {!canDirectStatusChange && (
+                <div className="space-y-2">
+                  <Label htmlFor="status-justification">Justification *</Label>
+                  <Textarea
+                    id="status-justification"
+                    value={justification}
+                    onChange={(e) => setJustification(e.target.value)}
+                    placeholder="Explain why this status change is needed and any relevant context..."
+                    className="min-h-[100px] resize-none"
+                    disabled={submitting}
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Minimum 20 characters required. This will be reviewed by an admin.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Access Request Message */}
           {requestType === 'access' && (
             <div className="space-y-2">
-              <Label htmlFor="access-reason" className="text-sm font-medium">
-                Reason for Access Request *
-              </Label>
+              <Label htmlFor="access-message">Reason for Access *</Label>
               <Textarea
-                id="access-reason"
+                id="access-message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Please explain why you need access to this product..."
+                placeholder="Explain why you need access to this data product..."
                 className="min-h-[100px] resize-none"
                 disabled={submitting}
               />
-              <div className="text-xs text-muted-foreground">
-                Minimum 10 characters required.
-              </div>
             </div>
           )}
 
-          {requestType === 'status_change' && (
-            <div className="space-y-4">
-              {/* Current Status */}
-              {productStatus && (
-                <div className="rounded-lg border bg-muted/50 p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Label className="text-sm font-semibold">Current Status:</Label>
-                    <span className="text-lg">{getStatusConfig(productStatus).icon}</span>
-                    <span className="font-medium">{getStatusConfig(productStatus).label}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{getStatusConfig(productStatus).description}</p>
-                </div>
-              )}
-
-              {/* Recommended Action */}
-              {productStatus && getRecommendedAction(productStatus) && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    <strong>Recommended:</strong> {getRecommendedAction(productStatus)}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Target Status Selection */}
-              {productStatus && getAllowedTransitions(productStatus).length > 0 ? (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Select Target Status *</Label>
-                  <Select value={targetStatus} onValueChange={setTargetStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose target status...">
-                        {targetStatus && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{getStatusConfig(targetStatus).icon}</span>
-                            <span>{getStatusConfig(targetStatus).label}</span>
-                          </div>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getAllowedTransitions(productStatus).map((status) => {
-                        const config = getStatusConfig(status);
-                        return (
-                          <SelectItem key={status} value={status}>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{config.icon}</span>
-                              <span>{config.label}</span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  {targetStatus && (
-                    <div className="p-3 bg-muted/50 rounded-lg border text-sm">
-                      <p className="text-muted-foreground">{getStatusConfig(targetStatus).description}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Terminal State:</strong> No transitions available from {productStatus ? getStatusConfig(productStatus).label : 'current'} status.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Justification */}
-              <div className="space-y-2">
-                <Label htmlFor="status-justification" className="text-sm font-medium">
-                  Justification *
-                </Label>
-                <Textarea
-                  id="status-justification"
-                  value={justification}
-                  onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Explain why this status change is needed and any relevant context..."
-                  className="min-h-[100px] resize-none"
-                  disabled={submitting}
-                />
-                <div className="text-xs text-muted-foreground">
-                  Minimum 20 characters required. This will be reviewed by an admin.
-                </div>
-              </div>
-
-              {/* Lifecycle Diagram */}
-              <div className="rounded-lg border p-3 bg-muted/20">
-                <Label className="text-xs font-semibold mb-2 block">ODPS v1.0.0 Lifecycle Flow:</Label>
-                <div className="flex items-center gap-1 text-xs font-mono flex-wrap">
-                  <span className={productStatus?.toLowerCase() === 'proposed' ? 'font-bold text-primary' : ''}>proposed</span>
-                  <span>→</span>
-                  <span className={productStatus?.toLowerCase() === 'draft' ? 'font-bold text-primary' : ''}>draft</span>
-                  <span>→</span>
-                  <span className={productStatus?.toLowerCase() === 'active' ? 'font-bold text-primary' : ''}>active</span>
-                  <span>→</span>
-                  <span className={productStatus?.toLowerCase() === 'deprecated' ? 'font-bold text-primary' : ''}>deprecated</span>
-                  <span>→</span>
-                  <span className={productStatus?.toLowerCase() === 'retired' ? 'font-bold text-primary' : ''}>retired</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Current status is highlighted. Emergency deprecation allowed from any status.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {requestType === 'genie_space' && (
+          {/* Review Request Message */}
+          {requestType === 'review' && (
             <div className="space-y-2">
-              <Label htmlFor="genie-justification" className="text-sm font-medium">
-                Justification (Optional)
-              </Label>
+              <Label htmlFor="review-message">Message (optional)</Label>
               <Textarea
-                id="genie-justification"
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                placeholder="Explain why this product needs a Genie Space..."
+                id="review-message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Add any notes for the reviewer..."
                 className="min-h-[80px] resize-none"
                 disabled={submitting}
               />
-              <div className="text-xs text-muted-foreground">
-                Optional but recommended for approval.
-              </div>
             </div>
           )}
 
-          {requestType === 'new_version' && (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="new-version" className="text-sm font-medium">
-                  New Version Number *
-                </Label>
-                <Input
-                  id="new-version"
-                  value={newVersion}
-                  onChange={(e) => setNewVersion(e.target.value)}
-                  placeholder={`e.g., ${currentVersion ? `${currentVersion.split('.')[0]}.${parseInt(currentVersion.split('.')[1] || '0') + 1}.0` : '1.1.0'}`}
-                  disabled={submitting}
-                />
-                {currentVersion && (
-                  <div className="text-xs text-muted-foreground">
-                    Current version: {currentVersion}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="version-justification" className="text-sm font-medium">
-                  Justification *
-                </Label>
-                <Textarea
-                  id="version-justification"
-                  value={justification}
-                  onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Explain what changes or improvements warrant a new version..."
-                  className="min-h-[100px] resize-none"
-                  disabled={submitting}
-                />
-                <div className="text-xs text-muted-foreground">
-                  Minimum 20 characters required. This will be reviewed by an admin.
-                </div>
-              </div>
+          {/* Publish Request Justification */}
+          {requestType === 'publish' && (
+            <div className="space-y-2">
+              <Label htmlFor="publish-justification">Justification (optional)</Label>
+              <Textarea
+                id="publish-justification"
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                placeholder="Explain why this product should be published to the marketplace..."
+                className="min-h-[80px] resize-none"
+                disabled={submitting}
+              />
             </div>
           )}
 
-          {/* Error Alert */}
+          {/* Error Display */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -492,24 +414,22 @@ export default function RequestProductActionDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={submitting}
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || !currentConfig.enabled}
-          >
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {submitting ? 'Sending Request...' : 'Send Request'}
+          <Button onClick={handleSubmit} disabled={submitting || !config.enabled}>
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {requestType === 'status_change' && canDirectStatusChange ? 'Changing Status...' : 'Sending Request...'}
+              </>
+            ) : (
+              requestType === 'status_change' && canDirectStatusChange ? 'Change Status' : 'Send Request'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

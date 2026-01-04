@@ -16,7 +16,13 @@ from src.models.data_products import (
     NewVersionRequest,
     SubscriptionCreate,
     SubscriptionResponse,
-    SubscribersListResponse
+    SubscribersListResponse,
+    ChangeStatusPayload,
+    RequestStatusChangePayload,
+    HandleStatusChangePayload,
+    CommitDraftRequest,
+    CommitDraftResponse,
+    DiffFromParentResponse
 )
 from src.models.users import UserInfo
 from databricks.sdk.errors import PermissionDenied
@@ -1381,6 +1387,307 @@ async def get_subscriber_count(
     """Get the number of subscribers for a data product."""
     count = manager.get_subscriber_count(product_id=product_id, db=db)
     return {"product_id": product_id, "subscriber_count": count}
+
+
+# ==================== Versioned Editing Endpoints ====================
+
+@router.post('/data-products/{product_id}/clone-for-editing', response_model=DataProduct)
+async def clone_product_for_editing(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Clone a product to create a personal draft for editing.
+    
+    Creates a copy of the product as a personal draft visible only to the owner.
+    Use this when editing a product that is active or above status.
+    """
+    try:
+        new_product = manager.clone_product_for_editing(
+            db=db,
+            product_id=product_id,
+            current_user=current_user.username
+        )
+        
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action='CLONE_FOR_EDITING',
+            success=True,
+            details={'product_id': product_id, 'new_product_id': new_product.id}
+        )
+        return new_product
+        
+    except ValueError as e:
+        logger.error(f"Error cloning product {product_id} for editing: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error cloning product {product_id} for editing: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to clone product for editing")
+
+
+@router.get('/data-products/{product_id}/diff-from-parent', response_model=DiffFromParentResponse)
+async def get_diff_from_parent(
+    product_id: str,
+    db: DBSessionDep,
+    current_user: CurrentUserDep,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_ONLY))
+):
+    """Compare a draft product to its parent and suggest a version bump.
+    
+    Returns diff analysis with suggested semantic version bump.
+    """
+    try:
+        diff_data = manager.get_diff_from_parent(db=db, product_id=product_id)
+        return diff_data
+        
+    except ValueError as e:
+        logger.error(f"Error getting diff for product {product_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting diff for product {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get diff from parent")
+
+
+@router.post('/data-products/{product_id}/commit', response_model=CommitDraftResponse)
+async def commit_personal_draft(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    payload: CommitDraftRequest = Body(...),
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Commit a personal draft as a new team-visible version.
+    
+    Promotes the personal draft from tier 1 (only owner) to tier 2 (team/project).
+    The product is NOT published to the marketplace - that's a separate action.
+    """
+    try:
+        committed_product = manager.commit_personal_draft(
+            db=db,
+            draft_id=product_id,
+            new_version=payload.new_version,
+            change_summary=payload.change_summary,
+            current_user=current_user.username
+        )
+        
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action='COMMIT_DRAFT',
+            success=True,
+            details={'product_id': product_id, 'new_version': payload.new_version}
+        )
+        return CommitDraftResponse(
+            id=committed_product.id,
+            name=committed_product.name,
+            version=committed_product.version,
+            status=committed_product.status,
+            draft_owner_id=committed_product.draft_owner_id
+        )
+        
+    except ValueError as e:
+        logger.error(f"Error committing draft {product_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        logger.error(f"Permission error committing draft {product_id}: {e}")
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error committing draft {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to commit draft")
+
+
+@router.delete('/data-products/{product_id}/discard')
+async def discard_personal_draft(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Discard (delete) a personal draft.
+    
+    Only the owner of the draft can discard it.
+    """
+    try:
+        manager.discard_personal_draft(
+            db=db,
+            draft_id=product_id,
+            current_user=current_user.username
+        )
+        
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action='DISCARD_DRAFT',
+            success=True,
+            details={'product_id': product_id}
+        )
+        return {"message": "Draft discarded successfully"}
+        
+    except ValueError as e:
+        logger.error(f"Error discarding draft {product_id}: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        logger.error(f"Permission error discarding draft {product_id}: {e}")
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error discarding draft {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to discard draft")
+
+
+# ==================== Status Change Endpoints ====================
+
+@router.post('/data-products/{product_id}/change-status')
+async def change_product_status(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    payload: ChangeStatusPayload = Body(...),
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Directly change product status (for admin/owner).
+    
+    Use this for direct status changes without approval workflow.
+    """
+    try:
+        updated_product = manager.transition_status(
+            product_id=product_id,
+            new_status=payload.new_status,
+            current_user=current_user.username
+        )
+        
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action='CHANGE_STATUS',
+            success=True,
+            details={'product_id': product_id, 'new_status': payload.new_status}
+        )
+        return {"message": f"Status changed to {payload.new_status}", "product": updated_product}
+        
+    except ValueError as e:
+        logger.error(f"Error changing status for product {product_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error changing status for product {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to change status")
+
+
+@router.post('/data-products/{product_id}/request-status-change')
+async def request_status_change(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    notifications: NotificationsManagerDep,
+    payload: RequestStatusChangePayload = Body(...),
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_ONLY))
+):
+    """Request a status change for a product (requires approval).
+    
+    Creates a request that admins can approve/deny.
+    """
+    try:
+        result = manager.request_status_change(
+            db=db,
+            notifications_manager=notifications,
+            product_id=product_id,
+            target_status=payload.target_status,
+            justification=payload.justification,
+            requester_email=current_user.username,
+            current_user=current_user.username
+        )
+        
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action='REQUEST_STATUS_CHANGE',
+            success=True,
+            details={'product_id': product_id, 'target_status': payload.target_status}
+        )
+        return result
+        
+    except ValueError as e:
+        logger.error(f"Request status change validation error for product {product_id}: {e}")
+        error_status = 404 if "not found" in str(e).lower() else 400
+        raise HTTPException(status_code=error_status, detail=str(e))
+    except Exception as e:
+        logger.error(f"Request status change failed for product {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to request status change")
+
+
+@router.post('/data-products/{product_id}/handle-status-change')
+async def handle_status_change_response(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    notifications: NotificationsManagerDep,
+    payload: HandleStatusChangePayload = Body(...),
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Handle a status change request decision (approve/deny/clarify).
+    
+    Only admins/owners can approve or deny status change requests.
+    """
+    try:
+        result = manager.handle_status_change_response(
+            db=db,
+            notifications_manager=notifications,
+            product_id=product_id,
+            approver_email=current_user.username,
+            decision=payload.decision,
+            target_status=payload.target_status,
+            message=payload.message,
+            current_user=current_user.username
+        )
+        
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action=f'STATUS_CHANGE_{payload.decision.upper()}',
+            success=True,
+            details={'product_id': product_id, 'decision': payload.decision, 'target_status': payload.target_status}
+        )
+        return result
+        
+    except ValueError as e:
+        logger.error(f"Handle status change validation error for product {product_id}: {e}")
+        error_status = 404 if "not found" in str(e).lower() else 400
+        raise HTTPException(status_code=error_status, detail=str(e))
+    except Exception as e:
+        logger.error(f"Handle status change failed for product {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to handle status change")
 
 
 def register_routes(app):

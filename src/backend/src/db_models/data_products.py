@@ -49,6 +49,18 @@ class DataProductDb(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    # ==================== Versioning Fields ====================
+    # Personal draft owner - if set, this is a personal draft visible only to owner/project team
+    draft_owner_id = Column(String, nullable=True, index=True)
+    # Parent version reference for version lineage
+    parent_product_id = Column(String, ForeignKey("data_products.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Base name without version (e.g., "customer_product" for "customer_product_v1.0.0")
+    base_name = Column(String, nullable=True, index=True)
+    # Summary of changes in this version
+    change_summary = Column(Text, nullable=True)
+    # Marketplace publication status
+    published = Column(Boolean, nullable=False, default=False, index=True)
+
     # ==================== ODPS v1.0.0 Relationships ====================
     description = relationship("DescriptionDb", back_populates="product", uselist=False, cascade="all, delete-orphan", lazy="selectin")
     authoritative_definitions = relationship("AuthoritativeDefinitionDb", back_populates="product", cascade="all, delete-orphan", lazy="selectin")

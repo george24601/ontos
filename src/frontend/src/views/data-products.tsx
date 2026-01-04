@@ -541,8 +541,14 @@ export default function DataProducts() {
         </Button>
       ),
       cell: ({ row }) => (
-        row.original.status ?
-        <Badge variant={getStatusColor(row.original.status)}>{row.original.status}</Badge> : 'N/A'
+        row.original.status ? (
+          <div className="flex items-center gap-1.5">
+            <Badge variant={getStatusColor(row.original.status)}>{row.original.status}</Badge>
+            {row.original.draftOwnerId && (
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">Personal Draft</Badge>
+            )}
+          </div>
+        ) : 'N/A'
       ),
     },
     {

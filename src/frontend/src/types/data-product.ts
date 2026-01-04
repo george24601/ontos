@@ -222,11 +222,55 @@ export interface DataProduct {
 
   // Databricks extension
   project_id?: string;
+
+  // Versioning fields
+  draftOwnerId?: string; // Personal draft owner - if set, visible only to owner
+  parentProductId?: string; // Parent version ID for version lineage
+  baseName?: string; // Base name without version for grouping versions
+  changeSummary?: string; // Summary of changes in this version
+  published?: boolean; // Whether published to marketplace
 }
 
 // ============================================================================
 // Request/Response Models
 // ============================================================================
+
+export interface CommitDraftRequest {
+  new_version: string;
+  change_summary: string;
+}
+
+export interface CommitDraftResponse {
+  id: string;
+  name?: string;
+  version?: string;
+  status: string;
+  draftOwnerId?: string;
+}
+
+export interface DiffFromParentResponse {
+  parent_version: string;
+  suggested_bump: string;
+  suggested_version: string;
+  analysis: Record<string, any>;
+}
+
+export interface ChangeStatusPayload {
+  new_status: string;
+}
+
+export interface RequestStatusChangePayload {
+  target_status: string;
+  justification: string;
+  current_status?: string;
+}
+
+export interface HandleStatusChangePayload {
+  decision: string;
+  target_status: string;
+  requester_email: string;
+  message?: string;
+}
 
 export interface GenieSpaceRequest {
   product_ids: string[];

@@ -582,6 +582,275 @@ class DataProductsManager(SearchableAsset):
         """
         return self.transition_status(product_id, 'deprecated', current_user)
 
+    # ==================== Status Change Request/Approval Methods ====================
+
+    def _get_allowed_status_transitions(self, current_status: str) -> List[Dict[str, str]]:
+        """Get allowed status transitions for a given status.
+        
+        Args:
+            current_status: Current product status
+            
+        Returns:
+            List of allowed transitions with target and label
+        """
+        transitions = {
+            'draft': [
+                {'target': 'sandbox', 'label': 'Move to Sandbox'},
+                {'target': 'proposed', 'label': 'Submit for Review'},
+            ],
+            'sandbox': [
+                {'target': 'draft', 'label': 'Return to Draft'},
+                {'target': 'proposed', 'label': 'Submit for Review'},
+            ],
+            'proposed': [
+                {'target': 'draft', 'label': 'Return to Draft'},
+                {'target': 'under_review', 'label': 'Start Review'},
+            ],
+            'under_review': [
+                {'target': 'approved', 'label': 'Approve'},
+                {'target': 'draft', 'label': 'Reject (Return to Draft)'},
+            ],
+            'approved': [
+                {'target': 'active', 'label': 'Publish/Activate'},
+                {'target': 'draft', 'label': 'Return to Draft'},
+            ],
+            'active': [
+                {'target': 'certified', 'label': 'Certify'},
+                {'target': 'deprecated', 'label': 'Deprecate'},
+            ],
+            'certified': [
+                {'target': 'deprecated', 'label': 'Deprecate'},
+            ],
+            'deprecated': [
+                {'target': 'retired', 'label': 'Retire'},
+                {'target': 'active', 'label': 'Reactivate'},
+            ],
+            'retired': []  # Terminal state
+        }
+        return transitions.get(current_status.lower(), [])
+
+    def request_status_change(
+        self,
+        db: Session,
+        notifications_manager: NotificationsManager,
+        product_id: str,
+        target_status: str,
+        justification: str,
+        requester_email: str,
+        current_user: Optional[str] = None
+    ) -> Dict[str, str]:
+        """Request a status change for a product (requires approval).
+        
+        Creates notifications for admins to review and approve/deny the request.
+        
+        Args:
+            db: Database session
+            notifications_manager: NotificationsManager instance
+            product_id: ID of product to change
+            target_status: Requested target status
+            justification: Reason for the status change
+            requester_email: Email of user requesting the change
+            current_user: Username of requester
+            
+        Returns:
+            Dict with success message
+            
+        Raises:
+            ValueError: If product not found or invalid transition
+        """
+        from datetime import datetime
+        from uuid import uuid4
+        from src.models.notifications import NotificationType, Notification, ActionableNotification
+        from src.controller.change_log_manager import change_log_manager
+        
+        product = data_product_repo.get(db, id=product_id)
+        if not product:
+            raise ValueError("Product not found")
+        
+        from_status = (product.status or 'draft').lower()
+        target_status_lower = target_status.lower()
+        
+        # Validate transition is allowed
+        allowed_transitions = self._get_allowed_status_transitions(from_status)
+        if target_status_lower not in [t['target'] for t in allowed_transitions]:
+            raise ValueError(f"Invalid status transition from '{from_status}' to '{target_status}'.")
+        
+        now = datetime.utcnow()
+        
+        # Create INFO notification for requester
+        requester_note = Notification(
+            id=str(uuid4()),
+            created_at=now,
+            type=NotificationType.INFO,
+            title="Status Change Request Submitted",
+            subtitle=f"Product: {product.name}",
+            description=f"Your request to change the status of '{product.name}' from '{from_status}' to '{target_status}' has been submitted for review. Justification: {justification}",
+            recipient=requester_email,
+            can_delete=True,
+        )
+        notifications_manager.create_notification(notification=requester_note, db=db)
+        
+        # Create ACTION_REQUIRED notification for admins
+        from src.common.utils import get_admin_emails
+        admin_emails = get_admin_emails(db)
+        if not admin_emails:
+            logger.warning("No admin emails found for status change request notification.")
+        
+        for admin_email in admin_emails:
+            actionable_note = ActionableNotification(
+                id=str(uuid4()),
+                created_at=now,
+                type=NotificationType.ACTION_REQUIRED,
+                title="Action Required: Product Status Change Request",
+                subtitle=f"Product: {product.name}",
+                description=f"User '{current_user}' has requested to change the status of product '{product.name}' from '{from_status}' to '{target_status}'. Justification: {justification}",
+                recipient=admin_email,
+                action_type="handle_product_status_change",
+                action_payload={
+                    "product_id": product_id,
+                    "requester_email": requester_email,
+                    "target_status": target_status,
+                    "current_status": from_status,
+                    "justification": justification,
+                },
+                can_delete=True,
+            )
+            notifications_manager.create_notification(notification=actionable_note, db=db)
+        
+        # Log to change_log
+        change_log_manager.log_change_with_details(
+            db,
+            entity_type="data_product",
+            entity_id=product_id,
+            action="status_change_requested",
+            username=current_user or "anonymous",
+            details={
+                "requester_email": requester_email,
+                "from_status": from_status,
+                "target_status": target_status,
+                "justification": justification,
+                "timestamp": now.isoformat(),
+                "summary": f"Status change requested from {from_status} to {target_status} by {current_user}",
+            },
+        )
+        
+        return {"message": "Status change request submitted successfully"}
+
+    def handle_status_change_response(
+        self,
+        db: Session,
+        notifications_manager: NotificationsManager,
+        product_id: str,
+        approver_email: str,
+        decision: str,
+        target_status: str,
+        message: Optional[str] = None,
+        current_user: Optional[str] = None
+    ) -> Dict[str, str]:
+        """Handle a status change request decision (approve/deny/clarify).
+        
+        Args:
+            db: Database session
+            notifications_manager: NotificationsManager instance
+            product_id: ID of product
+            approver_email: Email of approver
+            decision: 'approve', 'deny', or 'clarify'
+            target_status: The target status that was requested
+            message: Optional message from approver
+            current_user: Username of approver
+            
+        Returns:
+            Dict with result message
+            
+        Raises:
+            ValueError: If product not found or invalid decision
+        """
+        from datetime import datetime
+        from uuid import uuid4
+        from src.models.notifications import NotificationType, Notification
+        from src.controller.change_log_manager import change_log_manager
+        
+        product = data_product_repo.get(db, id=product_id)
+        if not product:
+            raise ValueError("Product not found")
+        
+        decision = decision.lower()
+        if decision not in ('approve', 'deny', 'clarify'):
+            raise ValueError("Decision must be 'approve', 'deny', or 'clarify'")
+        
+        now = datetime.utcnow()
+        notification_title = ""
+        notification_desc = ""
+        
+        # Find requester from change log
+        requester_email = None
+        try:
+            recent_changes = change_log_manager.get_changes_for_entity(db, "data_product", product_id)
+            for change in recent_changes:
+                if change.action == "status_change_requested":
+                    requester_email = change.details.get("requester_email")
+                    break
+        except Exception:
+            pass
+        
+        if decision == 'approve':
+            # Apply the status change directly
+            self.transition_status(product_id, target_status, current_user)
+            notification_title = "Product Status Change Approved"
+            notification_desc = f"Your request to change the status of '{product.name}' to '{target_status}' has been approved by '{approver_email}'."
+        elif decision == 'deny':
+            notification_title = "Product Status Change Denied"
+            notification_desc = f"Your request to change the status of '{product.name}' to '{target_status}' has been denied by '{approver_email}'."
+        elif decision == 'clarify':
+            notification_title = "Product Status Change - Clarification Needed"
+            notification_desc = f"Your request to change the status of '{product.name}' to '{target_status}' requires clarification from '{approver_email}'."
+        
+        if message:
+            notification_desc += f"\n\nApprover message: {message}"
+        
+        # Notify requester
+        if requester_email:
+            requester_note = Notification(
+                id=str(uuid4()),
+                created_at=now,
+                type=NotificationType.INFO,
+                title=notification_title,
+                subtitle=f"Product: {product.name}",
+                description=notification_desc,
+                recipient=requester_email,
+                can_delete=True,
+            )
+            notifications_manager.create_notification(notification=requester_note, db=db)
+        
+        # Mark actionable notification as handled
+        try:
+            notifications_manager.handle_actionable_notification(
+                db=db,
+                action_type="handle_product_status_change",
+                action_payload={"product_id": product_id, "target_status": target_status},
+            )
+        except Exception:
+            pass
+        
+        # Change log entry
+        change_log_manager.log_change_with_details(
+            db,
+            entity_type="data_product",
+            entity_id=product_id,
+            action=f"status_change_{decision}",
+            username=current_user or "anonymous",
+            details={
+                "approver_email": approver_email,
+                "decision": decision,
+                "target_status": target_status,
+                "message": message,
+                "timestamp": now.isoformat(),
+                "summary": f"Status change {decision} by {approver_email}" + (f": {message}" if message else ""),
+            },
+        )
+        
+        return {"message": f"Status change request {decision} recorded successfully"}
+
     def request_review(
         self,
         product_id: str,
@@ -871,6 +1140,467 @@ class DataProductsManager(SearchableAsset):
         except SQLAlchemyError as e:
             logger.error(f"Database error creating new version: {e}")
             raise
+
+    # ==================== Versioned Editing Methods ====================
+
+    def clone_product_for_new_version(
+        self,
+        db: Session,
+        product_id: str,
+        new_version: str,
+        change_summary: Optional[str] = None,
+        current_user: Optional[str] = None,
+        as_personal_draft: bool = False
+    ) -> DataProductApi:
+        """Clone a product to create a new version with full deep copy.
+        
+        Creates a complete copy of the product including all nested entities:
+        - Description, Authoritative definitions, Custom properties
+        - Input ports, Output ports, Management ports
+        - Support channels, Team members
+        
+        Args:
+            db: Database session
+            product_id: Source product ID to clone
+            new_version: Semantic version string (e.g., "2.0.0") or placeholder
+            change_summary: Optional summary of changes in this version
+            current_user: Username creating the clone
+            as_personal_draft: If True, creates a personal draft visible only to owner
+            
+        Returns:
+            The newly created product API model
+            
+        Raises:
+            ValueError: If product not found or version format invalid
+        """
+        import re
+        from src.db_models.data_products import (
+            DataProductDb, DescriptionDb, AuthoritativeDefinitionDb,
+            CustomPropertyDb, InputPortDb, OutputPortDb, ManagementPortDb,
+            SupportDb, DataProductTeamDb, DataProductTeamMemberDb,
+            SBOMDb, InputContractDb
+        )
+        
+        # Validate semantic version format (allow -draft suffix for personal drafts)
+        if as_personal_draft:
+            if not re.match(r'^\d+\.\d+\.\d+(-draft)?$', new_version):
+                raise ValueError("new_version must be in format X.Y.Z or X.Y.Z-draft")
+        else:
+            if not re.match(r'^\d+\.\d+\.\d+$', new_version):
+                raise ValueError("new_version must be in format X.Y.Z (e.g., 2.0.0)")
+        
+        # Get source product with all relationships
+        source_product = data_product_repo.get(db, id=product_id)
+        if not source_product:
+            raise ValueError("Product not found")
+        
+        try:
+            # Generate new ID
+            new_id = str(uuid.uuid4())
+            
+            # Extract base_name from source (strip version suffix if present)
+            base_name = source_product.base_name or source_product.name
+            
+            # Create new product with core fields
+            new_product = DataProductDb(
+                id=new_id,
+                api_version=source_product.api_version,
+                kind=source_product.kind,
+                status='draft' if as_personal_draft else DataProductStatus.DRAFT.value,
+                name=source_product.name,
+                version=new_version,
+                domain=source_product.domain,
+                tenant=source_product.tenant,
+                project_id=source_product.project_id,
+                owner_team_id=source_product.owner_team_id,
+                max_level_inheritance=source_product.max_level_inheritance,
+                # Versioning fields
+                draft_owner_id=current_user if as_personal_draft else None,
+                parent_product_id=product_id,
+                base_name=base_name,
+                change_summary=change_summary,
+                published=False  # New versions are never published initially
+            )
+            db.add(new_product)
+            db.flush()
+            
+            # Clone Description (One-to-One)
+            if source_product.description:
+                src_desc = source_product.description
+                new_desc = DescriptionDb(
+                    product_id=new_id,
+                    purpose=src_desc.purpose,
+                    limitations=src_desc.limitations,
+                    usage=src_desc.usage
+                )
+                db.add(new_desc)
+                
+                # Clone description's authoritative definitions
+                if hasattr(src_desc, 'authoritative_definitions') and src_desc.authoritative_definitions:
+                    for auth_def in src_desc.authoritative_definitions:
+                        new_auth_def = AuthoritativeDefinitionDb(
+                            description_id=new_desc.id,
+                            type=auth_def.type,
+                            url=auth_def.url,
+                            description=auth_def.description
+                        )
+                        db.add(new_auth_def)
+            
+            # Clone Authoritative Definitions (product-level)
+            if source_product.authoritative_definitions:
+                for auth_def in source_product.authoritative_definitions:
+                    new_auth_def = AuthoritativeDefinitionDb(
+                        product_id=new_id,
+                        type=auth_def.type,
+                        url=auth_def.url,
+                        description=auth_def.description
+                    )
+                    db.add(new_auth_def)
+            
+            # Clone Custom Properties
+            if source_product.custom_properties:
+                for prop in source_product.custom_properties:
+                    new_prop = CustomPropertyDb(
+                        product_id=new_id,
+                        property=prop.property,
+                        value=prop.value,
+                        description=prop.description
+                    )
+                    db.add(new_prop)
+            
+            # Clone Input Ports
+            if source_product.input_ports:
+                for port in source_product.input_ports:
+                    new_port = InputPortDb(
+                        product_id=new_id,
+                        name=port.name,
+                        version=port.version,
+                        contract_id=port.contract_id
+                    )
+                    db.add(new_port)
+                    db.flush()
+                    
+                    # Clone input contracts
+                    if hasattr(port, 'input_contracts') and port.input_contracts:
+                        for ic in port.input_contracts:
+                            new_ic = InputContractDb(
+                                input_port_id=new_port.id,
+                                contract_id=ic.contract_id
+                            )
+                            db.add(new_ic)
+            
+            # Clone Output Ports
+            if source_product.output_ports:
+                for port in source_product.output_ports:
+                    new_port = OutputPortDb(
+                        product_id=new_id,
+                        name=port.name,
+                        version=port.version,
+                        contract_id=port.contract_id,
+                        expectation=port.expectation,
+                        dataset_name=port.dataset_name
+                    )
+                    db.add(new_port)
+                    db.flush()
+                    
+                    # Clone SBOMs
+                    if hasattr(port, 'sboms') and port.sboms:
+                        for sbom in port.sboms:
+                            new_sbom = SBOMDb(
+                                output_port_id=new_port.id,
+                                spdx_version=sbom.spdx_version,
+                                spdx_id=sbom.spdx_id,
+                                name=sbom.name,
+                                creation_info_created=sbom.creation_info_created
+                            )
+                            db.add(new_sbom)
+            
+            # Clone Management Ports
+            if source_product.management_ports:
+                for port in source_product.management_ports:
+                    new_port = ManagementPortDb(
+                        product_id=new_id,
+                        name=port.name,
+                        type=port.type,
+                        description=port.description,
+                        server=port.server,
+                        endpoint=port.endpoint
+                    )
+                    db.add(new_port)
+            
+            # Clone Support Channels
+            if source_product.support_channels:
+                for channel in source_product.support_channels:
+                    new_channel = SupportDb(
+                        product_id=new_id,
+                        type=channel.type,
+                        url=channel.url,
+                        description=channel.description
+                    )
+                    db.add(new_channel)
+            
+            # Clone Team
+            if source_product.team:
+                src_team = source_product.team
+                new_team = DataProductTeamDb(
+                    product_id=new_id,
+                    name=src_team.name,
+                    description=src_team.description
+                )
+                db.add(new_team)
+                db.flush()
+                
+                # Clone team members
+                if hasattr(src_team, 'members') and src_team.members:
+                    for member in src_team.members:
+                        new_member = DataProductTeamMemberDb(
+                            team_id=new_team.id,
+                            name=member.name,
+                            email=member.email,
+                            role=member.role
+                        )
+                        db.add(new_member)
+            
+            # Clone tags via entity_tag_repo
+            try:
+                source_tags = entity_tag_repo.get_tags_for_entity(
+                    db, entity_type='data_product', entity_id=product_id
+                )
+                for tag_assignment in source_tags:
+                    entity_tag_repo.assign_tag_to_entity(
+                        db,
+                        obj_in=AssignedTagCreate(tag_id=tag_assignment.tag_id),
+                        entity_type='data_product',
+                        entity_id=new_id
+                    )
+            except Exception as e:
+                logger.warning(f"Could not clone tags: {e}")
+            
+            db.commit()
+            db.refresh(new_product)
+            
+            logger.info(f"Successfully cloned product {product_id} to new version {new_version} (ID: {new_id})")
+            return DataProductApi.model_validate(new_product)
+            
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Database error cloning product: {e}", exc_info=True)
+            raise
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error cloning product: {e}", exc_info=True)
+            raise
+
+    def clone_product_for_editing(
+        self,
+        db: Session,
+        product_id: str,
+        current_user: str
+    ) -> DataProductApi:
+        """Create a personal draft copy of a product for editing.
+        
+        This is a convenience method that clones the product as a personal draft
+        with a placeholder version (e.g., "1.0.0-draft").
+        
+        Args:
+            db: Database session
+            product_id: Source product ID to clone
+            current_user: Username creating the draft
+            
+        Returns:
+            The newly created personal draft product
+        """
+        # Get source product to extract current version
+        source_product = data_product_repo.get(db, id=product_id)
+        if not source_product:
+            raise ValueError("Product not found")
+        
+        # Check if source is in an editable state - if so, don't clone
+        if source_product.status and source_product.status.lower() in ['draft', 'proposed']:
+            raise ValueError("Product is already in an editable state. Edit directly instead of cloning.")
+        
+        # Use current version with -draft suffix
+        draft_version = f"{source_product.version or '0.0.0'}-draft"
+        
+        return self.clone_product_for_new_version(
+            db=db,
+            product_id=product_id,
+            new_version=draft_version,
+            change_summary="Personal draft for editing",
+            current_user=current_user,
+            as_personal_draft=True
+        )
+
+    def commit_personal_draft(
+        self,
+        db: Session,
+        draft_id: str,
+        new_version: str,
+        change_summary: str,
+        current_user: str
+    ) -> DataProductApi:
+        """Commit a personal draft to team/project visibility (tier 2).
+        
+        This promotes a personal draft from tier 1 (only owner sees it) to 
+        tier 2 (team/project members can see it). The product is NOT published
+        to the marketplace - that's a separate action.
+        
+        Args:
+            db: Database session
+            draft_id: ID of the personal draft to commit
+            new_version: Final version string (e.g., "1.1.0")
+            change_summary: Summary of changes made
+            current_user: Username committing the draft
+            
+        Returns:
+            The committed product
+            
+        Raises:
+            ValueError: If draft not found
+            PermissionError: If user is not the draft owner
+        """
+        import re
+        
+        # Validate version format
+        if not re.match(r'^\d+\.\d+\.\d+$', new_version):
+            raise ValueError("new_version must be in format X.Y.Z (e.g., 1.1.0)")
+        
+        draft = data_product_repo.get(db, id=draft_id)
+        if not draft:
+            raise ValueError("Draft product not found")
+        if draft.draft_owner_id != current_user:
+            raise PermissionError("Not owner of this draft")
+        
+        try:
+            # Update the draft to remove personal ownership (promote to tier 2)
+            draft.version = new_version
+            draft.change_summary = change_summary
+            draft.draft_owner_id = None  # Remove personal draft ownership
+            # published remains False - marketplace publish is separate action
+            
+            db.commit()
+            db.refresh(draft)
+            
+            logger.info(f"Committed personal draft {draft_id} as version {new_version}")
+            return DataProductApi.model_validate(draft)
+            
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Database error committing draft: {e}", exc_info=True)
+            raise
+
+    def discard_personal_draft(
+        self,
+        db: Session,
+        draft_id: str,
+        current_user: str
+    ) -> bool:
+        """Discard (delete) a personal draft.
+        
+        Args:
+            db: Database session
+            draft_id: ID of the personal draft to discard
+            current_user: Username discarding the draft
+            
+        Returns:
+            True if successfully discarded
+            
+        Raises:
+            ValueError: If draft not found
+            PermissionError: If user is not the draft owner
+        """
+        draft = data_product_repo.get(db, id=draft_id)
+        if not draft:
+            raise ValueError("Draft product not found")
+        if draft.draft_owner_id != current_user:
+            raise PermissionError("Not owner of this draft")
+        
+        try:
+            data_product_repo.remove(db, id=draft_id)
+            db.commit()
+            logger.info(f"Discarded personal draft {draft_id}")
+            return True
+            
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Database error discarding draft: {e}", exc_info=True)
+            raise
+
+    def get_diff_from_parent(
+        self,
+        db: Session,
+        product_id: str
+    ) -> Dict[str, Any]:
+        """Compare a draft product to its parent and suggest a version bump.
+        
+        Args:
+            db: Database session
+            product_id: ID of the draft product
+            
+        Returns:
+            Dict with parent_version, suggested_bump, suggested_version, and analysis
+            
+        Raises:
+            ValueError: If product or parent not found
+        """
+        product = data_product_repo.get(db, id=product_id)
+        if not product:
+            raise ValueError("Product not found")
+        if not product.parent_product_id:
+            raise ValueError("Product has no parent to compare against")
+        
+        parent = data_product_repo.get(db, id=product.parent_product_id)
+        if not parent:
+            raise ValueError("Parent product not found")
+        
+        # Convert to dicts for comparison
+        product_dict = self._product_db_to_dict(product)
+        parent_dict = self._product_db_to_dict(parent)
+        
+        # Run comparison analysis
+        analysis_result = self.compare_products(parent_dict, product_dict)
+        
+        # Calculate suggested version
+        suggested_version = self._calculate_next_version(
+            parent.version or "0.0.0",
+            analysis_result.get("version_bump", "patch")
+        )
+        
+        return {
+            "parent_version": parent.version or "0.0.0",
+            "suggested_bump": analysis_result.get("version_bump", "patch"),
+            "suggested_version": suggested_version,
+            "analysis": analysis_result
+        }
+
+    def _calculate_next_version(self, current_version: str, bump_type: str) -> str:
+        """Calculate the next semantic version based on bump type.
+        
+        Args:
+            current_version: Current version string (e.g., "1.2.3")
+            bump_type: Type of bump ("major", "minor", or "patch")
+            
+        Returns:
+            Next version string
+        """
+        import re
+        
+        # Handle version with -draft suffix
+        version = current_version.replace('-draft', '')
+        
+        # Parse version components
+        match = re.match(r'^(\d+)\.(\d+)\.(\d+)', version)
+        if not match:
+            return "0.0.1"
+        
+        major, minor, patch = int(match.group(1)), int(match.group(2)), int(match.group(3))
+        
+        if bump_type == "major":
+            return f"{major + 1}.0.0"
+        elif bump_type == "minor":
+            return f"{major}.{minor + 1}.0"
+        else:  # patch
+            return f"{major}.{minor}.{patch + 1}"
 
     async def initiate_genie_space_creation(self, request: GenieSpaceRequest, user_info: UserInfo, db: Session):
         """Initiates Genie Space creation for selected ODPS data products."""

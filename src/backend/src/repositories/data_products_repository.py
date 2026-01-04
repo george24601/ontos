@@ -6,7 +6,7 @@ Handles mapping between API models (Pydantic) and DB models (SQLAlchemy).
 """
 
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select, distinct
+from sqlalchemy import select, distinct, or_, and_
 from typing import List, Optional, Any, Dict, Union
 import json
 
@@ -635,6 +635,132 @@ class DataProductRepository(CRUDBase[DataProductDb, DataProductCreate, DataProdu
         except Exception as e:
             logger.error(f"Database error counting ODPS DataProducts by project: {e}", exc_info=True)
             db.rollback()
+            raise
+
+    # ==================== Visibility Methods ====================
+
+    def get_visible_products(
+        self,
+        db: Session,
+        current_user: str,
+        user_projects: List[str]
+    ) -> List[DataProductDb]:
+        """Get products visible to user based on three-tier visibility model.
+        
+        Visibility tiers:
+        - Tier 3: Published to marketplace (everyone can see)
+        - Tier 2: Team/project versions (no personal owner, in user's projects)
+        - Tier 1: User's own personal drafts
+        
+        Args:
+            db: Database session
+            current_user: Username of current user
+            user_projects: List of project IDs the user has access to
+            
+        Returns:
+            List of visible DataProductDb objects
+        """
+        logger.debug(f"Getting visible products for user {current_user}")
+        try:
+            return db.query(self.model).filter(
+                or_(
+                    # Tier 3: Published to marketplace (everyone can see)
+                    self.model.published == True,
+                    # Tier 2: Team/project versions (no personal owner, in user's projects)
+                    and_(
+                        self.model.draft_owner_id.is_(None),
+                        self.model.project_id.in_(user_projects) if user_projects else False
+                    ),
+                    # Tier 1: User's own personal drafts
+                    self.model.draft_owner_id == current_user,
+                )
+            ).all()
+        except Exception as e:
+            logger.error(f"Error getting visible products: {e}", exc_info=True)
+            raise
+
+    def get_user_personal_drafts(
+        self,
+        db: Session,
+        current_user: str
+    ) -> List[DataProductDb]:
+        """Get all personal drafts owned by the current user.
+        
+        Args:
+            db: Database session
+            current_user: Username of current user
+            
+        Returns:
+            List of personal draft DataProductDb objects
+        """
+        logger.debug(f"Getting personal drafts for user {current_user}")
+        try:
+            return db.query(self.model).filter(
+                self.model.draft_owner_id == current_user
+            ).all()
+        except Exception as e:
+            logger.error(f"Error getting personal drafts: {e}", exc_info=True)
+            raise
+
+    def is_visible_to_user(
+        self,
+        db: Session,
+        product_id: str,
+        current_user: str,
+        user_projects: List[str]
+    ) -> bool:
+        """Check if a specific product is visible to the current user.
+        
+        Args:
+            db: Database session
+            product_id: ID of the product to check
+            current_user: Username of current user
+            user_projects: List of project IDs the user has access to
+            
+        Returns:
+            True if visible, False otherwise
+        """
+        logger.debug(f"Checking visibility of product {product_id} for user {current_user}")
+        try:
+            product = db.query(self.model).filter(self.model.id == product_id).first()
+            if not product:
+                return False
+
+            # Tier 3: Published to marketplace
+            if product.published:
+                return True
+            # Tier 1: User's own personal draft
+            if product.draft_owner_id == current_user:
+                return True
+            # Tier 2: Team/project version
+            if product.draft_owner_id is None and product.project_id in user_projects:
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error checking product visibility: {e}", exc_info=True)
+            raise
+
+    def get_all_versions(
+        self,
+        db: Session,
+        base_name: str
+    ) -> List[DataProductDb]:
+        """Get all versions of a product by base name.
+        
+        Args:
+            db: Database session
+            base_name: Base name without version
+            
+        Returns:
+            List of DataProductDb objects representing all versions
+        """
+        logger.debug(f"Getting all versions for base_name {base_name}")
+        try:
+            return db.query(self.model).filter(
+                self.model.base_name == base_name
+            ).order_by(self.model.created_at.desc()).all()
+        except Exception as e:
+            logger.error(f"Error getting product versions: {e}", exc_info=True)
             raise
 
 

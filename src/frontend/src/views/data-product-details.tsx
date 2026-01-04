@@ -30,6 +30,7 @@ import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
 import { CommentSidebar } from '@/components/comments';
 import { useDomains } from '@/hooks/use-domains';
 import RequestProductActionDialog from '@/components/data-products/request-product-action-dialog';
+import CommitDraftDialog from '@/components/data-products/commit-draft-dialog';
 import EntityCostsPanel from '@/components/costs/entity-costs-panel';
 import LinkContractToPortDialog from '@/components/data-products/link-contract-to-port-dialog';
 import VersioningRecommendationDialog from '@/components/common/versioning-recommendation-dialog';
@@ -116,11 +117,26 @@ export default function DataProductDetails() {
   const [subscribers, setSubscribers] = useState<SubscribersListResponse | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
+  // Clone/Commit draft states
+  const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
+
   // Permissions
   const featureId = 'data-products';
   const canRead = !permissionsLoading && hasPermission(featureId, Settings.FeatureAccessLevel.READ_ONLY);
   const canWrite = !permissionsLoading && hasPermission(featureId, Settings.FeatureAccessLevel.READ_WRITE);
   const canAdmin = !permissionsLoading && hasPermission(featureId, Settings.FeatureAccessLevel.ADMIN);
+
+  // Versioned editing: determine if product can be edited in place based on status
+  // Products with status 'draft', 'sandbox', 'proposed' can be edited directly
+  // Products with status 'active' and above must be cloned for editing
+  const canEditInPlace = product?.status && ['draft', 'sandbox', 'proposed', 'under_review', 'approved'].includes(product.status.toLowerCase());
+  const isPersonalDraft = product?.draftOwnerId != null;
+  const isReadOnly = !canEditInPlace && !isPersonalDraft;
+
+  // Combined permission check: can write AND can edit in place (or is personal draft)
+  const canModify = canWrite && (canEditInPlace || isPersonalDraft);
 
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return 'N/A';
@@ -292,6 +308,50 @@ export default function DataProductDetails() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete product';
       toast({ title: 'Error', description: `Failed to delete: ${errorMessage}`, variant: 'destructive' });
+    }
+  };
+
+  // Clone for editing (creates personal draft)
+  const handleCloneForEditing = async () => {
+    if (!canWrite || !productId) return;
+    setIsCloning(true);
+    try {
+      const response = await post<DataProduct>(`/api/data-products/${productId}/clone-for-editing`, {});
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      if (response.data) {
+        toast({ title: 'Draft Created', description: 'Personal draft created. You can now edit it.' });
+        // Navigate to the new draft
+        navigate(`/data-products/${response.data.id}`);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create draft';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  // Discard personal draft
+  const handleDiscardDraft = async () => {
+    if (!canWrite || !productId || !product) return;
+    if (!confirm(`Discard this draft? This action cannot be undone.`)) return;
+    setIsDiscarding(true);
+    try {
+      await deleteApi(`/api/data-products/${productId}/discard`);
+      toast({ title: 'Draft Discarded', description: 'Personal draft has been discarded.' });
+      // Navigate back to products list or parent product
+      if (product.parentProductId) {
+        navigate(`/data-products/${product.parentProductId}`);
+      } else {
+        navigate('/data-products');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to discard draft';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+    } finally {
+      setIsDiscarding(false);
     }
   };
 
@@ -924,12 +984,43 @@ export default function DataProductDetails() {
             onToggle={() => setIsCommentSidebarOpen(!isCommentSidebarOpen)}
             className="h-8"
           />
-          <Button variant="outline" onClick={handleCreateGenieSpace} disabled={!canWrite} size="sm">
+          <Button variant="outline" onClick={handleCreateGenieSpace} disabled={!canModify} size="sm">
             <Sparkles className="mr-2 h-4 w-4" /> Create Genie Space
           </Button>
-          <Button variant="outline" onClick={handleCreateNewVersion} disabled={!canWrite} size="sm">
-            <CopyPlus className="mr-2 h-4 w-4" /> New Version
-          </Button>
+          {/* Clone for Editing - shown when product is read-only */}
+          {isReadOnly && canWrite && (
+            <Button variant="outline" onClick={handleCloneForEditing} disabled={isCloning} size="sm">
+              {isCloning ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CopyPlus className="mr-2 h-4 w-4" />
+              )}
+              Clone for Editing
+            </Button>
+          )}
+          {/* Commit Draft - shown when this is a personal draft */}
+          {isPersonalDraft && canWrite && (
+            <Button variant="default" onClick={() => setIsCommitDraftDialogOpen(true)} size="sm">
+              <FileText className="mr-2 h-4 w-4" /> Commit Changes
+            </Button>
+          )}
+          {/* Discard Draft - shown when this is a personal draft */}
+          {isPersonalDraft && canWrite && (
+            <Button variant="outline" onClick={handleDiscardDraft} disabled={isDiscarding} size="sm">
+              {isDiscarding ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Discard Draft
+            </Button>
+          )}
+          {/* New Version - only for editable products */}
+          {!isReadOnly && (
+            <Button variant="outline" onClick={handleCreateNewVersion} disabled={!canModify} size="sm">
+              <CopyPlus className="mr-2 h-4 w-4" /> New Version
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setIsImportExportDialogOpen(true)} size="sm">
             <Download className="mr-2 h-4 w-4" /> Export ODPS
           </Button>
@@ -965,14 +1056,37 @@ export default function DataProductDetails() {
               </Button>
             )
           )}
-          <Button variant="outline" onClick={handleEdit} disabled={!canWrite} size="sm">
-            <Pencil className="mr-2 h-4 w-4" /> Edit
-          </Button>
+          {/* Edit - only enabled for editable products */}
+          {canModify && (
+            <Button variant="outline" onClick={handleEdit} size="sm">
+              <Pencil className="mr-2 h-4 w-4" /> Edit
+            </Button>
+          )}
           <Button variant="destructive" onClick={handleDelete} disabled={!canAdmin} size="sm">
             <Trash2 className="mr-2 h-4 w-4" /> Delete
           </Button>
         </div>
       </div>
+
+      {/* Personal Draft Banner */}
+      {isPersonalDraft && (
+        <Alert className="bg-blue-100 border-blue-400 text-blue-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Personal Draft</strong> - This is your personal draft. Only you can see it. Commit changes to share with your team.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Read-Only Banner */}
+      {isReadOnly && (
+        <Alert className="bg-yellow-100 border-yellow-400 text-yellow-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Read-Only</strong> - This product is {product?.status?.toLowerCase()}. Clone to create a personal draft for editing.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Basic Info Card */}
       <Card>
@@ -1078,8 +1192,8 @@ export default function DataProductDetails() {
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Linked Business Concepts:</Label>
                 <LinkedConceptChips
                   links={links}
-                  onRemove={canWrite ? removeLink : undefined}
-                  trailing={canWrite ? <Button size="sm" variant="outline" onClick={() => setIriDialogOpen(true)} className="h-6 text-xs">Add</Button> : undefined}
+                  onRemove={canModify ? removeLink : undefined}
+                  trailing={canModify ? <Button size="sm" variant="outline" onClick={() => setIriDialogOpen(true)} className="h-6 text-xs">Add</Button> : undefined}
                 />
               </div>
             </div>
@@ -1096,7 +1210,7 @@ export default function DataProductDetails() {
                 <FileText className="mr-2 h-5 w-5" />
                 Description
               </span>
-              {canWrite && <Button size="sm" variant="outline" onClick={handleEdit}><Pencil className="h-4 w-4" /></Button>}
+              {canModify && <Button size="sm" variant="outline" onClick={handleEdit}><Pencil className="h-4 w-4" /></Button>}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1127,7 +1241,7 @@ export default function DataProductDetails() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Input Ports ({product.inputPorts?.length || 0})</span>
-            {canWrite && <Button size="sm" onClick={() => setIsInputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Input Port</Button>}
+            {canModify && <Button size="sm" onClick={() => setIsInputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Input Port</Button>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1139,7 +1253,7 @@ export default function DataProductDetails() {
                     <div className="font-medium">{port.name} (v{port.version})</div>
                     <div className="text-sm text-muted-foreground">Contract: {port.contractId}</div>
                   </div>
-                  {canWrite && (
+                  {canModify && (
                     <div className="flex gap-2 ml-3">
                       <Button
                         size="sm"
@@ -1175,7 +1289,7 @@ export default function DataProductDetails() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Output Ports ({product.outputPorts?.length || 0})</span>
-            {canWrite && <Button size="sm" onClick={() => setIsOutputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Output Port</Button>}
+            {canModify && <Button size="sm" onClick={() => setIsOutputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Output Port</Button>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1199,7 +1313,7 @@ export default function DataProductDetails() {
                         </div>
                       )}
                     </div>
-                    {canWrite && (
+                    {canModify && (
                       <div className="flex gap-2 ml-3">
                         <Button
                           size="sm"
@@ -1257,7 +1371,7 @@ export default function DataProductDetails() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Management Ports ({product.managementPorts?.length || 0})</span>
-            {canWrite && <Button size="sm" onClick={() => setIsManagementPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Management Port</Button>}
+            {canModify && <Button size="sm" onClick={() => setIsManagementPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Management Port</Button>}
           </CardTitle>
           <CardDescription>Observability, control, and discoverability endpoints</CardDescription>
         </CardHeader>
@@ -1271,7 +1385,7 @@ export default function DataProductDetails() {
                     <div className="text-sm">Content: {port.content}</div>
                     {port.url && <div className="text-sm text-muted-foreground">URL: {port.url}</div>}
                   </div>
-                  {canWrite && (
+                  {canModify && (
                     <div className="flex gap-2 ml-3">
                       <Button
                         size="sm"
@@ -1318,7 +1432,7 @@ export default function DataProductDetails() {
                   Import from Team
                 </Button>
               )}
-              {canWrite && (
+              {canModify && (
                 <Button size="sm" onClick={() => setIsTeamMemberDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Member
@@ -1336,7 +1450,7 @@ export default function DataProductDetails() {
                     <Badge variant="outline">{member.role || 'Member'}</Badge>
                     <span className="text-sm">{member.name || member.username}</span>
                   </div>
-                  {canWrite && (
+                  {canModify && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -1372,7 +1486,7 @@ export default function DataProductDetails() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Support Channels ({product.support?.length || 0})</span>
-            {canWrite && <Button size="sm" onClick={() => setIsSupportChannelDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Channel</Button>}
+            {canModify && <Button size="sm" onClick={() => setIsSupportChannelDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Channel</Button>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1385,7 +1499,7 @@ export default function DataProductDetails() {
                     <div className="text-sm">URL: <a href={channel.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{channel.url}</a></div>
                     {channel.tool && <div className="text-sm text-muted-foreground">Tool: {channel.tool}</div>}
                   </div>
-                  {canWrite && (
+                  {canModify && (
                     <div className="flex gap-2 ml-3">
                       <Button
                         size="sm"
@@ -1492,7 +1606,16 @@ export default function DataProductDetails() {
         productId={productId!}
         productName={product.name}
         productStatus={product.status}
-        currentVersion={product.version}
+        onSuccess={() => fetchProductDetails()}
+        canDirectStatusChange={canWrite || canAdmin}
+      />
+
+      {/* Commit Draft Dialog */}
+      <CommitDraftDialog
+        isOpen={isCommitDraftDialogOpen}
+        onOpenChange={setIsCommitDraftDialogOpen}
+        productId={productId!}
+        productName={product.name}
         onSuccess={() => fetchProductDetails()}
       />
 

@@ -311,6 +311,13 @@ class DataProduct(BaseModel):
     created_at: Optional[datetime] = Field(None, description="Record creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Record update timestamp")
 
+    # Versioning fields
+    draft_owner_id: Optional[str] = Field(None, alias="draftOwnerId", description="Personal draft owner - if set, visible only to owner")
+    parent_product_id: Optional[str] = Field(None, alias="parentProductId", description="Parent version ID for version lineage")
+    base_name: Optional[str] = Field(None, alias="baseName", description="Base name without version for grouping versions")
+    change_summary: Optional[str] = Field(None, alias="changeSummary", description="Summary of changes in this version")
+    published: bool = Field(False, description="Whether published to marketplace")
+
     # Field validators to parse JSON strings from database
     @field_validator('tags', mode='before')
     def parse_tags(cls, value):
@@ -486,3 +493,52 @@ class SubscribersListResponse(BaseModel):
     product_id: str = Field(..., description="Product ID")
     subscriber_count: int = Field(..., description="Total number of subscribers")
     subscribers: List[SubscriberInfo] = Field(default_factory=list, description="List of subscribers")
+
+
+# ============================================================================
+# Status Change Request/Response Models
+# ============================================================================
+
+class ChangeStatusPayload(BaseModel):
+    """Payload for direct status change (admin/owner)."""
+    new_status: str = Field(..., description="Target status")
+
+
+class RequestStatusChangePayload(BaseModel):
+    """Payload for requesting a status change (approval workflow)."""
+    target_status: str = Field(..., description="Requested target status")
+    justification: str = Field(..., description="Justification for the status change")
+    current_status: Optional[str] = Field(None, description="Current status (for reference)")
+
+
+class HandleStatusChangePayload(BaseModel):
+    """Payload for handling a status change request (approve/deny)."""
+    decision: str = Field(..., description="Decision: 'approve', 'deny', or 'clarify'")
+    target_status: str = Field(..., description="The target status that was requested")
+    requester_email: str = Field(..., description="Email of the original requester")
+    message: Optional[str] = Field(None, description="Optional message from approver")
+
+
+class CommitDraftRequest(BaseModel):
+    """Request to commit a personal draft to team visibility."""
+    new_version: str = Field(..., description="Version number for the committed product")
+    change_summary: str = Field(..., description="Summary of changes made")
+
+
+class CommitDraftResponse(BaseModel):
+    """Response from committing a personal draft."""
+    id: str = Field(..., description="Product ID")
+    name: Optional[str] = Field(None, description="Product name")
+    version: Optional[str] = Field(None, description="New version")
+    status: str = Field(..., description="Product status")
+    draft_owner_id: Optional[str] = Field(None, alias="draftOwnerId", description="Draft owner (null after commit)")
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class DiffFromParentResponse(BaseModel):
+    """Response containing diff analysis from parent version."""
+    parent_version: str = Field(..., description="Parent version string")
+    suggested_bump: str = Field(..., description="Suggested semver bump: major, minor, or patch")
+    suggested_version: str = Field(..., description="Suggested new version string")
+    analysis: Dict[str, Any] = Field(..., description="Detailed diff analysis")
