@@ -626,6 +626,13 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
                     tags.extend([asset.asset_fqn for asset in review.assets]) # Add asset FQNs as tags
                     tags.extend([asset.asset_type.value for asset in review.assets]) # Add asset types
 
+                # Build extra_data for configurable search fields
+                extra_data = {
+                    "requester": review.requester_email or "",
+                    "reviewer": review.reviewer_email or "",
+                    "status": review.status.value if review.status else "",
+                }
+
                 items.append(
                     SearchIndexItem(
                         id=f"review::{review.id}",
@@ -634,7 +641,8 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
                         title=title,
                         description=review.notes or f"Review request {review.id}",
                         link=f"/data-asset-reviews/{review.id}",
-                        tags=list(set(tags)) # Remove duplicate tags
+                        tags=list(set(tags)),  # Remove duplicate tags
+                        extra_data=extra_data,
                     )
                 )
             logger.info(f"Prepared {len(items)} data asset reviews for search index.")

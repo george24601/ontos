@@ -1854,16 +1854,24 @@ class DataProductsManager(SearchableAsset):
                 except Exception:
                     tag_strings = []
 
+                # Build extra_data for configurable search fields
+                extra_data = {
+                    "status": product.status or "",
+                    "version": product.version or "",
+                    "domain": product.domain or "",
+                    "owner": product.team.name if product.team and product.team.name else "",
+                }
+
                 items.append(
                     SearchIndexItem(
                         id=f"product::{product.id}",
-                        version=product.version,
                         type="data-product",
                         feature_id="data-products",
                         title=product.name,
                         description=description,
                         link=f"/data-products/{product.id}",
-                        tags=tag_strings
+                        tags=tag_strings,
+                        extra_data=extra_data,
                     )
                 )
 

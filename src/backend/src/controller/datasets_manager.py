@@ -82,6 +82,13 @@ class DatasetsManager(SearchableAsset):
                 
                 description = ds.description or f"{ds.asset_type.capitalize()} in {ds.environment}"
                 
+                # Build extra_data for configurable search fields
+                extra_data = {
+                    "environment": ds.environment or "",
+                    "asset_type": ds.asset_type or "",
+                    "status": getattr(ds, 'status', '') or "",
+                }
+
                 items.append(SearchIndexItem(
                     id=f"dataset::{ds.id}",
                     type="dataset",
@@ -90,6 +97,7 @@ class DatasetsManager(SearchableAsset):
                     link=f"/datasets/{ds.id}",
                     tags=tags,
                     feature_id="datasets",
+                    extra_data=extra_data,
                 ))
         except Exception as e:
             logger.error(f"Error fetching datasets for search index: {e}", exc_info=True)

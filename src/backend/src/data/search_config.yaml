@@ -30,7 +30,7 @@ asset_types:
       owner:
         indexed: true
         source: "owner"
-        match_type: exact
+        match_type: substring
         priority: 4
         boost: 1.5
       status:
@@ -39,6 +39,18 @@ asset_types:
         match_type: exact
         priority: 5
         boost: 0.8
+      version:
+        indexed: true
+        source: "version"
+        match_type: prefix
+        priority: 6
+        boost: 0.5
+      domain:
+        indexed: true
+        source: "domain"
+        match_type: substring
+        priority: 4
+        boost: 1.0
 
   data-contract:
     enabled: true
@@ -47,7 +59,7 @@ asset_types:
       version:
         indexed: true
         source: "version"
-        match_type: exact
+        match_type: prefix
         priority: 5
         boost: 0.5
       status:
@@ -56,6 +68,18 @@ asset_types:
         match_type: exact
         priority: 6
         boost: 0.8
+      owner:
+        indexed: true
+        source: "owner"
+        match_type: substring
+        priority: 4
+        boost: 1.0
+      domain:
+        indexed: true
+        source: "domain"
+        match_type: substring
+        priority: 4
+        boost: 1.0
 
   glossary-term:
     enabled: true
@@ -84,6 +108,12 @@ asset_types:
         match_type: exact
         priority: 5
         boost: 0.8
+      status:
+        indexed: true
+        source: "status"
+        match_type: exact
+        priority: 6
+        boost: 0.7
 
   data-asset-review:
     enabled: true
@@ -111,6 +141,19 @@ asset_types:
   tag:
     enabled: true
     inherit_defaults: true
+    extra_fields:
+      category:
+        indexed: true
+        source: "category"
+        match_type: substring
+        priority: 4
+        boost: 1.0
+      status:
+        indexed: true
+        source: "status"
+        match_type: exact
+        priority: 5
+        boost: 0.7
 
   data-domain:
     enabled: true
@@ -119,9 +162,15 @@ asset_types:
       owner:
         indexed: true
         source: "owner"
-        match_type: exact
+        match_type: substring
         priority: 4
         boost: 1.0
+      status:
+        indexed: true
+        source: "status"
+        match_type: exact
+        priority: 5
+        boost: 0.7
 
 # Result ranking behavior
 ranking:

@@ -464,6 +464,28 @@ class DataContractsManager(SearchableAsset):
                     except Exception:
                         tag_names = []
 
+                    # Build extra_data for configurable search fields
+                    owner = ""
+                    try:
+                        if getattr(contract_db, 'owner_team', None) and getattr(contract_db.owner_team, 'name', None):
+                            owner = contract_db.owner_team.name
+                    except Exception:
+                        pass
+
+                    domain = ""
+                    try:
+                        if getattr(contract_db, 'domain', None) and getattr(contract_db.domain, 'name', None):
+                            domain = contract_db.domain.name
+                    except Exception:
+                        pass
+
+                    extra_data = {
+                        "version": str(version) if version else "",
+                        "status": str(status) if status else "",
+                        "owner": owner,
+                        "domain": domain,
+                    }
+
                     items.append(
                         SearchIndexItem(
                             id=f"contract::{contract_id}",
@@ -472,7 +494,8 @@ class DataContractsManager(SearchableAsset):
                             title=name,
                             description=description or "",
                             link=f"/data-contracts/{contract_id}",
-                            tags=tag_names
+                            tags=tag_names,
+                            extra_data=extra_data,
                         )
                     )
 

@@ -334,6 +334,13 @@ class TagsManager(SearchableAsset):
                         continue
 
                     tag_api_model = Tag.from_orm(tag_db_obj)  # Use Pydantic model for FQN
+                    
+                    # Build extra_data for configurable search fields
+                    extra_data = {
+                        "category": tag_api_model.namespace_name or DEFAULT_NAMESPACE_NAME,
+                        "status": tag_api_model.status.value if tag_api_model.status else "",
+                    }
+
                     items.append(
                         SearchIndexItem(
                             id=f"tag::{tag_api_model.id}",
@@ -348,6 +355,7 @@ class TagsManager(SearchableAsset):
                                 tag_api_model.namespace_name or DEFAULT_NAMESPACE_NAME,
                                 f"status:{tag_api_model.status.value}",
                             ],
+                            extra_data=extra_data,
                         )
                     )
 

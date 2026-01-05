@@ -330,6 +330,12 @@ class DataDomainManager(SearchableAsset):
                         logger.warning(f"Skipping domain due to missing id or name: {db_domain}")
                         continue
 
+                    # Build extra_data for configurable search fields
+                    extra_data = {
+                        "owner": getattr(db_domain, 'created_by', '') or "",
+                        "status": getattr(db_domain, 'status', 'active') or "active",  # Default to active if no status field
+                    }
+
                     items.append(
                         SearchIndexItem(
                             id=f"domain::{db_domain.id}",
@@ -338,7 +344,8 @@ class DataDomainManager(SearchableAsset):
                             title=db_domain.name,
                             description=getattr(db_domain, 'description', '') or "",
                             link=f"/data-domains/{db_domain.id}",
-                            tags=[]
+                            tags=[],
+                            extra_data=extra_data,
                         )
                     )
 
