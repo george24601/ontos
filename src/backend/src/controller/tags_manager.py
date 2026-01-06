@@ -312,6 +312,37 @@ class TagsManager(SearchableAsset):
             return True
         return False
 
+    # --- Entity-Tag Relationship Methods ---
+    def get_entities_for_tag(
+        self, 
+        db: Session, 
+        *, 
+        tag_id: UUID, 
+        entity_type: Optional[str] = None
+    ) -> List[dict]:
+        """Get all entities that have a specific tag assigned.
+        
+        Returns a list of dicts containing entity_id, entity_type, assigned_value, 
+        assigned_by, and assigned_at.
+        """
+        from src.db_models.tags import EntityTagAssociationDb
+        
+        query = db.query(EntityTagAssociationDb).filter(EntityTagAssociationDb.tag_id == tag_id)
+        if entity_type:
+            query = query.filter(EntityTagAssociationDb.entity_type == entity_type)
+        
+        associations = query.all()
+        return [
+            {
+                "entity_id": assoc.entity_id,
+                "entity_type": assoc.entity_type,
+                "assigned_value": assoc.assigned_value,
+                "assigned_by": assoc.assigned_by,
+                "assigned_at": assoc.assigned_at.isoformat() if assoc.assigned_at else None
+            }
+            for assoc in associations
+        ]
+
     # --- SearchableAsset Implementation ---
     def get_search_index_items(self) -> List[SearchIndexItem]:
         logger.info("TagsManager: Fetching tags for search indexing...")

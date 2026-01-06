@@ -33,6 +33,24 @@ asset_types:
         match_type: substring
         priority: 4
         boost: 1.5
+      owner_team:
+        indexed: true
+        source: "owner_team"
+        match_type: substring
+        priority: 4
+        boost: 1.5
+      product_team:
+        indexed: true
+        source: "product_team"
+        match_type: substring
+        priority: 4
+        boost: 1.2
+      team_members:
+        indexed: true
+        source: "team_members"
+        match_type: substring
+        priority: 4
+        boost: 1.2
       status:
         indexed: true
         source: "status"

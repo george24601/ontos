@@ -93,6 +93,7 @@ export default function App() {
               <Route path="/catalog-commander" element={<CatalogCommander />} />
               <Route path="/create-uc" element={<CreateUcObject />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/:tab" element={<Settings />} />
               <Route path="/teams" element={<TeamsView />} />
               <Route path="/projects" element={<ProjectsView />} />
               <Route path="/search" element={<SearchView />} />

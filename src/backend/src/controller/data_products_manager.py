@@ -1854,12 +1854,37 @@ class DataProductsManager(SearchableAsset):
                 except Exception:
                     tag_strings = []
 
+                # Get owner team name from owner_team_id (organizational team)
+                owner_team_name = ""
+                if product.owner_team_id:
+                    try:
+                        from uuid import UUID
+                        owner_team = team_repo.get(self._db, id=UUID(product.owner_team_id))
+                        if owner_team:
+                            owner_team_name = owner_team.name or ""
+                    except Exception as e:
+                        logger.debug(f"Could not resolve owner_team_id {product.owner_team_id}: {e}")
+
+                # Get product team name and member names
+                product_team_name = product.team.name if product.team and product.team.name else ""
+                team_member_names: List[str] = []
+                if product.team and product.team.members:
+                    for member in product.team.members:
+                        if member.name:
+                            team_member_names.append(member.name)
+                        if member.username and member.username != member.name:
+                            team_member_names.append(member.username)
+
                 # Build extra_data for configurable search fields
+                # Include both owner_team (organizational) and product team info
                 extra_data = {
                     "status": product.status or "",
                     "version": product.version or "",
                     "domain": product.domain or "",
-                    "owner": product.team.name if product.team and product.team.name else "",
+                    "owner": owner_team_name or product_team_name,  # Prefer organizational team
+                    "owner_team": owner_team_name,
+                    "product_team": product_team_name,
+                    "team_members": ", ".join(team_member_names),
                 }
 
                 items.append(

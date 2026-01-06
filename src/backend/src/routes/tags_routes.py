@@ -238,6 +238,22 @@ async def get_tag(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
     return tag
 
+
+@router.get("/tags/{tag_id}/entities", response_model=List[dict])
+async def get_entities_for_tag(
+    tag_id: UUID,
+    db: DBSessionDep,
+    entity_type: Optional[str] = Query(None, description="Filter by entity type (e.g., data_product, data_contract, dataset)"),
+    manager: TagsManager = Depends(get_tags_manager)
+):
+    """Get all entities that have this tag assigned."""
+    # Verify tag exists
+    tag = manager.get_tag(db, tag_id=tag_id)
+    if not tag:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
+    return manager.get_entities_for_tag(db, tag_id=tag_id, entity_type=entity_type)
+
+
 @router.get("/tags/fqn/{fully_qualified_name:path}", response_model=Tag, name="get_tag_by_fqn")
 async def get_tag_by_fully_qualified_name_route(
     fully_qualified_name: str,
