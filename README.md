@@ -481,7 +481,7 @@ ucapp/
 ├── package.json            # Frontend dependencies & scripts (yarn)
 ├── yarn.lock               # Yarn lock file
 ├── README.md               # This file
-├── LICENSE                 # Apache 2.0 License
+├── LICENSE                 # Databricks License
 └── .env.example            # Example environment variables
 ```
 
@@ -498,4 +498,4 @@ hatch run lint:all
 
 # License
 
-This project is licensed under the Apache License, Version 2.0 - see the LICENSE file for details.
+This project is licensed under the Databricks License - see the LICENSE.txt file for details.
