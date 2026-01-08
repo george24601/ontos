@@ -437,8 +437,17 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
   const firstName = useMemo(() => {
     // First try the 'user' field which often contains the display name
     if (userInfo?.user) {
-      const parts = userInfo.user.split(' ');
-      return parts[0] || '';
+      const name = userInfo.user.trim();
+      // Check for "Last, First" format
+      if (name.includes(',')) {
+        const afterComma = name.split(',')[1]?.trim();
+        if (afterComma) {
+          // Take first word after comma (handles "Last, First Middle")
+          return afterComma.split(' ')[0];
+        }
+      }
+      // Standard "First Last" format
+      return name.split(' ')[0] || '';
     }
     // Fall back to username (might be email format like first.last@domain.com)
     if (userInfo?.username) {
