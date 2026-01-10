@@ -65,7 +65,6 @@ DEFAULT_ROLE_PERMISSIONS = {
         'entitlements-sync': FeatureAccessLevel.ADMIN,
         'data-asset-reviews': FeatureAccessLevel.ADMIN,
         'catalog-commander': FeatureAccessLevel.FULL,
-        'settings': FeatureAccessLevel.READ_ONLY, # DGO can view settings?
     },
     "Data Steward": {
         'data-domains': FeatureAccessLevel.READ_WRITE,

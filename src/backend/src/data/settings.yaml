@@ -40,7 +40,6 @@ roles:
       entitlements-sync: Admin
       data-asset-reviews: Admin
       catalog-commander: Full
-      settings: Read-only
     home_sections:
       - REQUIRED_ACTIONS
       - DISCOVERY
