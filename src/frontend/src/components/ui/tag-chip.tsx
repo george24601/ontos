@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { X, Info } from 'lucide-react';
 import {
@@ -21,6 +22,8 @@ export interface AssignedTag {
   assigned_at: string;
 }
 
+export type TagDisplayFormat = 'short' | 'long';
+
 export interface TagChipProps {
   /** Tag data - can be a simple string or rich AssignedTag object */
   tag: string | AssignedTag;
@@ -34,6 +37,10 @@ export interface TagChipProps {
   size?: 'sm' | 'md' | 'lg';
   /** Color variant based on tag status or custom */
   variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'info';
+  /** Whether clicking the tag opens search (default: true) */
+  clickable?: boolean;
+  /** Display format: 'short' shows only tag name, 'long' shows namespace/tagname */
+  displayFormat?: TagDisplayFormat;
 }
 
 const getVariantFromStatus = (status?: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'info' => {
@@ -71,27 +78,56 @@ const TagChip: React.FC<TagChipProps> = ({
   className,
   size = 'md',
   variant,
+  clickable = true,
+  displayFormat = 'short',
 }) => {
+  const navigate = useNavigate();
   const isRichTag = typeof tag === 'object';
   const tagName = isRichTag ? tag.tag_name : tag;
-  const displayName = isRichTag && tag.assigned_value ?
-    `${tag.tag_name}: ${tag.assigned_value}` : tagName;
+  
+  // Determine display name based on format
+  const getDisplayName = () => {
+    if (isRichTag) {
+      const baseName = displayFormat === 'long' ? tag.fully_qualified_name : tag.tag_name;
+      return tag.assigned_value ? `${baseName}: ${tag.assigned_value}` : baseName;
+    }
+    return tag;
+  };
+  
+  const displayName = getDisplayName();
+
+  // Get the search query for the tag (fully qualified name for search)
+  const getSearchQuery = () => {
+    if (isRichTag) {
+      return tag.fully_qualified_name;
+    }
+    return tag;
+  };
 
   // Determine variant based on tag status if not explicitly provided
-  const effectiveVariant = variant || (isRichTag ? getVariantFromStatus(tag.status) : 'info'); // Default to light blue for all tags
+  const effectiveVariant = variant || (isRichTag ? getVariantFromStatus(tag.status) : 'info');
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
     onRemove?.(tag);
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (!clickable) return;
+    e.stopPropagation();
+    const searchQuery = encodeURIComponent(`tag:${getSearchQuery()}`);
+    navigate(`/search?tab=app&app_query=${searchQuery}`);
+  };
+
   const chipContent = (
     <Badge
       variant={effectiveVariant}
+      onClick={clickable ? handleClick : undefined}
       className={cn(
         'inline-flex items-center gap-1.5 font-medium',
         getSizeClasses(size),
         removable && 'pr-1',
+        clickable && 'cursor-pointer hover:opacity-80 transition-opacity',
         className
       )}
     >
@@ -132,6 +168,9 @@ const TagChip: React.FC<TagChipProps> = ({
               <div className="text-xs"><span className="text-muted-foreground">By:</span> {tag.assigned_by}</div>
             )}
             <div className="text-xs text-muted-foreground">{new Date(tag.assigned_at).toLocaleDateString()}</div>
+            {clickable && (
+              <div className="text-xs text-primary mt-1">Click to search</div>
+            )}
           </div>
         </TooltipContent>
       </Tooltip>

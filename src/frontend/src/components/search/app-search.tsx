@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Search, FileText, Database, Book, Shield, Loader2 } from 'lucide-react';
+import { features } from '@/config/features';
 
 type AppSearchResult = {
   id: string;
-  type: 'data-product' | 'data-contract' | 'glossary-term' | 'persona';
+  type: string;
   title: string;
   description: string;
   link: string;
+  feature_id?: string;
+  tags?: string[];
 };
 
 interface AppSearchProps {
@@ -69,6 +73,32 @@ export default function AppSearch({ initialQuery = '' }: AppSearchProps) {
     return () => clearTimeout(t);
   }, [appQuery]);
 
+  // Get icon for result based on feature_id or type fallback
+  const getIcon = (result: AppSearchResult) => {
+    // Prefer explicit feature-based icon mapping to keep UI consistent with navigation
+    if (result.feature_id) {
+      const feature = features.find((f) => f.id === result.feature_id);
+      if (feature) {
+        const Icon = feature.icon;
+        return <Icon className="h-4 w-4 flex-shrink-0" />;
+      }
+    }
+
+    // Fallbacks based on type
+    switch (result.type) {
+      case 'data-product':
+        return <Database className="h-4 w-4 flex-shrink-0" />;
+      case 'data-contract':
+        return <FileText className="h-4 w-4 flex-shrink-0" />;
+      case 'glossary-term':
+        return <Book className="h-4 w-4 flex-shrink-0" />;
+      case 'persona':
+        return <Shield className="h-4 w-4 flex-shrink-0" />;
+      default:
+        return <Search className="h-4 w-4 flex-shrink-0" />;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -86,14 +116,24 @@ export default function AppSearch({ initialQuery = '' }: AppSearchProps) {
         </div>
         <div className="space-y-2 text-sm">
           {appLoading ? (
-            <div className="text-xs text-muted-foreground">Loading...</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading...
+            </div>
           ) : appResults.length === 0 ? (
             <div className="text-xs text-muted-foreground">No results</div>
           ) : (
             appResults.map(r => (
-              <a key={r.id} href={r.link} className="block p-2 rounded hover:bg-accent">
-                <div className="text-sm font-medium">{r.title}</div>
-                <div className="text-xs text-muted-foreground">{r.description}</div>
+              <a 
+                key={r.id} 
+                href={r.link} 
+                className="flex items-center gap-3 p-2 rounded hover:bg-accent"
+              >
+                {getIcon(r)}
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">{r.title}</div>
+                  <div className="text-xs text-muted-foreground truncate">{r.description}</div>
+                </div>
               </a>
             ))
           )}

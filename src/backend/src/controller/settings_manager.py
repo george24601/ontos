@@ -198,6 +198,11 @@ class SettingsManager:
             if 'LLM_DISCLAIMER_TEXT' in all_settings and all_settings['LLM_DISCLAIMER_TEXT'] is not None:
                 self._settings.LLM_DISCLAIMER_TEXT = all_settings['LLM_DISCLAIMER_TEXT']
                 logger.info("Loaded LLM_DISCLAIMER_TEXT from database")
+            
+            # Tag display format setting (stored in DB only, not in Settings model)
+            # Valid values: 'short' (default), 'long'
+            if 'TAG_DISPLAY_FORMAT' in all_settings and all_settings['TAG_DISPLAY_FORMAT'] is not None:
+                logger.info(f"Loaded TAG_DISPLAY_FORMAT from database: {all_settings['TAG_DISPLAY_FORMAT']}")
                 
         except Exception as e:
             logger.warning(f"Failed to load persisted settings from database: {e}")
@@ -966,6 +971,9 @@ class SettingsManager:
         from src.repositories.workflow_installations_repository import workflow_installation_repo
         enabled_installations = workflow_installation_repo.get_all_installed(self._db)
         enabled_job_ids = [inst.workflow_id for inst in enabled_installations]
+        
+        # Get tag display format from database (default: 'short')
+        tag_display_format = app_settings_repo.get_by_key(self._db, 'TAG_DISPLAY_FORMAT') or 'short'
 
         return {
             'job_cluster_id': self._settings.job_cluster_id,
@@ -984,6 +992,8 @@ class SettingsManager:
             'llm_endpoint': self._settings.LLM_ENDPOINT,
             'llm_system_prompt': self._settings.LLM_SYSTEM_PROMPT,
             'llm_disclaimer_text': self._settings.LLM_DISCLAIMER_TEXT,
+            # Tag display settings
+            'tag_display_format': tag_display_format,
         }
 
     def update_settings(self, settings: dict) -> Settings:
@@ -1205,6 +1215,16 @@ class SettingsManager:
             app_settings_repo.set(self._db, 'LLM_DISCLAIMER_TEXT', value)
             self._settings.LLM_DISCLAIMER_TEXT = value
             logger.info(f"Updated LLM_DISCLAIMER_TEXT")
+        
+        # Handle tag display format setting
+        if 'tag_display_format' in settings:
+            value = settings.get('tag_display_format')
+            # Validate value - only 'short' or 'long' are valid
+            if value in ('short', 'long'):
+                app_settings_repo.set(self._db, 'TAG_DISPLAY_FORMAT', value)
+                logger.info(f"Updated TAG_DISPLAY_FORMAT to: {value}")
+            else:
+                logger.warning(f"Invalid tag_display_format value: {value}. Must be 'short' or 'long'.")
         
         return self._settings
 

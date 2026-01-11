@@ -111,6 +111,10 @@ class SearchManager:
         - How to match (prefix, substring, exact, fuzzy)
         - How to rank results (by field priority, then boost score)
         
+        Supports special query prefixes:
+        - tag:namespace/tagname - Filter by exact tag match
+        - tag:namespace - Filter by namespace prefix (matches all tags in namespace)
+        
         Results are filtered by user permissions.
         
         Args:
@@ -125,17 +129,24 @@ class SearchManager:
         if not query:
             return []
 
-        query_lower = query.lower().strip()
-        if not query_lower:
+        query_stripped = query.strip()
+        if not query_stripped:
             return []
         
         config = self.config
         matches: List[SearchMatch] = []
         
-        for item in self.index:
-            match = self._find_best_match(item, query_lower, config)
-            if match:
-                matches.append(match)
+        # Check for tag: prefix filter
+        if query_stripped.lower().startswith('tag:'):
+            tag_pattern = query_stripped[4:].strip()  # Extract pattern after 'tag:'
+            matches = self._filter_by_tag(tag_pattern, config)
+        else:
+            # Normal search
+            query_lower = query_stripped.lower()
+            for item in self.index:
+                match = self._find_best_match(item, query_lower, config)
+                if match:
+                    matches.append(match)
 
         # Filter based on permissions using AuthorizationManager
         if not user.groups:
@@ -163,6 +174,68 @@ class SearchManager:
             f"after permission filtering for user {user.username}."
         )
         return results
+
+    def _filter_by_tag(
+        self, 
+        tag_pattern: str, 
+        config: SearchConfig
+    ) -> List[SearchMatch]:
+        """
+        Filter indexed items by tag pattern.
+        
+        Supports:
+        - Exact match: tag:namespace/tagname - matches items with exactly that tag
+        - Namespace prefix: tag:namespace - matches all items with tags starting with 'namespace/'
+        
+        Args:
+            tag_pattern: The tag pattern to match (e.g., 'finance/pii' or 'finance')
+            config: Search configuration
+            
+        Returns:
+            List of SearchMatch for items that have matching tags
+        """
+        matches: List[SearchMatch] = []
+        pattern_lower = tag_pattern.lower()
+        
+        # Determine if this is an exact match or prefix match
+        # If pattern contains '/', it's an exact match; otherwise prefix match
+        is_exact_match = '/' in pattern_lower
+        
+        for item in self.index:
+            if not item.tags:
+                continue
+            
+            # Check if any tag matches the pattern
+            tag_matched = False
+            for tag in item.tags:
+                tag_lower = str(tag).lower()
+                
+                if is_exact_match:
+                    # Exact match: pattern must equal the tag
+                    if tag_lower == pattern_lower:
+                        tag_matched = True
+                        break
+                else:
+                    # Prefix match: tag must start with pattern + '/'
+                    # e.g., pattern 'finance' matches 'finance/pii', 'finance/sensitive'
+                    if tag_lower.startswith(pattern_lower + '/') or tag_lower == pattern_lower:
+                        tag_matched = True
+                        break
+            
+            if tag_matched:
+                # Get the tags field config for scoring
+                field_configs = config.get_all_field_configs(item.type)
+                tags_config = field_configs.get('tags')
+                
+                matches.append(SearchMatch(
+                    item=item,
+                    matched_field='tags',
+                    field_priority=tags_config.priority if tags_config else 10,
+                    boost_score=tags_config.boost if tags_config else 1.0,
+                    match_quality=1.0,  # Exact tag matches get full quality
+                ))
+        
+        return matches
 
     def _find_best_match(
         self, 
