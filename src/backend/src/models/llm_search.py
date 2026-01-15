@@ -265,6 +265,7 @@ class LLMSearchStatus(BaseModel):
     """Status of the LLM search feature."""
     enabled: bool = Field(..., description="Whether LLM search is enabled")
     endpoint: Optional[str] = Field(None, description="Configured LLM endpoint")
+    model_name: Optional[str] = Field(None, description="Name of the configured foundation model")
     disclaimer: str = Field(..., description="Disclaimer text about AI limitations")
 
 

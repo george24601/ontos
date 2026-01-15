@@ -355,9 +355,11 @@ class LLMSearchManager:
     
     def get_status(self) -> LLMSearchStatus:
         """Get the status of LLM search functionality."""
+        model = self._settings.LLM_ENDPOINT
         return LLMSearchStatus(
             enabled=self._settings.LLM_ENABLED,
-            endpoint=self._settings.LLM_ENDPOINT,
+            endpoint=model,
+            model_name=model,
             disclaimer=self._settings.LLM_DISCLAIMER_TEXT or (
                 "This feature uses AI to analyze data assets. AI-generated content may contain errors. "
                 "Review all suggestions carefully before taking action."

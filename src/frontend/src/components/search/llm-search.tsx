@@ -597,6 +597,9 @@ export default function LLMSearch() {
         
         <p className="text-xs text-muted-foreground mt-2 text-center">
           Press Enter to send, Shift+Enter for new line
+          {status?.model_name && (
+            <span className="ml-2 opacity-60">• Model: {status.model_name}</span>
+          )}
         </p>
       </div>
     </Card>

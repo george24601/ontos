@@ -98,6 +98,7 @@ export interface ToolSource {
 export interface LLMSearchStatus {
   enabled: boolean;
   endpoint?: string;
+  model_name?: string;
   disclaimer: string;
 }
 
