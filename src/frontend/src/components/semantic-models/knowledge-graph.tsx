@@ -1,0 +1,794 @@
+import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
+// @ts-expect-error - react-cytoscapejs doesn't have type declarations
+import CytoscapeComponent from 'react-cytoscapejs';
+import type { Core, ElementDefinition, LayoutOptions } from 'cytoscape';
+import type { OntologyConcept } from '@/types/ontology';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ZoomIn, ZoomOut, Maximize, RotateCcw, Expand, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
+// Domain colors from app.py
+const DOMAIN_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD',
+  '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1',
+  '#FF7F50', '#9FE2BF', '#DE3163', '#40E0D0', '#CCCCFF', '#FFB347',
+  '#77DD77', '#AEC6CF', '#FDFD96', '#836953', '#C23B22', '#779ECB', '#966FD6',
+];
+
+export type LayoutType = 'circle' | 'cose' | 'grid' | 'breadthfirst' | 'concentric';
+
+interface KnowledgeGraphProps {
+  concepts: OntologyConcept[];
+  hiddenRoots: Set<string>;
+  onToggleRoot: (rootIri: string) => void;
+  onNodeClick: (concept: OntologyConcept) => void;
+  showDomainBoxes?: boolean;
+}
+
+interface GraphData {
+  elements: ElementDefinition[];
+  rootNodes: OntologyConcept[];
+  rootColors: Map<string, string>;
+  getRootDescendants: (rootIri: string) => Set<string>;
+}
+
+export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
+  concepts,
+  hiddenRoots,
+  onToggleRoot,
+  onNodeClick,
+  showDomainBoxes = true,
+}) => {
+  const cyRef = useRef<Core | null>(null);
+  const fullscreenCyRef = useRef<Core | null>(null);
+  const layoutRef = useRef<{ stop: () => void } | null>(null);
+  const [layout, setLayout] = useState<LayoutType>('cose');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    checkDarkMode();
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
+    return () => observer.disconnect();
+  }, []);
+
+  // Cleanup cytoscape and layouts on unmount
+  useEffect(() => {
+    return () => {
+      // Stop any running layout
+      if (layoutRef.current) {
+        layoutRef.current.stop();
+        layoutRef.current = null;
+      }
+      // Remove all listeners from cytoscape
+      if (cyRef.current) {
+        cyRef.current.removeAllListeners();
+        cyRef.current = null;
+      }
+    };
+  }, []);
+
+  // Transform concepts to Cytoscape elements
+  const graphData = useMemo((): GraphData => {
+    // Only include classes and concepts (matching the tree view)
+    const visibleConcepts = concepts.filter(
+      (c) => c.concept_type === 'class' || c.concept_type === 'concept'
+    );
+
+    // Identify root nodes (nodes with no parents)
+    const rootNodes = visibleConcepts.filter(
+      (c) => !c.parent_concepts || c.parent_concepts.length === 0
+    );
+
+    // Generate colors for each root
+    const rootColors = new Map<string, string>();
+    rootNodes.forEach((root, index) => {
+      rootColors.set(root.iri, DOMAIN_COLORS[index % DOMAIN_COLORS.length]);
+    });
+
+    // Build concept map and find root for each node
+    const conceptMap = new Map(visibleConcepts.map(c => [c.iri, c]));
+    const nodeToRoot = new Map<string, string>();
+
+    const findRoot = (iri: string, visited = new Set<string>()): string | null => {
+      if (visited.has(iri)) return null;
+      visited.add(iri);
+      
+      const concept = conceptMap.get(iri);
+      if (!concept) return null;
+      
+      if (!concept.parent_concepts || concept.parent_concepts.length === 0) {
+        return iri;
+      }
+      
+      for (const parentIri of concept.parent_concepts) {
+        const root = findRoot(parentIri, visited);
+        if (root) return root;
+      }
+      
+      return null;
+    };
+
+    visibleConcepts.forEach(concept => {
+      const root = findRoot(concept.iri);
+      if (root) {
+        nodeToRoot.set(concept.iri, root);
+      }
+    });
+
+    // Get all descendants of a root (including the root itself)
+    const getRootDescendants = (rootIri: string): Set<string> => {
+      const descendants = new Set<string>([rootIri]);
+      const queue = [rootIri];
+      
+      while (queue.length > 0) {
+        const currentIri = queue.shift()!;
+        const concept = conceptMap.get(currentIri);
+        
+        if (concept?.child_concepts) {
+          concept.child_concepts.forEach(childIri => {
+            if (!descendants.has(childIri) && conceptMap.has(childIri)) {
+              descendants.add(childIri);
+              queue.push(childIri);
+            }
+          });
+        }
+      }
+      
+      return descendants;
+    };
+
+    // Filter nodes based on hidden roots
+    const visibleNodeIris = new Set<string>();
+    rootNodes.forEach(root => {
+      if (!hiddenRoots.has(root.iri)) {
+        const descendants = getRootDescendants(root.iri);
+        descendants.forEach(iri => visibleNodeIris.add(iri));
+      }
+    });
+
+    const filteredConcepts = visibleConcepts.filter(c => visibleNodeIris.has(c.iri));
+
+    // Build elements array
+    const elements: ElementDefinition[] = [];
+
+    // Add domain compound nodes (parents) if enabled
+    if (showDomainBoxes) {
+      rootNodes.forEach(root => {
+        if (!hiddenRoots.has(root.iri)) {
+          elements.push({
+            data: {
+              id: `domain_${root.iri}`,
+              label: root.label || root.iri.split(/[/#]/).pop() || 'Unknown',
+              type: 'domain',
+              color: rootColors.get(root.iri),
+            },
+            classes: 'domain-node',
+          });
+        }
+      });
+    }
+
+    // Add concept nodes
+    filteredConcepts.forEach(concept => {
+      const rootIri = nodeToRoot.get(concept.iri) || concept.iri;
+      const color = rootColors.get(rootIri) || '#64748b';
+      
+      const nodeData: ElementDefinition = {
+        data: {
+          id: concept.iri,
+          label: concept.label || concept.iri.split(/[/#]/).pop() || 'Unknown',
+          type: 'concept',
+          color: color,
+          conceptData: concept, // Store full concept for click handler
+          sourceContext: concept.source_context,
+          childCount: concept.child_concepts?.length || 0,
+          parentCount: concept.parent_concepts?.length || 0,
+        },
+        classes: 'concept-node',
+      };
+
+      // Add parent reference for compound nodes
+      if (showDomainBoxes && !hiddenRoots.has(rootIri)) {
+        nodeData.data.parent = `domain_${rootIri}`;
+      }
+
+      elements.push(nodeData);
+    });
+
+    // Add edges for parent-child relationships
+    filteredConcepts.forEach(concept => {
+      concept.child_concepts.forEach(childIri => {
+        const childExists = filteredConcepts.some(c => c.iri === childIri);
+        if (childExists) {
+          elements.push({
+            data: {
+              id: `edge_${concept.iri}_${childIri}`,
+              source: concept.iri,
+              target: childIri,
+            },
+            classes: 'hierarchy-edge',
+          });
+        }
+      });
+    });
+
+    return { elements, rootNodes, rootColors, getRootDescendants };
+  }, [concepts, hiddenRoots, showDomainBoxes]);
+
+  // Create stylesheet based on dark mode
+  // Cytoscape stylesheet - using any[] due to complex type definitions
+  const stylesheet = useMemo((): any[] => {
+    const textColor = isDarkMode ? '#f1f5f9' : '#1f2937';
+    const textOutlineColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+    const edgeColor = isDarkMode ? '#71717a' : '#64748b';
+    const domainBgOpacity = isDarkMode ? 0.15 : 0.12;
+    
+    return [
+      // Base node styles
+      {
+        selector: 'node',
+        style: {
+          'font-family': 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+          'font-size': 11,
+          'font-weight': 500,
+          'text-valign': 'bottom',
+          'text-halign': 'center',
+          'text-margin-y': 8,
+          'color': textColor,
+          'text-outline-width': 2,
+          'text-outline-color': textOutlineColor,
+        },
+      },
+      // Concept nodes
+      {
+        selector: '.concept-node',
+        style: {
+          'shape': 'ellipse',
+          'width': 24,
+          'height': 24,
+          'background-color': 'data(color)',
+          'border-width': 2,
+          'border-color': isDarkMode ? 'rgba(30,30,30,0.8)' : 'rgba(255,255,255,0.9)',
+          'label': '',
+        },
+      },
+      // Concept node hover
+      {
+        selector: '.concept-node.hover',
+        style: {
+          'width': 32,
+          'height': 32,
+          'border-width': 3,
+          'label': 'data(label)',
+          'font-size': 13,
+          'font-weight': 600,
+          'z-index': 999,
+        },
+      },
+      // Concept node selected
+      {
+        selector: '.concept-node:selected',
+        style: {
+          'width': 40,
+          'height': 40,
+          'border-width': 4,
+          'border-color': '#FFD700',
+          'label': 'data(label)',
+          'font-size': 14,
+          'font-weight': 700,
+        },
+      },
+      // Domain compound nodes
+      {
+        selector: '.domain-node',
+        style: {
+          'shape': 'round-rectangle',
+          'background-color': 'data(color)',
+          'background-opacity': domainBgOpacity,
+          'border-width': 2,
+          'border-color': 'data(color)',
+          'border-opacity': 0.4,
+          'label': 'data(label)',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'font-size': 14,
+          'font-weight': 700,
+          'color': textColor,
+          'text-margin-y': -8,
+          'padding': 30,
+        },
+      },
+      // Edges
+      {
+        selector: 'edge',
+        style: {
+          'width': 1.5,
+          'line-color': edgeColor,
+          'target-arrow-color': edgeColor,
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 0.8,
+          'curve-style': 'bezier',
+          'opacity': 0.6,
+        },
+      },
+      // Edge hover
+      {
+        selector: 'edge.hover',
+        style: {
+          'width': 2.5,
+          'opacity': 1,
+          'line-color': '#FFD700',
+          'target-arrow-color': '#FFD700',
+        },
+      },
+    ];
+  }, [isDarkMode]);
+
+  // Layout configurations
+  const getLayoutConfig = useCallback((layoutName: LayoutType, animate = true): LayoutOptions => {
+    const baseConfig = {
+      fit: true,
+      padding: 60,
+      animate: animate,
+      animationDuration: animate ? 500 : 0,
+    };
+
+    switch (layoutName) {
+      case 'circle':
+        return {
+          name: 'circle',
+          ...baseConfig,
+          avoidOverlap: true,
+          spacingFactor: 1.5,
+        };
+      case 'cose':
+        return {
+          name: 'cose',
+          ...baseConfig,
+          idealEdgeLength: () => 80,
+          nodeOverlap: 20,
+          nodeRepulsion: () => 400000,
+          edgeElasticity: () => 100,
+          nestingFactor: 5,
+          gravity: 80,
+          numIter: animate ? 1000 : 500,
+          initialTemp: 200,
+          coolingFactor: 0.95,
+          minTemp: 1.0,
+          randomize: false,
+        };
+      case 'grid':
+        return {
+          name: 'grid',
+          ...baseConfig,
+          avoidOverlap: true,
+          avoidOverlapPadding: 10,
+          condense: false,
+        };
+      case 'breadthfirst':
+        return {
+          name: 'breadthfirst',
+          ...baseConfig,
+          directed: true,
+          spacingFactor: 1.5,
+          avoidOverlap: true,
+          maximal: false,
+        };
+      case 'concentric':
+        return {
+          name: 'concentric',
+          ...baseConfig,
+          avoidOverlap: true,
+          minNodeSpacing: 20,
+          concentric: (node: any) => node.degree(),
+          levelWidth: () => 2,
+        };
+      default:
+        return { name: 'circle', ...baseConfig };
+    }
+  }, []);
+
+  // Wire up event handlers
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    // Clear existing handlers
+    cy.removeAllListeners();
+
+    // Node click handler
+    cy.on('tap', 'node.concept-node', (evt) => {
+      const nodeData = evt.target.data();
+      if (nodeData.conceptData) {
+        onNodeClick(nodeData.conceptData);
+      }
+    });
+
+    // Hover handlers
+    cy.on('mouseover', 'node.concept-node', (evt) => {
+      evt.target.addClass('hover');
+    });
+
+    cy.on('mouseout', 'node.concept-node', (evt) => {
+      evt.target.removeClass('hover');
+    });
+
+    cy.on('mouseover', 'edge', (evt) => {
+      evt.target.addClass('hover');
+    });
+
+    cy.on('mouseout', 'edge', (evt) => {
+      evt.target.removeClass('hover');
+    });
+
+    // Cleanup
+    return () => {
+      cy.removeAllListeners();
+    };
+  }, [onNodeClick]);
+
+  // Run layout after mount and when layout type or elements change
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    
+    // Small delay to ensure cytoscape is fully initialized after mount
+    const timeoutId = setTimeout(() => {
+      const currentCy = cyRef.current;
+      if (!currentCy || currentCy.elements().length === 0) return;
+
+      // Stop any running layout first
+      if (layoutRef.current) {
+        layoutRef.current.stop();
+      }
+
+      const layoutConfig = getLayoutConfig(layout, true);
+      const layoutInstance = currentCy.layout(layoutConfig);
+      layoutRef.current = layoutInstance;
+      layoutInstance.run();
+    }, 50);
+
+    // Cleanup: stop layout on unmount or before re-running
+    return () => {
+      clearTimeout(timeoutId);
+      if (layoutRef.current) {
+        layoutRef.current.stop();
+        layoutRef.current = null;
+      }
+    };
+  }, [layout, getLayoutConfig, graphData.elements]);
+
+  // Control handlers
+  const handleFit = () => {
+    cyRef.current?.fit(undefined, 60);
+  };
+
+  const handleZoomIn = () => {
+    const cy = cyRef.current;
+    if (cy) {
+      cy.zoom(cy.zoom() * 1.3);
+    }
+  };
+
+  const handleZoomOut = () => {
+    const cy = cyRef.current;
+    if (cy) {
+      cy.zoom(cy.zoom() / 1.3);
+    }
+  };
+
+  const handleReset = () => {
+    const cy = cyRef.current;
+    if (cy) {
+      // Stop any running layout first
+      if (layoutRef.current) {
+        layoutRef.current.stop();
+      }
+      const layoutConfig = getLayoutConfig(layout);
+      const layoutInstance = cy.layout(layoutConfig);
+      layoutRef.current = layoutInstance;
+      layoutInstance.run();
+    }
+  };
+
+  return (
+    <div className="h-full min-h-[900px] flex flex-col border rounded-lg bg-background overflow-hidden">
+      {/* Legend with toggleable roots */}
+      <div className="px-6 py-3 border-b bg-muted/30">
+        <div className="flex flex-wrap gap-2 text-xs">
+          {graphData.rootNodes.map(root => {
+            const color = graphData.rootColors.get(root.iri) || '#64748b';
+            const label = root.label || root.iri.split(/[/#]/).pop() || 'Unknown';
+            const isHidden = hiddenRoots.has(root.iri);
+            const descendants = graphData.getRootDescendants(root.iri);
+            
+            return (
+              <button
+                key={root.iri}
+                onClick={() => onToggleRoot(root.iri)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all",
+                  "hover:shadow-md hover:scale-105",
+                  "bg-card border-2",
+                  isHidden ? "opacity-40 hover:opacity-60" : "opacity-100"
+                )}
+                style={{
+                  borderColor: color,
+                  backgroundColor: isHidden ? undefined : `${color}15`
+                }}
+                title={`${isHidden ? 'Show' : 'Hide'} ${label} (${descendants.size} concepts)`}
+              >
+                <div 
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                <span className={cn(
+                  "font-medium text-foreground",
+                  isHidden && "line-through"
+                )}>
+                  {label}
+                </span>
+                <span className="text-muted-foreground">
+                  ({descendants.size})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="px-4 py-2 border-b flex items-center justify-between bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Select value={layout} onValueChange={(v) => setLayout(v as LayoutType)}>
+            <SelectTrigger className="w-[160px] h-8">
+              <SelectValue placeholder="Layout" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="circle">Circular</SelectItem>
+              <SelectItem value="cose">Force-Directed</SelectItem>
+              <SelectItem value="grid">Grid</SelectItem>
+              <SelectItem value="breadthfirst">Hierarchical</SelectItem>
+              <SelectItem value="concentric">Concentric</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Badge variant="secondary" className="text-xs">
+            {graphData.elements.filter(e => e.classes === 'concept-node').length} concepts
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut} title="Zoom Out">
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn} title="Zoom In">
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleFit} title="Fit to View">
+            <Maximize className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleReset} title="Reset Layout">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8" 
+            onClick={() => setIsFullscreen(true)} 
+            title="Open Fullscreen"
+          >
+            <Expand className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Graph */}
+      <div className="flex-1 min-h-[700px] relative">
+        <CytoscapeComponent
+          cy={(cy: Core) => {
+            cyRef.current = cy;
+          }}
+          elements={graphData.elements}
+          stylesheet={stylesheet}
+          layout={{ name: 'preset' }}
+          style={{ width: '100%', height: '100%' }}
+          minZoom={0.1}
+          maxZoom={4}
+          wheelSensitivity={0.3}
+          boxSelectionEnabled={false}
+          autounselectify={false}
+          userPanningEnabled={true}
+          userZoomingEnabled={true}
+        />
+      </div>
+
+      {/* Fullscreen Modal */}
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] max-h-[95vh] p-0 flex flex-col">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl font-semibold">Knowledge Graph</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Fullscreen view of the knowledge graph visualization
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={layout} onValueChange={(v) => setLayout(v as LayoutType)}>
+                  <SelectTrigger className="w-[160px] h-8">
+                    <SelectValue placeholder="Layout" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="circle">Circular</SelectItem>
+                    <SelectItem value="cose">Force-Directed</SelectItem>
+                    <SelectItem value="grid">Grid</SelectItem>
+                    <SelectItem value="breadthfirst">Hierarchical</SelectItem>
+                    <SelectItem value="concentric">Concentric</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge variant="secondary" className="text-xs">
+                  {graphData.elements.filter(e => e.classes === 'concept-node').length} concepts
+                </Badge>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          {/* Legend in modal */}
+          <div className="px-6 py-3 border-b bg-muted/30 flex-shrink-0">
+            <div className="flex flex-wrap gap-2 text-xs">
+              {graphData.rootNodes.map(root => {
+                const color = graphData.rootColors.get(root.iri) || '#64748b';
+                const label = root.label || root.iri.split(/[/#]/).pop() || 'Unknown';
+                const isHidden = hiddenRoots.has(root.iri);
+                const descendants = graphData.getRootDescendants(root.iri);
+                
+                return (
+                  <button
+                    key={root.iri}
+                    onClick={() => onToggleRoot(root.iri)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all",
+                      "hover:shadow-md hover:scale-105",
+                      "bg-card border-2",
+                      isHidden ? "opacity-40 hover:opacity-60" : "opacity-100"
+                    )}
+                    style={{
+                      borderColor: color,
+                      backgroundColor: isHidden ? undefined : `${color}15`
+                    }}
+                    title={`${isHidden ? 'Show' : 'Hide'} ${label} (${descendants.size} concepts)`}
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className={cn(
+                      "font-medium text-foreground",
+                      isHidden && "line-through"
+                    )}>
+                      {label}
+                    </span>
+                    <span className="text-muted-foreground">
+                      ({descendants.size})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Fullscreen Graph */}
+          <div className="flex-1 relative">
+            {isFullscreen && (
+              <CytoscapeComponent
+                cy={(cy: Core) => {
+                  fullscreenCyRef.current = cy;
+                  // Run layout after mounting in fullscreen with proper delay
+                  const timeoutId = setTimeout(() => {
+                    if (fullscreenCyRef.current && fullscreenCyRef.current.elements().length > 0) {
+                      const layoutConfig = getLayoutConfig(layout, true);
+                      fullscreenCyRef.current.layout(layoutConfig).run();
+                    }
+                  }, 150);
+                  // Store cleanup
+                  cy.scratch('_layoutTimeout', timeoutId);
+                }}
+                elements={graphData.elements}
+                stylesheet={stylesheet}
+                layout={{ name: 'preset' }}
+                style={{ width: '100%', height: '100%' }}
+                minZoom={0.05}
+                maxZoom={5}
+                wheelSensitivity={0.3}
+                boxSelectionEnabled={false}
+                autounselectify={false}
+                userPanningEnabled={true}
+                userZoomingEnabled={true}
+              />
+            )}
+          </div>
+
+          {/* Fullscreen toolbar */}
+          <div className="px-4 py-2 border-t flex items-center justify-between bg-muted/20 flex-shrink-0">
+            <div className="text-sm text-muted-foreground">
+              Click on nodes to select concepts. Use scroll to zoom, drag to pan.
+            </div>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={() => fullscreenCyRef.current?.zoom((fullscreenCyRef.current?.zoom() || 1) / 1.3)} 
+                title="Zoom Out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={() => fullscreenCyRef.current?.zoom((fullscreenCyRef.current?.zoom() || 1) * 1.3)} 
+                title="Zoom In"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={() => fullscreenCyRef.current?.fit(undefined, 60)} 
+                title="Fit to View"
+              >
+                <Maximize className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={() => {
+                  const cy = fullscreenCyRef.current;
+                  if (cy) {
+                    const layoutConfig = getLayoutConfig(layout, true);
+                    cy.layout(layoutConfig).run();
+                  }
+                }} 
+                title="Reset Layout"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default KnowledgeGraph;
+
