@@ -87,7 +87,7 @@ const createSchemaPropertyColumns = (
                   <Columns2 className="h-3 w-3" />
                   <span
                     className="cursor-pointer hover:underline"
-                    onClick={() => window.open(`/search?startIri=${encodeURIComponent(link.iri)}`, '_blank')}
+                    onClick={() => window.open(`/search/kg?path=${encodeURIComponent(link.iri)}`, '_blank')}
                     title={link.iri}
                   >
                     {getLabel(link.iri, link.label)}
@@ -1802,7 +1802,7 @@ export default function DataContractDetails() {
                             <Shapes className="h-3 w-3" />
                             <span
                               className="cursor-pointer hover:underline"
-                              onClick={() => window.open(`/search?startIri=${encodeURIComponent(link.iri)}`, '_blank')}
+                              onClick={() => window.open(`/search/kg?path=${encodeURIComponent(link.iri)}`, '_blank')}
                               title={link.iri}
                             >
                               {(link.label && !/^https?:\/\//.test(link.label) && !/^urn:/.test(link.label)) ? link.label : (link.iri.split(/[\/#]/).pop() || link.iri)}
@@ -1940,7 +1940,7 @@ export default function DataContractDetails() {
                               <Shapes className="h-3 w-3" />
                               <span
                                 className="cursor-pointer hover:underline"
-                                onClick={() => window.open(`/search?startIri=${encodeURIComponent(link.iri)}`, '_blank')}
+                                onClick={() => window.open(`/search/kg?path=${encodeURIComponent(link.iri)}`, '_blank')}
                                 title={link.iri}
                               >
                                 {(link.label && !/^https?:\/\//.test(link.label) && !/^urn:/.test(link.label)) ? link.label : (link.iri.split(/[\/#]/).pop() || link.iri)}
@@ -2084,7 +2084,7 @@ export default function DataContractDetails() {
                               <Shapes className="h-3 w-3" />
                               <span
                                 className="cursor-pointer hover:underline"
-                                onClick={() => window.open(`/search?startIri=${encodeURIComponent(link.iri)}`, '_blank')}
+                                onClick={() => window.open(`/search/kg?path=${encodeURIComponent(link.iri)}`, '_blank')}
                                 title={link.iri}
                               >
                                 {(link.label && !/^https?:\/\//.test(link.label) && !/^urn:/.test(link.label)) ? link.label : (link.iri.split(/[\/#]/).pop() || link.iri)}

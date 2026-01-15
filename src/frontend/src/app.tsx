@@ -97,6 +97,10 @@ export default function App() {
               <Route path="/teams" element={<TeamsView />} />
               <Route path="/projects" element={<ProjectsView />} />
               <Route path="/search" element={<SearchView />} />
+              <Route path="/search/llm" element={<SearchView />} />
+              <Route path="/search/index" element={<SearchView />} />
+              <Route path="/search/concepts" element={<SearchView />} />
+              <Route path="/search/kg" element={<SearchView />} />
               <Route path="/about" element={<About />} />
               <Route path="/user-guide" element={<UserGuide />} />
               <Route path="/database-schema" element={<DatabaseSchema />} />

@@ -1,19 +1,34 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Search as SearchIcon } from 'lucide-react';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
-import AppSearch from '@/components/search/app-search';
+import IndexSearch from '@/components/search/index-search';
 import KGSearch from '@/components/search/kg-search';
 import ConceptsSearch from '@/components/search/concepts-search';
 import LLMSearch from '@/components/search/llm-search';
 
+// Map URL slugs to tab values
+const SLUG_TO_TAB: Record<string, 'llm' | 'index' | 'concepts' | 'kg'> = {
+  'llm': 'llm',
+  'index': 'index',
+  'concepts': 'concepts',
+  'kg': 'kg',
+};
+
+// Default tab when visiting /search
+const DEFAULT_TAB = 'llm';
 
 export default function SearchView() {
-  const [mode, setMode] = useState<'app' | 'kg' | 'concepts' | 'llm'>('llm');
   const location = useLocation();
+  const navigate = useNavigate();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
+
+  // Extract current tab from URL path
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const currentSlug = pathParts.length > 1 ? pathParts[1] : '';
+  const currentTab = SLUG_TO_TAB[currentSlug] || DEFAULT_TAB;
 
   useEffect(() => {
     setStaticSegments([]);
@@ -24,53 +39,37 @@ export default function SearchView() {
     };
   }, [setStaticSegments, setDynamicTitle]);
 
-  // Load initial state from URL parameters
+  // Redirect /search to /search/llm (default tab)
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-
-    // Check for startIri param (legacy KG mode)
-    const startIri = params.get('startIri');
-    if (startIri) {
-      setMode('kg');
+    if (location.pathname === '/search' || location.pathname === '/search/') {
+      navigate('/search/llm', { replace: true });
     }
+  }, [location.pathname, navigate]);
 
-    // Check for concepts_iri or concepts_query param (concepts mode)
-    const conceptsIri = params.get('concepts_iri');
-    const conceptsQuery = params.get('concepts_query');
-    if (conceptsIri || conceptsQuery) {
-      setMode('concepts');
-    }
-
-    // Check for tab parameter to set initial mode (takes precedence)
-    const tabParam = params.get('tab');
-    if (tabParam && ['app', 'kg', 'concepts', 'llm'].includes(tabParam)) {
-      setMode(tabParam as 'app' | 'kg' | 'concepts' | 'llm');
-    }
-  }, [location.search]);
-
-  // Update URL when mode changes
-  const handleModeChange = (newMode: 'app' | 'kg' | 'concepts' | 'llm') => {
-    setMode(newMode);
-    const params = new URLSearchParams(location.search);
-    params.set('tab', newMode);
-    const newUrl = `${location.pathname}?${params.toString()}`;
-    window.history.replaceState(null, '', newUrl);
+  // Handle tab change - navigate to new slug, preserving only query params for that tab
+  const handleModeChange = (newMode: 'llm' | 'index' | 'concepts' | 'kg') => {
+    // Navigate to the new tab's URL without any query params
+    // Each tab manages its own params independently
+    navigate(`/search/${newMode}`);
   };
 
-  // Extract URL parameters for component initialization
+  // Extract query params for each tab (they only matter for their respective components)
+  // Each tab uses simple param names since they're isolated by their URL path
   const params = new URLSearchParams(location.search);
-  const appQuery = params.get('app_query') || '';
-  const kgPrefix = params.get('kg_prefix') || '';
-  const kgPath = params.get('kg_path')?.split('|').filter(Boolean) || [];
-  const kgSparql = params.get('kg_sparql') || 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10';
-  const kgDirection = params.get('kg_direction') as 'all' | 'incoming' | 'outgoing' || 'all';
-  const kgConceptsOnly = params.get('kg_concepts_only') === 'true';
-  const conceptsQuery = params.get('concepts_query') || '';
-  const conceptsIri = params.get('concepts_iri');
 
-  // Handle legacy startIri parameter - if present, add it to the KG path
-  const startIri = params.get('startIri');
-  const finalKgPath = startIri && kgPath.length === 0 ? [startIri] : kgPath;
+  // Index Search params (used at /search/index)
+  const indexQuery = params.get('query') || '';
+
+  // KG Search params (used at /search/kg)
+  const kgPrefix = params.get('prefix') || '';
+  const kgPath = params.get('path')?.split('|').filter(Boolean) || [];
+  const kgSparql = params.get('sparql') || 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10';
+  const kgDirection = params.get('direction') as 'all' | 'incoming' | 'outgoing' || 'all';
+  const kgConceptsOnly = params.get('concepts_only') === 'true';
+
+  // Concepts Search params (used at /search/concepts)
+  const conceptsQuery = params.get('query') || '';
+  const conceptsIri = params.get('iri');
 
   // Create initial concept for concepts search
   const initialConcept = conceptsIri ? {
@@ -85,10 +84,10 @@ export default function SearchView() {
         <SearchIcon className="w-8 h-8" />
         Search
       </h1>
-      <Tabs value={mode} onValueChange={(v) => handleModeChange(v as 'app' | 'kg' | 'concepts' | 'llm')}>
+      <Tabs value={currentTab} onValueChange={(v) => handleModeChange(v as 'llm' | 'index' | 'concepts' | 'kg')}>
         <TabsList>
           <TabsTrigger value="llm">Ask Ontos</TabsTrigger>
-          <TabsTrigger value="app">App Search</TabsTrigger>
+          <TabsTrigger value="index">Index Search</TabsTrigger>
           <TabsTrigger value="kg">Knowledge Graph</TabsTrigger>
           <TabsTrigger value="concepts">Concepts</TabsTrigger>
         </TabsList>
@@ -97,14 +96,14 @@ export default function SearchView() {
           <LLMSearch />
         </TabsContent>
 
-        <TabsContent value="app">
-          <AppSearch initialQuery={appQuery} />
+        <TabsContent value="index">
+          <IndexSearch initialQuery={indexQuery} />
         </TabsContent>
 
         <TabsContent value="kg">
           <KGSearch
             initialPrefix={kgPrefix}
-            initialPath={finalKgPath}
+            initialPath={kgPath}
             initialSparql={kgSparql}
             initialDirectionFilter={kgDirection}
             initialShowConceptsOnly={kgConceptsOnly}
@@ -121,5 +120,3 @@ export default function SearchView() {
     </div>
   );
 }
-
-

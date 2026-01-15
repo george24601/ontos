@@ -141,7 +141,7 @@ export default function SearchBar({ variant = 'default', placeholder = 'Search..
             variant="ghost"
             size="sm"
             className="hover:bg-transparent"
-            onClick={() => navigate('/search')}
+            onClick={() => navigate('/search/llm')}
             title="Open advanced search"
           >
             {t('header.advanced')}

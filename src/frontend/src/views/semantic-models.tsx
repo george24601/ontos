@@ -34,8 +34,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import ReactFlow, { Node, Edge, Background, MarkerType, Controls, ConnectionMode } from 'reactflow';
-import ForceGraph2D from 'react-force-graph-2d';
 import 'reactflow/dist/style.css';
+import { KnowledgeGraph } from '@/components/semantic-models/knowledge-graph';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import { cn } from '@/lib/utils';
 
@@ -388,7 +388,7 @@ const ConceptDetails: React.FC<ConceptDetailsProps> = ({ concept, concepts, onSe
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0 shrink-0"
-              onClick={() => navigate(`/search?concepts_iri=${encodeURIComponent(concept.iri)}`)}
+              onClick={() => navigate(`/search/concepts?iri=${encodeURIComponent(concept.iri)}`)}
               title="Open in Concept Search"
             >
               <ExternalLink className="h-4 w-4" />
@@ -560,42 +560,6 @@ export default function SemanticModelsView() {
   const [selectedHierarchy, setSelectedHierarchy] = useState<ConceptHierarchy | null>(null);
   // Removed unused treeExpandedIds state
 
-  // Override ForceGraph2D tooltip shadows
-  useEffect(() => {
-    const styleId = 'force-graph-tooltip-override';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = `
-        /* Override all possible tooltip shadow sources in ForceGraph2D */
-        .graph-tooltip,
-        .graph-info-tooltip,
-        [data-tip],
-        .d3-tip,
-        .tooltip,
-        .node-tooltip,
-        .force-graph-tooltip {
-          box-shadow: none !important;
-          -webkit-box-shadow: none !important;
-          -moz-box-shadow: none !important;
-          filter: none !important;
-          -webkit-filter: none !important;
-          text-shadow: none !important;
-          border: none !important;
-        }
-        
-        /* Target any div with tooltip-like styling */
-        div[style*="position: absolute"][style*="pointer-events: none"] {
-          box-shadow: none !important;
-          -webkit-box-shadow: none !important;
-          -moz-box-shadow: none !important;
-          filter: none !important;
-          -webkit-filter: none !important;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -777,324 +741,18 @@ export default function SemanticModelsView() {
     }
   };
 
-  // Removed unused toggleTreeExpanded
-
-  const renderKnowledgeGraph = (concepts: OntologyConcept[]) => {
-    // Only include classes and concepts, to match the tree
-    const visibleConcepts = concepts.filter(
-      (c) => c.concept_type === 'class' || c.concept_type === 'concept'
-    );
-
-    // Identify root nodes (nodes with no parents)
-    const rootNodes = visibleConcepts.filter(
-      (c) => !c.parent_concepts || c.parent_concepts.length === 0
-    );
-
-    // Detect dark mode
-    const isDarkMode = document.documentElement.classList.contains('dark');
-
-    // Generate a distinct color for each root with better visibility in both modes
-    const generateColor = (index: number, total: number): string => {
-      const hue = (index * 360) / total;
-      // Use higher saturation and adjust lightness for dark mode
-      const saturation = 70 + (index % 2) * 10;
-      const lightness = isDarkMode ? (60 + (index % 2) * 5) : (45 + (index % 2) * 5);
-      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-    };
-
-    const rootColors = new Map<string, string>();
-    rootNodes.forEach((root, index) => {
-      rootColors.set(root.iri, generateColor(index, rootNodes.length));
-    });
-
-    // Build a map from each node to its root node
-    const nodeToRoot = new Map<string, string>();
-    const conceptMap = new Map(visibleConcepts.map(c => [c.iri, c]));
-
-    const findRoot = (iri: string, visited = new Set<string>()): string | null => {
-      if (visited.has(iri)) return null; // Prevent infinite loops
-      visited.add(iri);
-      
-      const concept = conceptMap.get(iri);
-      if (!concept) return null;
-      
-      // If no parents, this is a root
-      if (!concept.parent_concepts || concept.parent_concepts.length === 0) {
-        return iri;
+  // Handler for toggling root visibility in the knowledge graph
+  const handleToggleRoot = useCallback((rootIri: string) => {
+    setHiddenRoots(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(rootIri)) {
+        newSet.delete(rootIri);
+      } else {
+        newSet.add(rootIri);
       }
-      
-      // Otherwise, find root of first parent
-      for (const parentIri of concept.parent_concepts) {
-        const root = findRoot(parentIri, visited);
-        if (root) return root;
-      }
-      
-      return null;
-    };
-
-    visibleConcepts.forEach(concept => {
-      const root = findRoot(concept.iri);
-      if (root) {
-        nodeToRoot.set(concept.iri, root);
-      }
+      return newSet;
     });
-
-    // Get all descendants of a root (including the root itself)
-    const getRootDescendants = (rootIri: string): Set<string> => {
-      const descendants = new Set<string>([rootIri]);
-      const queue = [rootIri];
-      
-      while (queue.length > 0) {
-        const currentIri = queue.shift()!;
-        const concept = conceptMap.get(currentIri);
-        
-        if (concept?.child_concepts) {
-          concept.child_concepts.forEach(childIri => {
-            if (!descendants.has(childIri) && conceptMap.has(childIri)) {
-              descendants.add(childIri);
-              queue.push(childIri);
-            }
-          });
-        }
-      }
-      
-      return descendants;
-    };
-
-    // Filter nodes based on hidden roots
-    const visibleNodeIris = new Set<string>();
-    rootNodes.forEach(root => {
-      if (!hiddenRoots.has(root.iri)) {
-        const descendants = getRootDescendants(root.iri);
-        descendants.forEach(iri => visibleNodeIris.add(iri));
-      }
-    });
-
-    const filteredConcepts = visibleConcepts.filter(c => visibleNodeIris.has(c.iri));
-
-    // Transform concepts to graph data
-    const graphNodes = filteredConcepts.map(concept => {
-      const rootIri = nodeToRoot.get(concept.iri) || concept.iri;
-      const color = rootColors.get(rootIri) || '#64748b';
-      
-      return {
-        id: concept.iri,
-        label: concept.label || concept.iri.split(/[/#]/).pop() || 'Unknown',
-        sourceContext: concept.source_context,
-        concept: concept,
-        childCount: concept.child_concepts?.length || 0,
-        parentCount: concept.parent_concepts?.length || 0,
-        color: color,
-        rootIri: rootIri
-      };
-    });
-
-    const graphLinks: any[] = [];
-    filteredConcepts.forEach(concept => {
-      concept.child_concepts.forEach(childIri => {
-        const childExists = filteredConcepts.some(c => c.iri === childIri);
-        if (childExists) {
-          graphLinks.push({
-            source: concept.iri,
-            target: childIri
-          });
-        }
-      });
-    });
-
-    const toggleRootVisibility = (rootIri: string) => {
-      setHiddenRoots(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(rootIri)) {
-          newSet.delete(rootIri);
-        } else {
-          newSet.add(rootIri);
-        }
-        return newSet;
-      });
-    };
-
-    return (
-      <div className="h-full flex flex-col border rounded-lg bg-background overflow-hidden">
-        {/* Dynamic Legend */}
-        <div className="px-6 py-3 border-b bg-muted/30">
-          <div className="flex flex-wrap gap-2 text-xs">
-            {rootNodes.map(root => {
-              const color = rootColors.get(root.iri) || '#64748b';
-              const label = root.label || root.iri.split(/[/#]/).pop() || 'Unknown';
-              const isHidden = hiddenRoots.has(root.iri);
-              const descendants = getRootDescendants(root.iri);
-              
-              return (
-                <button
-                  key={root.iri}
-                  onClick={() => toggleRootVisibility(root.iri)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all",
-                    "hover:shadow-md hover:scale-105",
-                    "bg-card border-2",
-                    isHidden ? "opacity-40 hover:opacity-60" : "opacity-100"
-                  )}
-                  style={{
-                    borderColor: color,
-                    backgroundColor: isHidden ? undefined : `${color}15`
-                  }}
-                  title={`${isHidden ? 'Show' : 'Hide'} ${label} (${descendants.size} concepts)`}
-                >
-                  <div 
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className={cn(
-                    "font-medium text-foreground",
-                    isHidden && "line-through"
-                  )}>
-                    {label}
-                  </span>
-                  <span className="text-muted-foreground">
-                    ({descendants.size})
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Graph Visualization */}
-        <div className="flex-1 bg-background">
-          <ForceGraph2D
-                width={800}
-                height={800}
-                graphData={{
-                  nodes: graphNodes,
-                  links: graphLinks
-                }}
-                nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-                  const label = node.label;
-                  const fontSize = Math.max(8, Math.min(14, 12 / globalScale));
-                  const nodeRadius = Math.max(4, Math.min(12, 8 / globalScale));
-                  
-                  // Use the pre-computed color from the node
-                  const color = node.color;
-                  
-                  // Draw node circle
-                  ctx.beginPath();
-                  ctx.arc(node.x, node.y, nodeRadius, 0, 2 * Math.PI);
-                  ctx.fillStyle = color;
-                  ctx.fill();
-                  
-                  // Add border with dark mode awareness
-                  ctx.strokeStyle = isDarkMode ? 'rgba(30, 30, 30, 0.8)' : '#ffffff';
-                  ctx.lineWidth = 2 / globalScale;
-                  ctx.stroke();
-                  
-                  // Only show label on actual hover (not zoom)
-                  if (node.__isHovered) {
-                    ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    
-                    // Add text background for better readability
-                    const textWidth = ctx.measureText(label).width;
-                    const textHeight = fontSize;
-                    const padding = 4;
-                    
-                    // Use dark mode aware colors
-                    const bgColor = isDarkMode ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-                    const textColor = isDarkMode ? '#f1f5f9' : '#1f2937';
-                    const borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)';
-                    
-                    ctx.fillStyle = bgColor;
-                    ctx.fillRect(
-                      node.x - textWidth / 2 - padding,
-                      node.y + nodeRadius + 4,
-                      textWidth + padding * 2,
-                      textHeight + padding
-                    );
-                    
-                    // Add subtle border to text background
-                    ctx.strokeStyle = borderColor;
-                    ctx.lineWidth = 1 / globalScale;
-                    ctx.strokeRect(
-                      node.x - textWidth / 2 - padding,
-                      node.y + nodeRadius + 4,
-                      textWidth + padding * 2,
-                      textHeight + padding
-                    );
-                    
-                    // Draw text
-                    ctx.fillStyle = textColor;
-                    ctx.fillText(label, node.x, node.y + nodeRadius + textHeight / 2 + 6);
-                  }
-                }}
-              linkDirectionalArrowLength={6}
-              linkDirectionalArrowRelPos={1}
-              linkColor={() => isDarkMode ? '#71717a' : '#64748b'}
-              linkWidth={2}
-              linkDirectionalParticles={0}
-              onNodeHover={(node: any) => {
-                // Clear all previous hover states
-                graphNodes.forEach(n => {
-                  delete (n as any).__isHovered;
-                });
-                
-                // Set hover state for current node
-                if (node) {
-                  node.__isHovered = true;
-                }
-              }}
-              onNodeClick={(node: any) => {
-                if (node && node.concept) {
-                  handleSelectConcept(node.concept);
-                }
-              }}
-              nodeLabel={(node: any) => {
-                const concept = node.concept as OntologyConcept;
-                const color = node.color;
-                return `<div style="
-                  background: ${color} !important; 
-                  color: white !important; 
-                  padding: 10px 14px !important; 
-                  border-radius: 8px !important; 
-                  max-width: 250px !important;
-                  font-family: Inter, system-ui, sans-serif !important;
-                  border: none !important;
-                  box-shadow: none !important;
-                  outline: none !important;
-                  filter: none !important;
-                  -webkit-filter: none !important;
-                  -webkit-box-shadow: none !important;
-                  -moz-box-shadow: none !important;
-                ">
-                  <div style="font-weight: 600; margin-bottom: 6px; font-size: 14px;">${node.label}</div>
-                  ${concept.comment ? `<div style="font-size: 12px; margin-bottom: 6px; opacity: 0.95; line-height: 1.4;">${concept.comment}</div>` : ''}
-                  <div style="font-size: 11px; opacity: 0.85; line-height: 1.3;">
-                    <div style="margin-bottom: 2px;"><strong>Source:</strong> ${concept.source_context}</div>
-                    <div><strong>Connections:</strong> ${node.childCount} children, ${node.parentCount} parents</div>
-                  </div>
-                </div>`;
-              }}
-              d3AlphaDecay={0.05}
-              d3VelocityDecay={0.3}
-              d3ReheatDecay={0.1}
-              warmupTicks={100}
-              cooldownTicks={200}
-              d3ForceConfig={{
-                charge: { strength: -120, distanceMax: 400 },
-                link: { distance: 50, iterations: 2 },
-                center: { x: 0.5, y: 0.5 }
-              }}
-              enablePointerInteraction={true}
-              enableNodeDrag={true}
-              enableZoomInteraction={true}
-              enablePanInteraction={true}
-              minZoom={0.1}
-              maxZoom={8}
-            />
-        </div>
-      </div>
-    );
-  };
+  }, []);
 
   const renderLineage = (hierarchy: ConceptHierarchy, selectedConcept: OntologyConcept | null = null) => {
     const nodes: Node[] = [];
@@ -1465,7 +1123,7 @@ export default function SemanticModelsView() {
         {/* Right Panel - Concept Details or Knowledge Graph */}
         <div className="col-span-8 border rounded-lg">
           {showKnowledgeGraph ? (
-            <div className="h-full flex flex-col">
+            <div className="h-full min-h-[1100px] flex flex-col">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-start">
                   <div>
@@ -1477,13 +1135,15 @@ export default function SemanticModelsView() {
                       Interactive visualization of all concepts and their relationships. Click legend items to toggle visibility.
                     </p>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {Object.values(groupedConcepts).flat().filter(c => c.concept_type === 'class' || c.concept_type === 'concept').length} concepts
-                  </div>
                 </div>
               </div>
-              <div className="flex-1">
-                {renderKnowledgeGraph(Object.values(groupedConcepts).flat())}
+              <div className="flex-1 min-h-[900px]">
+                <KnowledgeGraph
+                  concepts={Object.values(groupedConcepts).flat()}
+                  hiddenRoots={hiddenRoots}
+                  onToggleRoot={handleToggleRoot}
+                  onNodeClick={handleSelectConcept}
+                />
               </div>
             </div>
           ) : selectedConcept ? (

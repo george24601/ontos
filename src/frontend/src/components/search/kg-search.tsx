@@ -118,7 +118,7 @@ export default function KGSearch({
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>(initialDirectionFilter);
   const [showConceptsOnly, setShowConceptsOnly] = useState(initialShowConceptsOnly);
 
-  // Update URL when state changes
+  // Update URL when state changes - only manages KG-specific params
   const updateUrl = (updates: Partial<{
     prefix: string;
     path: string[];
@@ -126,43 +126,25 @@ export default function KGSearch({
     directionFilter: DirectionFilter;
     showConceptsOnly: boolean;
   }>) => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams();
 
-    if (updates.prefix !== undefined) {
-      if (updates.prefix) {
-        params.set('kg_prefix', updates.prefix);
-      } else {
-        params.delete('kg_prefix');
-      }
-    }
+    // Get current values from URL for params we're not updating
+    const currentParams = new URLSearchParams(location.search);
+    
+    const newPrefix = updates.prefix !== undefined ? updates.prefix : currentParams.get('prefix') || '';
+    const newPath = updates.path !== undefined ? updates.path : (currentParams.get('path')?.split('|').filter(Boolean) || []);
+    const newSparql = updates.sparql !== undefined ? updates.sparql : currentParams.get('sparql') || 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10';
+    const newDirection = updates.directionFilter !== undefined ? updates.directionFilter : (currentParams.get('direction') as DirectionFilter || 'all');
+    const newConceptsOnly = updates.showConceptsOnly !== undefined ? updates.showConceptsOnly : currentParams.get('concepts_only') === 'true';
 
-    if (updates.path !== undefined) {
-      if (updates.path.length > 0) {
-        params.set('kg_path', updates.path.join('|'));
-      } else {
-        params.delete('kg_path');
-      }
-    }
+    if (newPrefix) params.set('prefix', newPrefix);
+    if (newPath.length > 0) params.set('path', newPath.join('|'));
+    if (newSparql && newSparql !== 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10') params.set('sparql', newSparql);
+    if (newDirection && newDirection !== 'all') params.set('direction', newDirection);
+    if (newConceptsOnly) params.set('concepts_only', 'true');
 
-    if (updates.sparql !== undefined && updates.sparql !== 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10') {
-      params.set('kg_sparql', updates.sparql);
-    } else if (updates.sparql !== undefined) {
-      params.delete('kg_sparql');
-    }
-
-    if (updates.directionFilter !== undefined && updates.directionFilter !== 'all') {
-      params.set('kg_direction', updates.directionFilter);
-    } else if (updates.directionFilter !== undefined) {
-      params.delete('kg_direction');
-    }
-
-    if (updates.showConceptsOnly !== undefined && updates.showConceptsOnly) {
-      params.set('kg_concepts_only', 'true');
-    } else if (updates.showConceptsOnly !== undefined) {
-      params.delete('kg_concepts_only');
-    }
-
-    const newUrl = `${location.pathname}?${params.toString()}`;
+    const queryString = params.toString();
+    const newUrl = queryString ? `/search/kg?${queryString}` : '/search/kg';
     navigate(newUrl, { replace: true });
   };
 
@@ -170,11 +152,13 @@ export default function KGSearch({
   useEffect(() => {
     const params = new URLSearchParams(location.search);
 
-    const urlPrefix = params.get('kg_prefix');
-    const urlPath = params.get('kg_path');
-    const urlSparql = params.get('kg_sparql');
-    const urlDirection = params.get('kg_direction') as DirectionFilter;
-    const urlConceptsOnly = params.get('kg_concepts_only') === 'true';
+    // Support both new simple params and legacy startIri param
+    const urlPrefix = params.get('prefix');
+    const urlPath = params.get('path');
+    const urlSparql = params.get('sparql');
+    const urlDirection = params.get('direction') as DirectionFilter;
+    const urlConceptsOnly = params.get('concepts_only') === 'true';
+    const startIri = params.get('startIri'); // Legacy support
 
     if (urlPrefix && urlPrefix !== initialPrefix) setPrefix(urlPrefix);
     if (urlPath) {
@@ -182,6 +166,9 @@ export default function KGSearch({
       if (pathArray.length > 0 && JSON.stringify(pathArray) !== JSON.stringify(initialPath)) {
         setPath(pathArray);
       }
+    } else if (startIri && path.length === 0) {
+      // Legacy: convert startIri to path
+      setPath([startIri]);
     }
     if (urlSparql && urlSparql !== initialSparql) setSparql(urlSparql);
     if (urlDirection && urlDirection !== initialDirectionFilter) setDirectionFilter(urlDirection);

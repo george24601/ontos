@@ -60,38 +60,35 @@ export default function ConceptsSearch({
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [availableEntities, setAvailableEntities] = useState<any[]>([]);
 
-  // Update URL when state changes
+  // Update URL when state changes - only manages concepts-specific params
   const updateUrl = (updates: Partial<{
     query: string;
     conceptIri: string;
   }>) => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams();
 
-    if (updates.query !== undefined) {
-      if (updates.query) {
-        params.set('concepts_query', updates.query);
-      } else {
-        params.delete('concepts_query');
-      }
+    // Get current values from URL for params we're not updating
+    const currentParams = new URLSearchParams(location.search);
+    const currentQuery = updates.query !== undefined ? updates.query : currentParams.get('query') || '';
+    const currentIri = updates.conceptIri !== undefined ? updates.conceptIri : currentParams.get('iri') || '';
+
+    if (currentQuery) {
+      params.set('query', currentQuery);
+    }
+    if (currentIri) {
+      params.set('iri', currentIri);
     }
 
-    if (updates.conceptIri !== undefined) {
-      if (updates.conceptIri) {
-        params.set('concepts_iri', updates.conceptIri);
-      } else {
-        params.delete('concepts_iri');
-      }
-    }
-
-    const newUrl = `${location.pathname}?${params.toString()}`;
+    const queryString = params.toString();
+    const newUrl = queryString ? `/search/concepts?${queryString}` : '/search/concepts';
     navigate(newUrl, { replace: true });
   };
 
   // Load initial state from URL
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const urlQuery = params.get('concepts_query');
-    const urlIri = params.get('concepts_iri');
+    const urlQuery = params.get('query');
+    const urlIri = params.get('iri');
 
     if (urlQuery && urlQuery !== initialQuery) {
       setConceptSearchQuery(urlQuery);

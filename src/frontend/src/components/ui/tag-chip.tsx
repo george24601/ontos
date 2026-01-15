@@ -127,7 +127,7 @@ const TagChip: React.FC<TagChipProps> = ({
     if (!clickable) return;
     e.stopPropagation();
     const searchQuery = encodeURIComponent(`tag:${getSearchQuery()}`);
-    navigate(`/search?tab=app&app_query=${searchQuery}`);
+    navigate(`/search/index?query=${searchQuery}`);
   };
 
   const chipContent = (

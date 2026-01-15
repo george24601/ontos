@@ -75,7 +75,7 @@ export default function LinkedConceptChips({ links, onRemove, trailing }: Props)
         <span key={l.id} className="inline-flex items-center gap-1 border rounded px-2 py-1 text-sm max-w-[420px] truncate">
           <Shapes className="h-3 w-3" />
           <a
-            href={`/search?startIri=${encodeURIComponent(l.iri)}`}
+            href={`/search/kg?path=${encodeURIComponent(l.iri)}`}
             className="hover:underline truncate"
             title={l.iri}
           >
