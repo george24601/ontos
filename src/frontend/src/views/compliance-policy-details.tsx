@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,7 @@ type Result = {
 };
 
 export default function CompliancePolicyDetails() {
+  const { t } = useTranslation('compliance');
   const { policyId } = useParams<{ policyId: string }>();
   const navigate = useNavigate();
   const { get, post } = useApi();

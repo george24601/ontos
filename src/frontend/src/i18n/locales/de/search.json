@@ -1,0 +1,29 @@
+{
+  "title": "Suche",
+  "placeholder": "Alle Assets durchsuchen...",
+  "noResults": "Keine Ergebnisse gefunden",
+  "noResultsHint": "Versuchen Sie, Ihre Suchbegriffe oder Filter anzupassen",
+  "results": "{{count}} Ergebnis gefunden",
+  "results_plural": "{{count}} Ergebnisse gefunden",
+  "filters": {
+    "all": "Alle",
+    "dataProducts": "Datenprodukte",
+    "dataContracts": "Datenverträge",
+    "datasets": "Datensätze",
+    "glossaryTerms": "Glossarbegriffe",
+    "teams": "Teams",
+    "projects": "Projekte"
+  },
+  "sort": {
+    "relevance": "Relevanz",
+    "newest": "Neueste",
+    "oldest": "Älteste",
+    "name": "Name"
+  },
+  "resultItem": {
+    "type": "Typ",
+    "owner": "Eigentümer",
+    "updated": "Aktualisiert"
+  }
+}
+

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ interface Estate {
 // --- End TypeScript Interfaces ---
 
 export default function EstateManager() {
+  const { t } = useTranslation('estates');
   const { toast } = useToast();
   const { get, post, put, delete: deleteEstateApi } = useApi();
   const navigate = useNavigate();

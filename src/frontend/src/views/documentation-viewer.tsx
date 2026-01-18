@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BookOpenCheck, ChevronRight } from 'lucide-react';
 import MarkdownViewer from '@/components/ui/markdown-viewer';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,6 +33,7 @@ function buildToc(markdown: string) {
 }
 
 export default function DocumentationViewer() {
+  const { t } = useTranslation('common');
   const { docName } = useParams<{ docName: string }>();
   const [markdown, setMarkdown] = useState<string>('');
   const [title, setTitle] = useState<string>('Documentation');

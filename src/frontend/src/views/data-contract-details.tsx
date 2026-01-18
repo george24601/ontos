@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -160,6 +161,7 @@ const getStatusColor = (status: string | undefined): 'default' | 'secondary' | '
 };
 
 export default function DataContractDetails() {
+  const { t } = useTranslation('data-contracts')
   const { contractId } = useParams<{ contractId: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()

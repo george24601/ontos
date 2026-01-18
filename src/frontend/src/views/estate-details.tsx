@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ export interface Estate {
 // --- End TypeScript Interfaces ---
 
 export default function EstateDetailsView() {
+  const { t } = useTranslation('estates');
   const { estateId } = useParams<{ estateId: string }>();
   const navigate = useNavigate();
   const { get, put } = useApi();

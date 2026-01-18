@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Edit2, Trash2, Plus, Gavel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -29,6 +30,7 @@ interface SecurityFeature {
 }
 
 const SecurityFeatures: React.FC = () => {
+  const { t } = useTranslation('security-features');
   const [features, setFeatures] = useState<SecurityFeature[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFeature, setEditingFeature] = useState<SecurityFeature | null>(null);

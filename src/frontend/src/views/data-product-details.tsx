@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { DataProduct, InputPort, OutputPort, ManagementPort, TeamMember, Support, SubscriptionResponse, SubscribersListResponse } from '@/types/data-product';
 import DataProductCreateDialog from '@/components/data-products/data-product-create-dialog';
 import InputPortFormDialog from '@/components/data-products/input-port-form-dialog';
@@ -62,6 +63,7 @@ const checkApiResponse: CheckApiResponseFn = (response, name) => {
 };
 
 export default function DataProductDetails() {
+  const { t } = useTranslation('data-products');
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const api = useApi();
@@ -201,21 +203,21 @@ export default function DataProductDetails() {
 
   const fetchProductDetails = async () => {
     if (!productId) {
-      setError('Product ID not found in URL.');
+      setError(t('navigation.missingId'));
       setDynamicTitle(null);
       setLoading(false);
       return;
     }
     if (!canRead && !permissionsLoading) {
-      setError('Permission Denied: Cannot view data product details.');
-      setDynamicTitle('Permission Denied');
+      setError(t('permissions.noView'));
+      setDynamicTitle(t('permissions.denied'));
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    setStaticSegments([{ label: 'Data Products', path: '/data-products' }]);
-    setDynamicTitle('Loading...');
+    setStaticSegments([{ label: t('title'), path: '/data-products' }]);
+    setDynamicTitle(t('details.loading'));
 
     try {
       const [productResp, linksResp] = await Promise.all([

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { useApi } from '@/hooks/use-api';
 type ObjectType = 'catalog' | 'schema';
 
 export default function CreateUcObject() {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { get, post } = useApi();
   const [objectType, setObjectType] = useState<ObjectType>('catalog');

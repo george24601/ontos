@@ -1,0 +1,59 @@
+{
+  "title": "Berechtigungen",
+  "subtitle": "Verwalten Sie Zugriffsrechte und Berechtigungen",
+  "newEntitlement": "Neue Berechtigung",
+  "searchPlaceholder": "Berechtigungen suchen...",
+  "loading": "Berechtigungen werden geladen...",
+  "filters": {
+    "allTypes": "Alle Typen",
+    "allStatus": "Alle Status"
+  },
+  "table": {
+    "name": "Name",
+    "type": "Typ",
+    "principal": "Prinzipal",
+    "resource": "Ressource",
+    "permissions": "Berechtigungen",
+    "status": "Status",
+    "updated": "Aktualisiert",
+    "actions": "Aktionen"
+  },
+  "messages": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "deleteConfirm": "Möchten Sie diese Berechtigung wirklich löschen?",
+    "deleteSuccess": "Berechtigung erfolgreich gelöscht",
+    "deleteError": "Fehler beim Löschen der Berechtigung"
+  },
+  "sync": {
+    "title": "Berechtigungs-Synchronisation",
+    "subtitle": "Synchronisieren Sie Berechtigungen mit externen Systemen",
+    "lastSync": "Letzte Synchronisation",
+    "syncNow": "Jetzt synchronisieren",
+    "syncing": "Synchronisiert...",
+    "status": {
+      "success": "Erfolg",
+      "failed": "Fehlgeschlagen",
+      "in_progress": "In Bearbeitung"
+    }
+  },
+  "details": {
+    "backToList": "Zurück zu Berechtigungen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "notFound": "Berechtigung nicht gefunden",
+    "loading": "Wird geladen..."
+  },
+  "form": {
+    "createTitle": "Berechtigung erstellen",
+    "editTitle": "Berechtigung bearbeiten",
+    "name": "Name",
+    "type": "Typ",
+    "principal": "Prinzipal",
+    "resource": "Ressource",
+    "permissions": "Berechtigungen",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  }
+}
+

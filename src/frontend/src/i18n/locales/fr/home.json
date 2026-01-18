@@ -51,7 +51,17 @@
   "noAccess": {
     "message": "Vous n'avez actuellement aucun rôle spécifique assigné.",
     "action": "Pour accéder aux fonctionnalités, veuillez",
-    "link": "demander l'accès à un rôle"
+    "link": "demander l'accès à un rôle",
+    "contactAdmin": "Veuillez contacter un administrateur pour demander l'accès à l'application."
+  },
+  "requestRoleSection": {
+    "title": "Rôles",
+    "cardTitle": "Rôles Disponibles",
+    "description": "Vous n'avez actuellement aucun rôle d'application attribué. Sélectionnez un rôle ci-dessous pour demander l'accès et commencer.",
+    "info": "Après avoir soumis une demande, un administrateur l'examinera et vous serez notifié de la décision via la cloche de notification.",
+    "noDescription": "Aucune description disponible",
+    "requestAccess": "Demander l'Accès",
+    "moreRoles": "Et {{count}} autres rôles disponibles..."
   },
   "quickActions": {
     "title": "Actions rapides",
@@ -142,5 +152,72 @@
     "markReadButton": "Marquer comme lu",
     "readLabel": "Lu",
     "alertMessage": "Cette liste affiche uniquement les notifications nécessitant une action assignées à votre/vos rôle(s)."
+  },
+  "marketplace": {
+    "welcome": "Bonjour",
+    "welcomeWithName": "Bonjour, {{name}}",
+    "tagline": "Bienvenue sur le Marketplace des Données. Découvrez, comprenez et abonnez-vous aux produits de données et datasets.",
+    "searchPlaceholder": "Comment pouvons-nous vous aider aujourd'hui ?",
+    "searchDatasetsPlaceholder": "Rechercher des datasets par nom, chemin ou contrat...",
+    "browseAssetType": "Parcourir :",
+    "assetTypes": {
+      "products": "Produits de Données",
+      "datasets": "Datasets"
+    },
+    "browseDataDomains": "Parcourir les Domaines de Données",
+    "allDomains": "Tous les Domaines",
+    "loadingDomains": "Chargement des domaines...",
+    "tabs": {
+      "explore": "Explorer les Données",
+      "subscriptions": "Mes Données"
+    },
+    "products": {
+      "available": "{{count}} produit disponible",
+      "available_plural": "{{count}} produits disponibles",
+      "subscribed": "{{count}} produit abonné",
+      "subscribed_plural": "{{count}} produits abonnés",
+      "noProducts": "Aucun produit de données trouvé.",
+      "adjustFilters": "Essayez d'ajuster votre recherche ou filtre.",
+      "noSubscriptions": "Vous n'êtes encore abonné à aucun produit de données.",
+      "browseToSubscribe": "Parcourez l'onglet Explorer pour trouver des produits auxquels vous abonner.",
+      "exploreProducts": "Explorer les Produits de Données",
+      "owner": "Propriétaire",
+      "unknown": "Inconnu"
+    },
+    "datasets": {
+      "available": "{{count}} dataset disponible",
+      "available_plural": "{{count}} datasets disponibles",
+      "subscribed": "{{count}} dataset abonné",
+      "subscribed_plural": "{{count}} datasets abonnés",
+      "noDatasets": "Aucun dataset trouvé.",
+      "adjustFilters": "Essayez d'ajuster votre recherche.",
+      "noSubscriptions": "Vous n'êtes encore abonné à aucun dataset.",
+      "browseToSubscribe": "Parcourez l'onglet Explorer pour trouver des datasets auxquels vous abonner.",
+      "exploreDatasets": "Explorer les Datasets",
+      "owner": "Propriétaire"
+    },
+    "modeToggle": {
+      "marketplace": "Marketplace",
+      "management": "Gestion"
+    },
+    "domainView": {
+      "pills": "Liste",
+      "graph": "Graphe"
+    },
+    "exactMatchOnly": "Correspondance exacte uniquement",
+    "selectDomainForGraph": "Sélectionnez un domaine pour voir sa hiérarchie.",
+    "domainInfo": {
+      "parentDomain": "Parent",
+      "childDomains": "{{count}} domaine enfant",
+      "childDomains_plural": "{{count}} domaines enfants"
+    },
+    "tilesPerRow": {
+      "placeholder": "Tuiles",
+      "one": "1 par ligne",
+      "two": "2 par ligne",
+      "three": "3 par ligne",
+      "four": "4 par ligne"
+    },
+    "openInDetails": "Ouvrir dans la vue détaillée"
   }
 }

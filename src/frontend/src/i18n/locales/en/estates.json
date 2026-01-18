@@ -1,0 +1,68 @@
+{
+  "title": "Estate Manager",
+  "subtitle": "Manage your data estates and synchronization",
+  "newEstate": "New Estate",
+  "searchPlaceholder": "Search estates...",
+  "loading": "Loading estates...",
+  "filters": {
+    "allStatus": "All Status"
+  },
+  "table": {
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "lastSync": "Last Sync",
+    "assets": "Assets",
+    "actions": "Actions"
+  },
+  "messages": {
+    "success": "Success",
+    "error": "Error",
+    "deleteConfirm": "Are you sure you want to delete this estate?",
+    "deleteSuccess": "Estate deleted successfully",
+    "deleteError": "Failed to delete estate",
+    "syncSuccess": "Sync started successfully",
+    "syncError": "Failed to start sync"
+  },
+  "status": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "syncing": "Syncing",
+    "error": "Error"
+  },
+  "details": {
+    "backToList": "Back to Estates",
+    "edit": "Edit",
+    "delete": "Delete",
+    "sync": "Sync Now",
+    "notFound": "Estate not found",
+    "loading": "Loading...",
+    "overview": {
+      "title": "Estate Overview",
+      "type": "Type",
+      "status": "Status",
+      "lastSync": "Last Sync",
+      "created": "Created"
+    },
+    "assets": {
+      "title": "Assets",
+      "catalogs": "Catalogs",
+      "schemas": "Schemas",
+      "tables": "Tables"
+    },
+    "syncHistory": {
+      "title": "Sync History",
+      "noHistory": "No sync history"
+    }
+  },
+  "form": {
+    "createTitle": "Create Estate",
+    "editTitle": "Edit Estate",
+    "name": "Name",
+    "type": "Type",
+    "connectionString": "Connection String",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
+}
+

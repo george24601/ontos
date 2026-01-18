@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, Settings, Plus, Edit2, Trash2, Shield, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ interface Persona {
 }
 
 const Entitlements: React.FC = () => {
+  const { t } = useTranslation('entitlements');
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

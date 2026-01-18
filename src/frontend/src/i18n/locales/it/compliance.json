@@ -1,0 +1,64 @@
+{
+  "title": "Conformità",
+  "subtitle": "Gestisci le policy di conformità e le esecuzioni",
+  "newPolicy": "Nuova Policy",
+  "searchPlaceholder": "Cerca policy...",
+  "loading": "Caricamento dati di conformità...",
+  "score": {
+    "title": "Punteggio di Conformità",
+    "overall": "Punteggio Globale",
+    "trend": "Tendenza"
+  },
+  "filters": {
+    "allStatus": "Tutti gli Stati",
+    "allSeverity": "Tutte le Severità"
+  },
+  "table": {
+    "name": "Nome",
+    "status": "Stato",
+    "severity": "Severità",
+    "lastRun": "Ultima Esecuzione",
+    "score": "Punteggio",
+    "actions": "Azioni"
+  },
+  "messages": {
+    "success": "Successo",
+    "error": "Errore",
+    "deleteConfirm": "Sei sicuro di voler eliminare questa policy?",
+    "deleteSuccess": "Policy eliminata con successo",
+    "deleteError": "Impossibile eliminare la policy"
+  },
+  "status": {
+    "draft": "Bozza",
+    "active": "Attivo",
+    "paused": "In Pausa",
+    "disabled": "Disabilitato"
+  },
+  "severity": {
+    "critical": "Critico",
+    "high": "Alto",
+    "medium": "Medio",
+    "low": "Basso"
+  },
+  "details": {
+    "backToList": "Torna alle Policy",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "run": "Esegui Ora",
+    "notFound": "Policy non trovata",
+    "loading": "Caricamento..."
+  },
+  "runs": {
+    "title": "Esecuzioni di Conformità",
+    "runNow": "Esegui Ora",
+    "noRuns": "Nessuna esecuzione di conformità",
+    "table": {
+      "startTime": "Ora di Inizio",
+      "endTime": "Ora di Fine",
+      "status": "Stato",
+      "score": "Punteggio",
+      "issues": "Problemi"
+    }
+  }
+}
+

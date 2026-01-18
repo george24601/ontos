@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, AlertCircle, Loader2, ClipboardCheck, ChevronDown, Trash2 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ const checkApiResponse = <T,>(response: { data?: T | { detail?: string }, error?
 };
 
 export default function DataAssetReviews() {
+    const { t } = useTranslation('data-asset-reviews');
     const [requests, setRequests] = useState<DataAssetReviewRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

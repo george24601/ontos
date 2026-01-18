@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BookOpenCheck, ChevronRight } from 'lucide-react';
 import MarkdownViewer from '@/components/ui/markdown-viewer';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,6 +32,7 @@ function buildToc(markdown: string) {
 }
 
 export default function UserGuide() {
+  const { t } = useTranslation('common');
   const [markdown, setMarkdown] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

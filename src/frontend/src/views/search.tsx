@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Search as SearchIcon } from 'lucide-react';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
@@ -20,6 +21,7 @@ const SLUG_TO_TAB: Record<string, 'llm' | 'index' | 'concepts' | 'kg'> = {
 const DEFAULT_TAB = 'llm';
 
 export default function SearchView() {
+  const { t } = useTranslation('search');
   const location = useLocation();
   const navigate = useNavigate();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);

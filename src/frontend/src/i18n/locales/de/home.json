@@ -51,7 +51,17 @@
   "noAccess": {
     "message": "Ihnen ist derzeit keine spezifische Rolle zugewiesen.",
     "action": "Um auf Funktionen zuzugreifen, bitte",
-    "link": "Zugriff auf eine Rolle beantragen"
+    "link": "Zugriff auf eine Rolle beantragen",
+    "contactAdmin": "Bitte kontaktieren Sie einen Administrator, um Zugriff auf die Anwendung anzufordern."
+  },
+  "requestRoleSection": {
+    "title": "Rollen",
+    "cardTitle": "Verfügbare Rollen",
+    "description": "Ihnen sind derzeit keine Anwendungsrollen zugewiesen. Wählen Sie unten eine Rolle aus, um Zugriff anzufordern und loszulegen.",
+    "info": "Nach dem Absenden einer Anfrage wird ein Administrator diese prüfen und Sie werden über die Benachrichtigungsglocke über die Entscheidung informiert.",
+    "noDescription": "Keine Beschreibung verfügbar",
+    "requestAccess": "Zugriff anfordern",
+    "moreRoles": "Und {{count}} weitere Rollen verfügbar..."
   },
   "quickActions": {
     "title": "Schnellzugriff",
@@ -142,5 +152,72 @@
     "markReadButton": "Als gelesen markieren",
     "readLabel": "Gelesen",
     "alertMessage": "Diese Liste zeigt nur aktionserforderliche Benachrichtigungen, die Ihrer/Ihren Rolle(n) zugeordnet sind."
+  },
+  "marketplace": {
+    "welcome": "Hallo",
+    "welcomeWithName": "Hallo, {{name}}",
+    "tagline": "Willkommen auf dem Daten-Marktplatz. Entdecken, verstehen und abonnieren Sie Datenprodukte und Datensätze.",
+    "searchPlaceholder": "Wie können wir Ihnen heute helfen?",
+    "searchDatasetsPlaceholder": "Datensätze nach Name, Pfad oder Vertrag suchen...",
+    "browseAssetType": "Durchsuchen:",
+    "assetTypes": {
+      "products": "Datenprodukte",
+      "datasets": "Datensätze"
+    },
+    "browseDataDomains": "Daten-Domains durchsuchen",
+    "allDomains": "Alle Domains",
+    "loadingDomains": "Domains werden geladen...",
+    "tabs": {
+      "explore": "Daten erkunden",
+      "subscriptions": "Meine Daten"
+    },
+    "products": {
+      "available": "{{count}} Produkt verfügbar",
+      "available_plural": "{{count}} Produkte verfügbar",
+      "subscribed": "{{count}} abonniertes Produkt",
+      "subscribed_plural": "{{count}} abonnierte Produkte",
+      "noProducts": "Keine Datenprodukte gefunden.",
+      "adjustFilters": "Versuchen Sie, Ihre Suche oder Filter anzupassen.",
+      "noSubscriptions": "Sie haben noch keine Datenprodukte abonniert.",
+      "browseToSubscribe": "Durchsuchen Sie den Tab \"Erkunden\", um Produkte zum Abonnieren zu finden.",
+      "exploreProducts": "Datenprodukte erkunden",
+      "owner": "Eigentümer",
+      "unknown": "Unbekannt"
+    },
+    "datasets": {
+      "available": "{{count}} Datensatz verfügbar",
+      "available_plural": "{{count}} Datensätze verfügbar",
+      "subscribed": "{{count}} abonnierter Datensatz",
+      "subscribed_plural": "{{count}} abonnierte Datensätze",
+      "noDatasets": "Keine Datensätze gefunden.",
+      "adjustFilters": "Versuchen Sie, Ihre Suche anzupassen.",
+      "noSubscriptions": "Sie haben noch keine Datensätze abonniert.",
+      "browseToSubscribe": "Durchsuchen Sie den Tab \"Erkunden\", um Datensätze zum Abonnieren zu finden.",
+      "exploreDatasets": "Datensätze erkunden",
+      "owner": "Eigentümer"
+    },
+    "modeToggle": {
+      "marketplace": "Marktplatz",
+      "management": "Verwaltung"
+    },
+    "domainView": {
+      "pills": "Liste",
+      "graph": "Graph"
+    },
+    "exactMatchOnly": "Nur exakte Übereinstimmung",
+    "selectDomainForGraph": "Wählen Sie eine Domain, um ihre Hierarchie anzuzeigen.",
+    "domainInfo": {
+      "parentDomain": "Übergeordnet",
+      "childDomains": "{{count}} untergeordnete Domain",
+      "childDomains_plural": "{{count}} untergeordnete Domains"
+    },
+    "tilesPerRow": {
+      "placeholder": "Kacheln",
+      "one": "1 pro Zeile",
+      "two": "2 pro Zeile",
+      "three": "3 pro Zeile",
+      "four": "4 pro Zeile"
+    },
+    "openInDetails": "In Detailansicht öffnen"
   }
 }

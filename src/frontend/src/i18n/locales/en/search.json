@@ -1,0 +1,29 @@
+{
+  "title": "Search",
+  "placeholder": "Search across all assets...",
+  "noResults": "No results found",
+  "noResultsHint": "Try adjusting your search terms or filters",
+  "results": "{{count}} result found",
+  "results_plural": "{{count}} results found",
+  "filters": {
+    "all": "All",
+    "dataProducts": "Data Products",
+    "dataContracts": "Data Contracts",
+    "datasets": "Datasets",
+    "glossaryTerms": "Glossary Terms",
+    "teams": "Teams",
+    "projects": "Projects"
+  },
+  "sort": {
+    "relevance": "Relevance",
+    "newest": "Newest",
+    "oldest": "Oldest",
+    "name": "Name"
+  },
+  "resultItem": {
+    "type": "Type",
+    "owner": "Owner",
+    "updated": "Updated"
+  }
+}
+

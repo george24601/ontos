@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -218,6 +219,7 @@ const LinkedAssetsView: React.FC<LinkedAssetsViewProps> = ({ assets }) => {
 };
 
 export default function DataDomainDetailsView() {
+  const { t } = useTranslation('data-domains');
   const { domainId } = useParams<{ domainId: string }>();
   const navigate = useNavigate();
   const { get, post, delete: del } = useApi();

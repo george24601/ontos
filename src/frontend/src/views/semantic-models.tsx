@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { 
   SemanticModel, 
   OntologyConcept, 
@@ -553,6 +554,7 @@ const TaggedAssetsView: React.FC<TaggedAssetsViewProps> = ({ concept }) => {
 };
 
 export default function SemanticModelsView() {
+  const { t } = useTranslation('semantic-models');
   const [searchParams, setSearchParams] = useSearchParams();
   const [taxonomies, setTaxonomies] = useState<SemanticModel[]>([]);
   const [groupedConcepts, setGroupedConcepts] = useState<GroupedConcepts>({});

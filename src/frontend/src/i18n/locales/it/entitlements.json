@@ -1,0 +1,59 @@
+{
+  "title": "Diritti",
+  "subtitle": "Gestisci diritti di accesso e permessi",
+  "newEntitlement": "Nuovo Diritto",
+  "searchPlaceholder": "Cerca diritti...",
+  "loading": "Caricamento diritti...",
+  "filters": {
+    "allTypes": "Tutti i Tipi",
+    "allStatus": "Tutti gli Stati"
+  },
+  "table": {
+    "name": "Nome",
+    "type": "Tipo",
+    "principal": "Principale",
+    "resource": "Risorsa",
+    "permissions": "Permessi",
+    "status": "Stato",
+    "updated": "Aggiornato",
+    "actions": "Azioni"
+  },
+  "messages": {
+    "success": "Successo",
+    "error": "Errore",
+    "deleteConfirm": "Sei sicuro di voler eliminare questo diritto?",
+    "deleteSuccess": "Diritto eliminato con successo",
+    "deleteError": "Impossibile eliminare il diritto"
+  },
+  "sync": {
+    "title": "Sincronizzazione Diritti",
+    "subtitle": "Sincronizza diritti con sistemi esterni",
+    "lastSync": "Ultima Sincronizzazione",
+    "syncNow": "Sincronizza Ora",
+    "syncing": "Sincronizzazione...",
+    "status": {
+      "success": "Successo",
+      "failed": "Fallito",
+      "in_progress": "In Corso"
+    }
+  },
+  "details": {
+    "backToList": "Torna ai Diritti",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "notFound": "Diritto non trovato",
+    "loading": "Caricamento..."
+  },
+  "form": {
+    "createTitle": "Crea Diritto",
+    "editTitle": "Modifica Diritto",
+    "name": "Nome",
+    "type": "Tipo",
+    "principal": "Principale",
+    "resource": "Risorsa",
+    "permissions": "Permessi",
+    "cancel": "Annulla",
+    "save": "Salva"
+  }
+}
+

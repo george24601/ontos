@@ -1,0 +1,52 @@
+{
+  "title": "Revisioni Asset Dati",
+  "subtitle": "Rivedi e approva gli asset dati",
+  "newReview": "Nuova Revisione",
+  "searchPlaceholder": "Cerca revisioni...",
+  "loading": "Caricamento revisioni...",
+  "filters": {
+    "allStatus": "Tutti gli Stati",
+    "pending": "In Attesa",
+    "approved": "Approvato",
+    "rejected": "Rifiutato"
+  },
+  "table": {
+    "asset": "Asset",
+    "type": "Tipo",
+    "requester": "Richiedente",
+    "reviewer": "Revisore",
+    "status": "Stato",
+    "requested": "Richiesto",
+    "actions": "Azioni"
+  },
+  "messages": {
+    "success": "Successo",
+    "error": "Errore",
+    "approveSuccess": "Revisione approvata con successo",
+    "rejectSuccess": "Revisione rifiutata con successo",
+    "approveError": "Impossibile approvare la revisione",
+    "rejectError": "Impossibile rifiutare la revisione"
+  },
+  "status": {
+    "pending": "In Attesa",
+    "in_review": "In Revisione",
+    "approved": "Approvato",
+    "rejected": "Rifiutato",
+    "cancelled": "Annullato"
+  },
+  "details": {
+    "backToList": "Torna alle Revisioni",
+    "approve": "Approva",
+    "reject": "Rifiuta",
+    "cancel": "Annulla Revisione",
+    "notFound": "Revisione non trovata",
+    "loading": "Caricamento...",
+    "asset": "Asset",
+    "requester": "Richiedente",
+    "reviewer": "Revisore",
+    "reason": "Motivo",
+    "comments": "Commenti",
+    "addComment": "Aggiungi Commento"
+  }
+}
+

@@ -1,0 +1,52 @@
+{
+  "title": "Revisiones de Activos de Datos",
+  "subtitle": "Revisa y aprueba activos de datos",
+  "newReview": "Nueva Revisión",
+  "searchPlaceholder": "Buscar revisiones...",
+  "loading": "Cargando revisiones...",
+  "filters": {
+    "allStatus": "Todos los Estados",
+    "pending": "Pendiente",
+    "approved": "Aprobado",
+    "rejected": "Rechazado"
+  },
+  "table": {
+    "asset": "Activo",
+    "type": "Tipo",
+    "requester": "Solicitante",
+    "reviewer": "Revisor",
+    "status": "Estado",
+    "requested": "Solicitado",
+    "actions": "Acciones"
+  },
+  "messages": {
+    "success": "Éxito",
+    "error": "Error",
+    "approveSuccess": "Revisión aprobada exitosamente",
+    "rejectSuccess": "Revisión rechazada exitosamente",
+    "approveError": "Error al aprobar la revisión",
+    "rejectError": "Error al rechazar la revisión"
+  },
+  "status": {
+    "pending": "Pendiente",
+    "in_review": "En Revisión",
+    "approved": "Aprobado",
+    "rejected": "Rechazado",
+    "cancelled": "Cancelado"
+  },
+  "details": {
+    "backToList": "Volver a Revisiones",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "cancel": "Cancelar Revisión",
+    "notFound": "Revisión no encontrada",
+    "loading": "Cargando...",
+    "asset": "Activo",
+    "requester": "Solicitante",
+    "reviewer": "Revisor",
+    "reason": "Razón",
+    "comments": "Comentarios",
+    "addComment": "Agregar Comentario"
+  }
+}
+

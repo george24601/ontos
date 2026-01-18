@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ interface EntitlementsSyncConfig {
 }
 
 export default function EntitlementsSync() {
+  const { t } = useTranslation('entitlements')
   const [configs, setConfigs] = useState<EntitlementsSyncConfig[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)

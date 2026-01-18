@@ -1,0 +1,52 @@
+{
+  "title": "Funzionalità di Sicurezza",
+  "subtitle": "Gestisci la sicurezza dei dati e le impostazioni sulla privacy",
+  "newFeature": "Nuova Funzionalità di Sicurezza",
+  "searchPlaceholder": "Cerca funzionalità di sicurezza...",
+  "loading": "Caricamento funzionalità di sicurezza...",
+  "table": {
+    "name": "Nome",
+    "type": "Tipo",
+    "target": "Asset Target",
+    "status": "Stato",
+    "enabled": "Abilitato",
+    "updated": "Aggiornato",
+    "actions": "Azioni"
+  },
+  "messages": {
+    "success": "Successo",
+    "error": "Errore",
+    "deleteConfirm": "Sei sicuro di voler eliminare questa funzionalità di sicurezza?",
+    "deleteSuccess": "Funzionalità di sicurezza eliminata con successo",
+    "deleteError": "Impossibile eliminare la funzionalità di sicurezza",
+    "enableSuccess": "Funzionalità di sicurezza abilitata",
+    "disableSuccess": "Funzionalità di sicurezza disabilitata"
+  },
+  "types": {
+    "encryption": "Crittografia",
+    "masking": "Mascheramento Dati",
+    "rowLevel": "Sicurezza a Livello di Riga",
+    "columnLevel": "Sicurezza a Livello di Colonna",
+    "differential": "Privacy Differenziale"
+  },
+  "details": {
+    "backToList": "Torna alle Funzionalità di Sicurezza",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "enable": "Abilita",
+    "disable": "Disabilita",
+    "notFound": "Funzionalità di sicurezza non trovata",
+    "loading": "Caricamento..."
+  },
+  "form": {
+    "createTitle": "Crea Funzionalità di Sicurezza",
+    "editTitle": "Modifica Funzionalità di Sicurezza",
+    "name": "Nome",
+    "type": "Tipo",
+    "target": "Asset Target",
+    "configuration": "Configurazione",
+    "cancel": "Annulla",
+    "save": "Salva"
+  }
+}
+

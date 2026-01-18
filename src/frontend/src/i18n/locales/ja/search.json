@@ -1,0 +1,29 @@
+{
+  "title": "検索",
+  "placeholder": "すべてのアセットを検索...",
+  "noResults": "結果が見つかりません",
+  "noResultsHint": "検索語句やフィルターを調整してみてください",
+  "results": "{{count}}件の結果",
+  "results_plural": "{{count}}件の結果",
+  "filters": {
+    "all": "すべて",
+    "dataProducts": "データ製品",
+    "dataContracts": "データ契約",
+    "datasets": "データセット",
+    "glossaryTerms": "用語集",
+    "teams": "チーム",
+    "projects": "プロジェクト"
+  },
+  "sort": {
+    "relevance": "関連性",
+    "newest": "最新",
+    "oldest": "最古",
+    "name": "名前"
+  },
+  "resultItem": {
+    "type": "タイプ",
+    "owner": "所有者",
+    "updated": "更新日"
+  }
+}
+

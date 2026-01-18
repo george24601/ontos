@@ -1,0 +1,64 @@
+{
+  "title": "Compliance",
+  "subtitle": "Manage compliance policies and runs",
+  "newPolicy": "New Policy",
+  "searchPlaceholder": "Search policies...",
+  "loading": "Loading compliance data...",
+  "score": {
+    "title": "Compliance Score",
+    "overall": "Overall Score",
+    "trend": "Trend"
+  },
+  "filters": {
+    "allStatus": "All Status",
+    "allSeverity": "All Severity"
+  },
+  "table": {
+    "name": "Name",
+    "status": "Status",
+    "severity": "Severity",
+    "lastRun": "Last Run",
+    "score": "Score",
+    "actions": "Actions"
+  },
+  "messages": {
+    "success": "Success",
+    "error": "Error",
+    "deleteConfirm": "Are you sure you want to delete this policy?",
+    "deleteSuccess": "Policy deleted successfully",
+    "deleteError": "Failed to delete policy"
+  },
+  "status": {
+    "draft": "Draft",
+    "active": "Active",
+    "paused": "Paused",
+    "disabled": "Disabled"
+  },
+  "severity": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "details": {
+    "backToList": "Back to Policies",
+    "edit": "Edit",
+    "delete": "Delete",
+    "run": "Run Now",
+    "notFound": "Policy not found",
+    "loading": "Loading..."
+  },
+  "runs": {
+    "title": "Compliance Runs",
+    "runNow": "Run Now",
+    "noRuns": "No compliance runs yet",
+    "table": {
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "status": "Status",
+      "score": "Score",
+      "issues": "Issues"
+    }
+  }
+}
+

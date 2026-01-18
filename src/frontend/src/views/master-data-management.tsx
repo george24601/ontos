@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ import {
 } from '@/types/mdm';
 
 export default function MasterDataManagement() {
+  const { t } = useTranslation('common');
   const [configs, setConfigs] = useState<MdmConfig[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<MdmConfig | null>(null);
   const [sourceLinks, setSourceLinks] = useState<MdmSourceLink[]>([]);

@@ -1,0 +1,52 @@
+{
+  "title": "Data Asset Reviews",
+  "subtitle": "Review and approve data assets",
+  "newReview": "New Review",
+  "searchPlaceholder": "Search reviews...",
+  "loading": "Loading reviews...",
+  "filters": {
+    "allStatus": "All Status",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "table": {
+    "asset": "Asset",
+    "type": "Type",
+    "requester": "Requester",
+    "reviewer": "Reviewer",
+    "status": "Status",
+    "requested": "Requested",
+    "actions": "Actions"
+  },
+  "messages": {
+    "success": "Success",
+    "error": "Error",
+    "approveSuccess": "Review approved successfully",
+    "rejectSuccess": "Review rejected successfully",
+    "approveError": "Failed to approve review",
+    "rejectError": "Failed to reject review"
+  },
+  "status": {
+    "pending": "Pending",
+    "in_review": "In Review",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled"
+  },
+  "details": {
+    "backToList": "Back to Reviews",
+    "approve": "Approve",
+    "reject": "Reject",
+    "cancel": "Cancel Review",
+    "notFound": "Review not found",
+    "loading": "Loading...",
+    "asset": "Asset",
+    "requester": "Requester",
+    "reviewer": "Reviewer",
+    "reason": "Reason",
+    "comments": "Comments",
+    "addComment": "Add Comment"
+  }
+}
+

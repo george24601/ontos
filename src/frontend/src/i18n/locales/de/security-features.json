@@ -1,0 +1,52 @@
+{
+  "title": "Sicherheitsfunktionen",
+  "subtitle": "Verwalten Sie Datensicherheits- und Datenschutzeinstellungen",
+  "newFeature": "Neue Sicherheitsfunktion",
+  "searchPlaceholder": "Sicherheitsfunktionen suchen...",
+  "loading": "Sicherheitsfunktionen werden geladen...",
+  "table": {
+    "name": "Name",
+    "type": "Typ",
+    "target": "Ziel-Asset",
+    "status": "Status",
+    "enabled": "Aktiviert",
+    "updated": "Aktualisiert",
+    "actions": "Aktionen"
+  },
+  "messages": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "deleteConfirm": "Möchten Sie diese Sicherheitsfunktion wirklich löschen?",
+    "deleteSuccess": "Sicherheitsfunktion erfolgreich gelöscht",
+    "deleteError": "Fehler beim Löschen der Sicherheitsfunktion",
+    "enableSuccess": "Sicherheitsfunktion aktiviert",
+    "disableSuccess": "Sicherheitsfunktion deaktiviert"
+  },
+  "types": {
+    "encryption": "Verschlüsselung",
+    "masking": "Datenmaskierung",
+    "rowLevel": "Zeilenebenen-Sicherheit",
+    "columnLevel": "Spaltenebenen-Sicherheit",
+    "differential": "Differentielle Privatsphäre"
+  },
+  "details": {
+    "backToList": "Zurück zu Sicherheitsfunktionen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "notFound": "Sicherheitsfunktion nicht gefunden",
+    "loading": "Wird geladen..."
+  },
+  "form": {
+    "createTitle": "Sicherheitsfunktion erstellen",
+    "editTitle": "Sicherheitsfunktion bearbeiten",
+    "name": "Name",
+    "type": "Typ",
+    "target": "Ziel-Asset",
+    "configuration": "Konfiguration",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  }
+}
+

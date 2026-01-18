@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Node,
   Edge,
@@ -197,6 +198,7 @@ const getLayoutedElements = (
 };
 
 export default function DatabaseSchema() {
+  const { t } = useTranslation('common');
   const [schemaData, setSchemaData] = useState<SchemaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

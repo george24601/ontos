@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,6 +71,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Server } from 'lucide-react';
 
 export default function DatasetDetails() {
+  const { t } = useTranslation('datasets');
   const { datasetId } = useParams<{ datasetId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -201,14 +203,14 @@ export default function DatasetDetails() {
 
   useEffect(() => {
     // Set breadcrumbs
-    setStaticSegments([{ label: 'Datasets', path: '/datasets' }]);
-    setDynamicTitle(dataset?.name || 'Loading...');
+    setStaticSegments([{ label: t('title'), path: '/datasets' }]);
+    setDynamicTitle(dataset?.name || t('details.loading'));
 
     return () => {
       setStaticSegments([]);
       setDynamicTitle(null);
     };
-  }, [setStaticSegments, setDynamicTitle, dataset?.name]);
+  }, [setStaticSegments, setDynamicTitle, dataset?.name, t]);
 
   // Toggle subscription
   const toggleSubscription = async () => {
@@ -222,22 +224,22 @@ export default function DatasetDetails() {
         method,
       });
 
-      if (!response.ok) throw new Error('Failed to update subscription');
+      if (!response.ok) throw new Error(t('details.subscription.error'));
 
       const data = await response.json();
       setSubscriptionStatus(data);
       fetchSubscribers();
 
       toast({
-        title: isSubscribed ? 'Unsubscribed' : 'Subscribed',
+        title: isSubscribed ? t('details.subscription.unsubscribed') : t('details.subscription.subscribed'),
         description: isSubscribed
-          ? 'You will no longer receive updates for this dataset'
-          : 'You will receive updates for this dataset',
+          ? t('details.subscription.unsubscribeMessage')
+          : t('details.subscription.subscribeMessage'),
       });
     } catch (err) {
       toast({
-        title: 'Error',
-        description: 'Failed to update subscription',
+        title: t('messages.error'),
+        description: t('details.subscription.error'),
         variant: 'destructive',
       });
     } finally {
@@ -248,23 +250,23 @@ export default function DatasetDetails() {
   // Delete dataset
   const handleDelete = async () => {
     if (!datasetId || !dataset) return;
-    if (!confirm(`Are you sure you want to delete "${dataset.name}"?`)) return;
+    if (!confirm(t('details.deleteConfirm', { name: dataset.name }))) return;
 
     try {
       const response = await fetch(`/api/datasets/${datasetId}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Failed to delete dataset');
+      if (!response.ok) throw new Error(t('details.deleteError'));
 
       toast({
-        title: 'Success',
-        description: 'Dataset deleted successfully',
+        title: t('messages.success'),
+        description: t('details.deleteSuccess'),
       });
       navigate('/datasets');
     } catch (err) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete dataset',
+        title: t('messages.error'),
+        description: t('details.deleteError'),
         variant: 'destructive',
       });
     }
@@ -282,18 +284,18 @@ export default function DatasetDetails() {
       
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.detail || 'Failed to publish dataset');
+        throw new Error(data.detail || t('details.publish.error'));
       }
       
       toast({
-        title: 'Success',
-        description: 'Dataset published to marketplace',
+        title: t('messages.success'),
+        description: t('details.publish.success'),
       });
       fetchDataset();
     } catch (err) {
       toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to publish dataset',
+        title: t('messages.error'),
+        description: err instanceof Error ? err.message : t('details.publish.error'),
         variant: 'destructive',
       });
     } finally {
@@ -313,18 +315,18 @@ export default function DatasetDetails() {
       
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.detail || 'Failed to unpublish dataset');
+        throw new Error(data.detail || t('details.publish.unpublishError'));
       }
       
       toast({
-        title: 'Success',
-        description: 'Dataset removed from marketplace',
+        title: t('messages.success'),
+        description: t('details.publish.unpublishSuccess'),
       });
       fetchDataset();
     } catch (err) {
       toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to unpublish dataset',
+        title: t('messages.error'),
+        description: err instanceof Error ? err.message : t('details.publish.unpublishError'),
         variant: 'destructive',
       });
     } finally {
@@ -345,14 +347,14 @@ export default function DatasetDetails() {
           iri,
         }),
       });
-      if (!response.ok) throw new Error('Failed to add concept');
+      if (!response.ok) throw new Error(t('details.conceptLinkError'));
       await fetchSemanticLinks();
       setConceptDialogOpen(false);
-      toast({ title: 'Linked', description: 'Business concept linked to dataset.' });
+      toast({ title: t('details.subscription.subscribed'), description: t('details.conceptLinked') });
     } catch (err) {
       toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to link business concept',
+        title: t('messages.error'),
+        description: err instanceof Error ? err.message : t('details.conceptLinkError'),
         variant: 'destructive',
       });
     }
@@ -362,13 +364,13 @@ export default function DatasetDetails() {
   const removeSemanticLink = async (linkId: string) => {
     try {
       const response = await fetch(`/api/semantic-links/${linkId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to remove concept');
+      if (!response.ok) throw new Error(t('details.conceptUnlinkError'));
       await fetchSemanticLinks();
-      toast({ title: 'Unlinked', description: 'Business concept unlinked from dataset.' });
+      toast({ title: t('details.subscription.unsubscribed'), description: t('details.conceptUnlinked') });
     } catch (err) {
       toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to unlink business concept',
+        title: t('messages.error'),
+        description: err instanceof Error ? err.message : t('details.conceptUnlinkError'),
         variant: 'destructive',
       });
     }
@@ -377,23 +379,23 @@ export default function DatasetDetails() {
   // Delete instance
   const handleDeleteInstance = async (instanceId: string) => {
     if (!datasetId) return;
-    if (!confirm('Are you sure you want to remove this instance?')) return;
+    if (!confirm(t('details.instances.removeConfirm'))) return;
 
     try {
       const response = await fetch(`/api/datasets/${datasetId}/instances/${instanceId}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Failed to remove instance');
+      if (!response.ok) throw new Error(t('details.instances.removeError'));
 
       toast({
-        title: 'Success',
-        description: 'Instance removed successfully',
+        title: t('messages.success'),
+        description: t('details.instances.removeSuccess'),
       });
       fetchInstances();
     } catch (err) {
       toast({
-        title: 'Error',
-        description: 'Failed to remove instance',
+        title: t('messages.error'),
+        description: t('details.instances.removeError'),
         variant: 'destructive',
       });
     }
@@ -431,11 +433,11 @@ export default function DatasetDetails() {
       <div className="py-6 space-y-6">
         <Button variant="outline" size="sm" onClick={() => navigate('/datasets')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to List
+          {t('details.backToList')}
         </Button>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error || 'Dataset not found'}</AlertDescription>
+          <AlertDescription>{error || t('details.notFound')}</AlertDescription>
         </Alert>
       </div>
     );
@@ -449,7 +451,7 @@ export default function DatasetDetails() {
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => navigate('/datasets')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to List
+          {t('details.backToList')}
         </Button>
         <div className="flex items-center gap-2">
           <CommentSidebar
@@ -476,7 +478,7 @@ export default function DatasetDetails() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{subscriptionStatus?.subscribed ? 'Unsubscribe' : 'Subscribe'}</p>
+                <p>{subscriptionStatus?.subscribed ? t('details.unsubscribe') : t('details.subscribe')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -488,7 +490,7 @@ export default function DatasetDetails() {
               ) : (
                 <Rocket className="h-4 w-4 mr-2" />
               )}
-              Publish to Marketplace
+              {t('details.publishToMarketplace')}
             </Button>
           )}
           {dataset.published && (
@@ -498,16 +500,16 @@ export default function DatasetDetails() {
               ) : (
                 <XCircle className="h-4 w-4 mr-2" />
               )}
-              Unpublish
+              {t('details.unpublish')}
             </Button>
           )}
           <Button variant="outline" onClick={() => setOpenEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-2" />
-            Edit
+            {t('details.edit')}
           </Button>
           <Button variant="destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
-            Delete
+            {t('details.delete')}
           </Button>
         </div>
       </div>
@@ -520,31 +522,31 @@ export default function DatasetDetails() {
             {dataset.name}
           </CardTitle>
           <CardDescription className="pt-1">
-            {dataset.description || 'No description provided'}
+            {dataset.description || t('details.noDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid md:grid-cols-3 gap-x-6 gap-y-2">
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Status:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.status')}:</Label>
               <div className="flex items-center gap-1.5">
                 <Badge
                   variant="outline"
                   className={DATASET_STATUS_COLORS[status] || 'bg-gray-100'}
                 >
-                  {DATASET_STATUS_LABELS[status] || status}
+                  {t(`status.${status}`) || DATASET_STATUS_LABELS[status] || status}
                 </Badge>
                 {dataset.published && (
-                  <Badge variant="default" className="bg-green-600 text-xs">Published</Badge>
+                  <Badge variant="default" className="bg-green-600 text-xs">{t('details.published')}</Badge>
                 )}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Version:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.version')}:</Label>
               <Badge variant="outline" className="text-xs">{dataset.version || 'N/A'}</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.owner')}:</Label>
               {dataset.owner_team_id && dataset.owner_team_name ? (
                 <span
                   className="text-xs cursor-pointer text-primary hover:underline truncate"
@@ -554,11 +556,11 @@ export default function DatasetDetails() {
                   {dataset.owner_team_name}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">{dataset.owner_team_name || 'Not assigned'}</span>
+                <span className="text-xs text-muted-foreground">{dataset.owner_team_name || t('details.coreMetadata.notAssigned')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Project:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.project')}:</Label>
               {dataset.project_id && dataset.project_name ? (
                 <span
                   className="text-xs cursor-pointer text-primary hover:underline truncate"
@@ -568,17 +570,17 @@ export default function DatasetDetails() {
                   {dataset.project_name}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">{dataset.project_name || 'Not assigned'}</span>
+                <span className="text-xs text-muted-foreground">{dataset.project_name || t('details.coreMetadata.notAssigned')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Created:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.created')}:</Label>
               <span className="text-xs text-muted-foreground truncate">
                 <RelativeDate date={dataset.created_at} />
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Updated:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.updated')}:</Label>
               <span className="text-xs text-muted-foreground truncate">
                 <RelativeDate date={dataset.updated_at} />
               </span>
@@ -588,23 +590,23 @@ export default function DatasetDetails() {
           <div className="pt-2 border-t">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 min-w-0">
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Tags:</Label>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">{t('details.coreMetadata.tags')}:</Label>
                 <div className="flex flex-wrap gap-1">
                   {dataset.tags && dataset.tags.length > 0 ? (
                     dataset.tags.map((tag, idx) => (
                       <TagChip key={idx} tag={tag} size="sm" />
                     ))
                   ) : (
-                    <span className="text-xs text-muted-foreground">No tags</span>
+                    <span className="text-xs text-muted-foreground">{t('details.coreMetadata.noTags')}</span>
                   )}
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Linked Business Concepts:</Label>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">{t('details.coreMetadata.linkedConcepts')}:</Label>
                 <LinkedConceptChips
                   links={semanticLinks}
                   onRemove={(id) => removeSemanticLink(id)}
-                  trailing={<Button size="sm" variant="outline" onClick={() => setConceptDialogOpen(true)} className="h-6 text-xs">Add</Button>}
+                  trailing={<Button size="sm" variant="outline" onClick={() => setConceptDialogOpen(true)} className="h-6 text-xs">{t('details.coreMetadata.addConcept')}</Button>}
                 />
               </div>
             </div>
@@ -617,26 +619,26 @@ export default function DatasetDetails() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Table2 className="h-5 w-5" />
-            Dataset Overview
+            {t('details.overview.title')}
           </CardTitle>
           <CardDescription>
-            Version and instance information
+            {t('details.overview.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-muted-foreground">
-                Version
+                {t('details.overview.version')}
               </label>
               <p className="text-sm">{dataset.version || '-'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
-                Physical Instances
+                {t('details.overview.physicalInstances')}
               </label>
               <p className="text-sm">
-                {dataset.instance_count || 0} instance{(dataset.instance_count || 0) !== 1 ? 's' : ''}
+                {t('details.overview.instanceCount', { count: dataset.instance_count || 0 })}
               </p>
             </div>
           </div>
@@ -648,34 +650,34 @@ export default function DatasetDetails() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Data Contract
+            {t('details.contract.title')}
           </CardTitle>
           <CardDescription>
-            The contract this dataset implements
+            {t('details.contract.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {dataset.contract_id ? (
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div>
-                <p className="font-medium">{dataset.contract_name || 'Linked Contract'}</p>
+                <p className="font-medium">{dataset.contract_name || t('details.contract.linkedContract')}</p>
                 <p className="text-sm text-muted-foreground">
-                  This dataset implements the schema and quality requirements from this contract
+                  {t('details.contract.description')}
                 </p>
               </div>
               <Button variant="outline" asChild>
                 <Link to={`/data-contracts/${dataset.contract_id}`}>
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View Contract
+                  {t('details.contract.viewContract')}
                 </Link>
               </Button>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No contract assigned</p>
+              <p>{t('details.contract.noContract')}</p>
               <p className="text-sm">
-                Assign a contract to define schema and quality requirements
+                {t('details.contract.noContractHint')}
               </p>
             </div>
           )}
@@ -689,18 +691,18 @@ export default function DatasetDetails() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Server className="h-5 w-5" />
-                Physical Instances
+                {t('details.instances.title')}
                 {instances.length > 0 && (
                   <Badge variant="secondary">{instances.length}</Badge>
                 )}
               </CardTitle>
               <CardDescription>
-                Physical implementations across different systems and environments
+                {t('details.instances.subtitle')}
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={handleAddInstance}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Instance
+              {t('details.instances.addInstance')}
             </Button>
           </div>
         </CardHeader>
@@ -724,7 +726,7 @@ export default function DatasetDetails() {
                         variant="outline"
                         className={DATASET_INSTANCE_ROLE_COLORS[role] || 'bg-gray-100'}
                       >
-                        {DATASET_INSTANCE_ROLE_LABELS[role] || role}
+                        {t(`instanceRole.${role}`) || DATASET_INSTANCE_ROLE_LABELS[role] || role}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
                         ({roleInstances.length})
@@ -733,13 +735,13 @@ export default function DatasetDetails() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Environment</TableHead>
-                          <TableHead>Physical Path</TableHead>
-                          <TableHead>Contract</TableHead>
-                          <TableHead>Tags</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead>{t('details.instances.table.name')}</TableHead>
+                          <TableHead>{t('details.instances.table.environment')}</TableHead>
+                          <TableHead>{t('details.instances.table.physicalPath')}</TableHead>
+                          <TableHead>{t('details.instances.table.contract')}</TableHead>
+                          <TableHead>{t('details.instances.table.tags')}</TableHead>
+                          <TableHead>{t('details.instances.table.status')}</TableHead>
+                          <TableHead className="text-right">{t('details.instances.table.actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -823,7 +825,7 @@ export default function DatasetDetails() {
                                   variant="outline"
                                   className={DATASET_INSTANCE_STATUS_COLORS[instStatus] || 'bg-gray-100'}
                                 >
-                                  {DATASET_INSTANCE_STATUS_LABELS[instStatus] || instStatus}
+                                  {t(`instanceStatus.${instStatus}`) || DATASET_INSTANCE_STATUS_LABELS[instStatus] || instStatus}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">
@@ -856,13 +858,13 @@ export default function DatasetDetails() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Server className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No physical instances</p>
+              <p>{t('details.instances.noInstances')}</p>
               <p className="text-sm">
-                Add instances to track where this dataset is physically implemented
+                {t('details.instances.noInstancesHint')}
               </p>
               <Button variant="outline" size="sm" className="mt-4" onClick={handleAddInstance}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add First Instance
+                {t('details.instances.addFirstInstance')}
               </Button>
             </div>
           )}
@@ -874,13 +876,13 @@ export default function DatasetDetails() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Subscribers
+            {t('details.subscribers.title')}
             {subscribers && (
               <Badge variant="secondary">{subscribers.subscriber_count}</Badge>
             )}
           </CardTitle>
           <CardDescription>
-            Users receiving updates about this dataset
+            {t('details.subscribers.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -888,9 +890,9 @@ export default function DatasetDetails() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Subscribed</TableHead>
-                  <TableHead>Reason</TableHead>
+                  <TableHead>{t('details.subscribers.table.email')}</TableHead>
+                  <TableHead>{t('details.subscribers.table.subscribed')}</TableHead>
+                  <TableHead>{t('details.subscribers.table.reason')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -910,7 +912,7 @@ export default function DatasetDetails() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No subscribers yet</p>
+              <p>{t('details.subscribers.noSubscribers')}</p>
             </div>
           )}
         </CardContent>

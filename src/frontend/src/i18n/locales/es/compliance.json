@@ -1,0 +1,64 @@
+{
+  "title": "Cumplimiento",
+  "subtitle": "Gestiona políticas de cumplimiento y ejecuciones",
+  "newPolicy": "Nueva Política",
+  "searchPlaceholder": "Buscar políticas...",
+  "loading": "Cargando datos de cumplimiento...",
+  "score": {
+    "title": "Puntuación de Cumplimiento",
+    "overall": "Puntuación General",
+    "trend": "Tendencia"
+  },
+  "filters": {
+    "allStatus": "Todos los Estados",
+    "allSeverity": "Todas las Severidades"
+  },
+  "table": {
+    "name": "Nombre",
+    "status": "Estado",
+    "severity": "Severidad",
+    "lastRun": "Última Ejecución",
+    "score": "Puntuación",
+    "actions": "Acciones"
+  },
+  "messages": {
+    "success": "Éxito",
+    "error": "Error",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar esta política?",
+    "deleteSuccess": "Política eliminada exitosamente",
+    "deleteError": "Error al eliminar la política"
+  },
+  "status": {
+    "draft": "Borrador",
+    "active": "Activo",
+    "paused": "Pausado",
+    "disabled": "Deshabilitado"
+  },
+  "severity": {
+    "critical": "Crítico",
+    "high": "Alto",
+    "medium": "Medio",
+    "low": "Bajo"
+  },
+  "details": {
+    "backToList": "Volver a Políticas",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "run": "Ejecutar Ahora",
+    "notFound": "Política no encontrada",
+    "loading": "Cargando..."
+  },
+  "runs": {
+    "title": "Ejecuciones de Cumplimiento",
+    "runNow": "Ejecutar Ahora",
+    "noRuns": "Sin ejecuciones de cumplimiento aún",
+    "table": {
+      "startTime": "Hora de Inicio",
+      "endTime": "Hora de Fin",
+      "status": "Estado",
+      "score": "Puntuación",
+      "issues": "Problemas"
+    }
+  }
+}
+

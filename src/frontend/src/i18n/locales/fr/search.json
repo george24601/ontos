@@ -1,0 +1,29 @@
+{
+  "title": "Recherche",
+  "placeholder": "Rechercher dans tous les actifs...",
+  "noResults": "Aucun résultat trouvé",
+  "noResultsHint": "Essayez d'ajuster vos termes de recherche ou filtres",
+  "results": "{{count}} résultat trouvé",
+  "results_plural": "{{count}} résultats trouvés",
+  "filters": {
+    "all": "Tous",
+    "dataProducts": "Produits de Données",
+    "dataContracts": "Contrats de Données",
+    "datasets": "Datasets",
+    "glossaryTerms": "Termes du Glossaire",
+    "teams": "Équipes",
+    "projects": "Projets"
+  },
+  "sort": {
+    "relevance": "Pertinence",
+    "newest": "Plus Récents",
+    "oldest": "Plus Anciens",
+    "name": "Nom"
+  },
+  "resultItem": {
+    "type": "Type",
+    "owner": "Propriétaire",
+    "updated": "Mis à jour"
+  }
+}
+

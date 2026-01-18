@@ -1,0 +1,59 @@
+{
+  "title": "エンタイトルメント",
+  "subtitle": "アクセス権と権限を管理",
+  "newEntitlement": "新規エンタイトルメント",
+  "searchPlaceholder": "エンタイトルメントを検索...",
+  "loading": "エンタイトルメントを読み込み中...",
+  "filters": {
+    "allTypes": "すべてのタイプ",
+    "allStatus": "すべてのステータス"
+  },
+  "table": {
+    "name": "名前",
+    "type": "タイプ",
+    "principal": "プリンシパル",
+    "resource": "リソース",
+    "permissions": "権限",
+    "status": "ステータス",
+    "updated": "更新日",
+    "actions": "アクション"
+  },
+  "messages": {
+    "success": "成功",
+    "error": "エラー",
+    "deleteConfirm": "このエンタイトルメントを削除してもよろしいですか？",
+    "deleteSuccess": "エンタイトルメントが正常に削除されました",
+    "deleteError": "エンタイトルメントの削除に失敗しました"
+  },
+  "sync": {
+    "title": "エンタイトルメント同期",
+    "subtitle": "外部システムとエンタイトルメントを同期",
+    "lastSync": "最終同期",
+    "syncNow": "今すぐ同期",
+    "syncing": "同期中...",
+    "status": {
+      "success": "成功",
+      "failed": "失敗",
+      "in_progress": "進行中"
+    }
+  },
+  "details": {
+    "backToList": "エンタイトルメントに戻る",
+    "edit": "編集",
+    "delete": "削除",
+    "notFound": "エンタイトルメントが見つかりません",
+    "loading": "読み込み中..."
+  },
+  "form": {
+    "createTitle": "エンタイトルメントを作成",
+    "editTitle": "エンタイトルメントを編集",
+    "name": "名前",
+    "type": "タイプ",
+    "principal": "プリンシパル",
+    "resource": "リソース",
+    "permissions": "権限",
+    "cancel": "キャンセル",
+    "save": "保存"
+  }
+}
+

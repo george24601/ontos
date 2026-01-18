@@ -1,0 +1,64 @@
+{
+  "title": "Conformité",
+  "subtitle": "Gérez les politiques de conformité et les exécutions",
+  "newPolicy": "Nouvelle Politique",
+  "searchPlaceholder": "Rechercher des politiques...",
+  "loading": "Chargement des données de conformité...",
+  "score": {
+    "title": "Score de Conformité",
+    "overall": "Score Global",
+    "trend": "Tendance"
+  },
+  "filters": {
+    "allStatus": "Tous les Statuts",
+    "allSeverity": "Toutes les Sévérités"
+  },
+  "table": {
+    "name": "Nom",
+    "status": "Statut",
+    "severity": "Sévérité",
+    "lastRun": "Dernière Exécution",
+    "score": "Score",
+    "actions": "Actions"
+  },
+  "messages": {
+    "success": "Succès",
+    "error": "Erreur",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette politique ?",
+    "deleteSuccess": "Politique supprimée avec succès",
+    "deleteError": "Échec de la suppression de la politique"
+  },
+  "status": {
+    "draft": "Brouillon",
+    "active": "Actif",
+    "paused": "En pause",
+    "disabled": "Désactivé"
+  },
+  "severity": {
+    "critical": "Critique",
+    "high": "Élevé",
+    "medium": "Moyen",
+    "low": "Faible"
+  },
+  "details": {
+    "backToList": "Retour aux Politiques",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "run": "Exécuter Maintenant",
+    "notFound": "Politique non trouvée",
+    "loading": "Chargement..."
+  },
+  "runs": {
+    "title": "Exécutions de Conformité",
+    "runNow": "Exécuter Maintenant",
+    "noRuns": "Aucune exécution de conformité",
+    "table": {
+      "startTime": "Heure de Début",
+      "endTime": "Heure de Fin",
+      "status": "Statut",
+      "score": "Score",
+      "issues": "Problèmes"
+    }
+  }
+}
+

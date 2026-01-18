@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ interface Result {
 }
 
 export default function ComplianceRunDetails() {
+  const { t } = useTranslation('compliance');
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
   const { get } = useApi();

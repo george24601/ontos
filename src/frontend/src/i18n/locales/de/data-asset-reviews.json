@@ -1,0 +1,52 @@
+{
+  "title": "Daten-Asset-Überprüfungen",
+  "subtitle": "Überprüfen und genehmigen Sie Daten-Assets",
+  "newReview": "Neue Überprüfung",
+  "searchPlaceholder": "Überprüfungen suchen...",
+  "loading": "Überprüfungen werden geladen...",
+  "filters": {
+    "allStatus": "Alle Status",
+    "pending": "Ausstehend",
+    "approved": "Genehmigt",
+    "rejected": "Abgelehnt"
+  },
+  "table": {
+    "asset": "Asset",
+    "type": "Typ",
+    "requester": "Antragsteller",
+    "reviewer": "Prüfer",
+    "status": "Status",
+    "requested": "Angefordert",
+    "actions": "Aktionen"
+  },
+  "messages": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "approveSuccess": "Überprüfung erfolgreich genehmigt",
+    "rejectSuccess": "Überprüfung erfolgreich abgelehnt",
+    "approveError": "Fehler beim Genehmigen der Überprüfung",
+    "rejectError": "Fehler beim Ablehnen der Überprüfung"
+  },
+  "status": {
+    "pending": "Ausstehend",
+    "in_review": "In Überprüfung",
+    "approved": "Genehmigt",
+    "rejected": "Abgelehnt",
+    "cancelled": "Abgebrochen"
+  },
+  "details": {
+    "backToList": "Zurück zu Überprüfungen",
+    "approve": "Genehmigen",
+    "reject": "Ablehnen",
+    "cancel": "Überprüfung abbrechen",
+    "notFound": "Überprüfung nicht gefunden",
+    "loading": "Wird geladen...",
+    "asset": "Asset",
+    "requester": "Antragsteller",
+    "reviewer": "Prüfer",
+    "reason": "Grund",
+    "comments": "Kommentare",
+    "addComment": "Kommentar hinzufügen"
+  }
+}
+

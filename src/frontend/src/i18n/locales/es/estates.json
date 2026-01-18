@@ -1,0 +1,68 @@
+{
+  "title": "Gestor de Estates",
+  "subtitle": "Gestiona tus estates de datos y sincronización",
+  "newEstate": "Nuevo Estate",
+  "searchPlaceholder": "Buscar estates...",
+  "loading": "Cargando estates...",
+  "filters": {
+    "allStatus": "Todos los Estados"
+  },
+  "table": {
+    "name": "Nombre",
+    "type": "Tipo",
+    "status": "Estado",
+    "lastSync": "Última Sincronización",
+    "assets": "Activos",
+    "actions": "Acciones"
+  },
+  "messages": {
+    "success": "Éxito",
+    "error": "Error",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar este estate?",
+    "deleteSuccess": "Estate eliminado exitosamente",
+    "deleteError": "Error al eliminar el estate",
+    "syncSuccess": "Sincronización iniciada exitosamente",
+    "syncError": "Error al iniciar la sincronización"
+  },
+  "status": {
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "syncing": "Sincronizando",
+    "error": "Error"
+  },
+  "details": {
+    "backToList": "Volver a Estates",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "sync": "Sincronizar Ahora",
+    "notFound": "Estate no encontrado",
+    "loading": "Cargando...",
+    "overview": {
+      "title": "Resumen del Estate",
+      "type": "Tipo",
+      "status": "Estado",
+      "lastSync": "Última Sincronización",
+      "created": "Creado"
+    },
+    "assets": {
+      "title": "Activos",
+      "catalogs": "Catálogos",
+      "schemas": "Esquemas",
+      "tables": "Tablas"
+    },
+    "syncHistory": {
+      "title": "Historial de Sincronización",
+      "noHistory": "Sin historial de sincronización"
+    }
+  },
+  "form": {
+    "createTitle": "Crear Estate",
+    "editTitle": "Editar Estate",
+    "name": "Nombre",
+    "type": "Tipo",
+    "connectionString": "Cadena de Conexión",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  }
+}
+

@@ -51,7 +51,17 @@
   "noAccess": {
     "message": "現在、特定のロールが割り当てられていません。",
     "action": "機能にアクセスするには、",
-    "link": "ロールへのアクセスをリクエスト"
+    "link": "ロールへのアクセスをリクエスト",
+    "contactAdmin": "アプリケーションへのアクセスをリクエストするには、管理者に連絡してください。"
+  },
+  "requestRoleSection": {
+    "title": "ロール",
+    "cardTitle": "利用可能なロール",
+    "description": "現在、アプリケーションロールが割り当てられていません。下のロールを選択してアクセスをリクエストし、始めましょう。",
+    "info": "リクエストを送信すると、管理者がレビューし、通知ベルを通じて決定が通知されます。",
+    "noDescription": "説明はありません",
+    "requestAccess": "アクセスをリクエスト",
+    "moreRoles": "他に{{count}}個のロールが利用可能..."
   },
   "quickActions": {
     "title": "クイックアクション",
@@ -142,5 +152,72 @@
     "markReadButton": "既読にする",
     "readLabel": "既読",
     "alertMessage": "このリストには、あなたのロールに割り当てられたアクション必須の通知のみが表示されます。"
+  },
+  "marketplace": {
+    "welcome": "こんにちは",
+    "welcomeWithName": "こんにちは、{{name}}さん",
+    "tagline": "データマーケットプレイスへようこそ。データ製品とデータセットを発見し、理解し、購読しましょう。",
+    "searchPlaceholder": "今日は何をお探しですか？",
+    "searchDatasetsPlaceholder": "名前、パス、または契約でデータセットを検索...",
+    "browseAssetType": "参照:",
+    "assetTypes": {
+      "products": "データ製品",
+      "datasets": "データセット"
+    },
+    "browseDataDomains": "データドメインを参照",
+    "allDomains": "すべてのドメイン",
+    "loadingDomains": "ドメインを読み込み中...",
+    "tabs": {
+      "explore": "データを探索",
+      "subscriptions": "マイデータ"
+    },
+    "products": {
+      "available": "{{count}}個の製品が利用可能",
+      "available_plural": "{{count}}個の製品が利用可能",
+      "subscribed": "{{count}}個の購読済み製品",
+      "subscribed_plural": "{{count}}個の購読済み製品",
+      "noProducts": "データ製品が見つかりません。",
+      "adjustFilters": "検索またはフィルターを調整してみてください。",
+      "noSubscriptions": "まだデータ製品を購読していません。",
+      "browseToSubscribe": "「探索」タブを参照して、購読する製品を見つけてください。",
+      "exploreProducts": "データ製品を探索",
+      "owner": "所有者",
+      "unknown": "不明"
+    },
+    "datasets": {
+      "available": "{{count}}個のデータセットが利用可能",
+      "available_plural": "{{count}}個のデータセットが利用可能",
+      "subscribed": "{{count}}個の購読済みデータセット",
+      "subscribed_plural": "{{count}}個の購読済みデータセット",
+      "noDatasets": "データセットが見つかりません。",
+      "adjustFilters": "検索を調整してみてください。",
+      "noSubscriptions": "まだデータセットを購読していません。",
+      "browseToSubscribe": "「探索」タブを参照して、購読するデータセットを見つけてください。",
+      "exploreDatasets": "データセットを探索",
+      "owner": "所有者"
+    },
+    "modeToggle": {
+      "marketplace": "マーケットプレイス",
+      "management": "管理"
+    },
+    "domainView": {
+      "pills": "リスト",
+      "graph": "グラフ"
+    },
+    "exactMatchOnly": "完全一致のみ",
+    "selectDomainForGraph": "ドメインを選択して階層を表示します。",
+    "domainInfo": {
+      "parentDomain": "親",
+      "childDomains": "{{count}}個の子ドメイン",
+      "childDomains_plural": "{{count}}個の子ドメイン"
+    },
+    "tilesPerRow": {
+      "placeholder": "タイル",
+      "one": "1列",
+      "two": "2列",
+      "three": "3列",
+      "four": "4列"
+    },
+    "openInDetails": "詳細ビューで開く"
   }
 }

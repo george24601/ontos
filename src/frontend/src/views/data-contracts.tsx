@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { DataContractListItem, DataContractCreate } from '@/types/data-contract';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom'
@@ -20,6 +21,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { RelativeDate } from '@/components/common/relative-date';
 
 export default function DataContracts() {
+  const { t } = useTranslation('data-contracts');
   const { toast } = useToast();
   const { getDomainName } = useDomains();
   const [contracts, setContracts] = useState<DataContractListItem[]>([]);
@@ -65,14 +67,14 @@ export default function DataContracts() {
     fetchContracts();
     // Set breadcrumbs
     setStaticSegments([]);
-    setDynamicTitle('Data Contracts');
+    setDynamicTitle(t('title'));
 
     // Cleanup breadcrumbs on unmount
     return () => {
         setStaticSegments([]);
         setDynamicTitle(null);
     };
-  }, [setStaticSegments, setDynamicTitle, hasProjectContext, currentProject]);
+  }, [setStaticSegments, setDynamicTitle, hasProjectContext, currentProject, t]);
 
   // Removed ODCS schema load for inline JSON validation
   // Removed inline JSON validation

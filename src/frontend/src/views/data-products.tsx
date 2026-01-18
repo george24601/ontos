@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
@@ -52,6 +53,7 @@ const checkApiResponse: CheckApiResponseFn = (response, name) => {
 // --- Component Code ---
 
 export default function DataProducts() {
+  const { t } = useTranslation('data-products');
   const [products, setProducts] = useState<DataProduct[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<DataProduct | null>(null);
@@ -99,7 +101,7 @@ export default function DataProducts() {
   useEffect(() => {
     // Set breadcrumbs for this top-level view
     setStaticSegments([]); // No static parents other than Home
-    setDynamicTitle('Data Products');
+    setDynamicTitle(t('title'));
 
     const loadInitialData = async () => {
       setLoading(true);
@@ -207,18 +209,18 @@ export default function DataProducts() {
     } catch (err: any) {
       console.error('Error refetching products:', err);
       setError(err.message || 'Failed to refresh products list');
-      toast({ title: 'Error', description: `Failed to refresh products: ${err.message}`, variant: 'destructive' });
+      toast({ title: t('messages.error'), description: `${t('messages.fetchError')}: ${err.message}`, variant: 'destructive' });
     }
   };
 
   // --- Create Dialog Open Handler ---
   const handleOpenCreateDialog = (product?: DataProduct) => {
       if (!canWrite && !product) { // Need write permission to create
-          toast({ title: "Permission Denied", description: "You do not have permission to create data products.", variant: "destructive" });
+          toast({ title: t('permissions.denied'), description: t('permissions.noCreate'), variant: "destructive" });
           return;
       }
        if (!canWrite && product) { // Need write permission to edit
-          toast({ title: "Permission Denied", description: "You do not have permission to edit data products.", variant: "destructive" });
+          toast({ title: t('permissions.denied'), description: t('permissions.noEdit'), variant: "destructive" });
           return;
       }
       setProductToEdit(product || null);
@@ -237,19 +239,19 @@ export default function DataProducts() {
   // --- CRUD Handlers (Keep Delete and Upload here) ---
   const handleDeleteProduct = async (id: string, skipConfirm = false) => {
       if (!canAdmin) {
-          toast({ title: "Permission Denied", description: "You do not have permission to delete data products.", variant: "destructive" });
+          toast({ title: t('permissions.denied'), description: t('permissions.noDelete'), variant: "destructive" });
           return;
       }
-      if (!skipConfirm && !confirm('Are you sure you want to delete this data product?')) {
+      if (!skipConfirm && !confirm(t('messages.deleteConfirm'))) {
           return;
       }
       try {
           await deleteApi(`/api/data-products/${id}`);
-          toast({ title: 'Success', description: 'Data product deleted.' });
+          toast({ title: t('messages.success'), description: t('messages.deleteSuccess') });
           fetchProducts();
       } catch (err: any) {
-          const errorMsg = err.message || 'Failed to delete data product.';
-          toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+          const errorMsg = err.message || t('messages.deleteError');
+          toast({ title: t('messages.error'), description: errorMsg, variant: 'destructive' });
           setError(errorMsg);
           if (skipConfirm) throw err;
       }
@@ -258,12 +260,12 @@ export default function DataProducts() {
   // Bulk Delete Handler
   const handleBulkDelete = async (selectedRows: DataProduct[]) => {
       if (!canAdmin) {
-          toast({ title: "Permission Denied", description: "You do not have permission to bulk delete.", variant: "destructive" });
+          toast({ title: t('permissions.denied'), description: t('permissions.noBulkDelete'), variant: "destructive" });
           return;
       }
       const selectedIds = selectedRows.map(r => r.id).filter((id): id is string => !!id);
       if (selectedIds.length === 0) return;
-      if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected product(s)?`)) return;
+      if (!confirm(t('bulk.deleteConfirm', { count: selectedIds.length }))) return;
 
       // Track individual delete statuses
       const results = await Promise.allSettled(selectedIds.map(async (id) => {
@@ -283,13 +285,13 @@ export default function DataProducts() {
       const failures = results.filter(r => r.status === 'rejected').length;
 
       if (successes > 0) {
-          toast({ title: 'Bulk Delete Success', description: `${successes} product(s) deleted.` });
+          toast({ title: t('bulk.deleteSuccess'), description: t('bulk.deleteSuccessCount', { count: successes }) });
       }
       if (failures > 0) {
-          const firstError = (results.find(r => r.status === 'rejected') as PromiseRejectedResult)?.reason?.message || 'Unknown error';
+          const firstError = (results.find(r => r.status === 'rejected') as PromiseRejectedResult)?.reason?.message || t('messages.error');
           toast({ 
-              title: 'Bulk Delete Error', 
-              description: `${failures} product(s) could not be deleted. First error: ${firstError}`, 
+              title: t('bulk.deleteError'), 
+              description: t('bulk.deleteErrorCount', { count: failures, error: firstError }), 
               variant: 'destructive' 
           });
       }
@@ -301,17 +303,17 @@ export default function DataProducts() {
       const selectedIds = selectedRows.map(r => r.id).filter((id): id is string => !!id);
       if (selectedIds.length === 0) return;
       try {
-          toast({ title: 'Submitting', description: `Requesting access for ${selectedIds.length} item(s)...` });
+          toast({ title: t('access.submitting'), description: t('access.requestingAccess', { count: selectedIds.length }) });
           const res = await fetch('/api/access-requests', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ entity_type: 'data_product', entity_ids: selectedIds })
           });
-          if (!res.ok) throw new Error('Failed to submit access requests');
-          toast({ title: 'Request Sent', description: 'Access request submitted. You will be notified.' });
+          if (!res.ok) throw new Error(t('access.requestError'));
+          toast({ title: t('access.requestSent'), description: t('access.requestSubmitted') });
           refreshNotifications();
       } catch (e: any) {
-          toast({ title: 'Error', description: e.message || 'Failed to submit access requests', variant: 'destructive' });
+          toast({ title: t('messages.error'), description: e.message || t('access.requestError'), variant: 'destructive' });
       }
   };
 
@@ -380,16 +382,16 @@ export default function DataProducts() {
 
       const count = response.data?.count ?? 0;
       toast({
-        title: "Upload Successful",
-        description: `Successfully processed ${file.name}. ${count} product(s) processed.`,
+        title: t('upload.success'),
+        description: t('upload.successMessage', { filename: file.name, count }),
       });
       await fetchProducts();
 
     } catch (err: any) {
       console.error('Error uploading file:', err);
-      const errorMsg = err.message || 'An unexpected error occurred during upload.';
+      const errorMsg = err.message || t('upload.unexpectedError');
       toast({
-          title: "Upload Failed",
+          title: t('upload.failed'),
           description: errorMsg,
           variant: "destructive",
           duration: 10000, // Show longer for detailed errors
@@ -410,20 +412,20 @@ export default function DataProducts() {
   // --- Genie Space Handler ---
   const handleCreateGenieSpace = async (selectedRows: DataProduct[]) => {
       if (!canWrite) {
-          toast({ title: "Permission Denied", description: "You do not have permission to create Genie Spaces.", variant: "destructive" });
+          toast({ title: t('permissions.denied'), description: t('permissions.noGenieSpace'), variant: "destructive" });
           return;
       }
       const selectedIds = selectedRows.map(r => r.id).filter((id): id is string => !!id);
       if (selectedIds.length === 0) {
-          toast({ title: "No Selection", description: "Please select at least one data product.", variant: "default" });
+          toast({ title: t('genie.noSelection'), description: t('genie.selectAtLeastOne'), variant: "default" });
           return;
       }
 
-      if (!confirm(`Create a Genie Space for ${selectedIds.length} selected product(s)?`)) {
+      if (!confirm(t('genie.createConfirm', { count: selectedIds.length }))) {
           return;
       }
 
-      toast({ title: 'Initiating Genie Space', description: `Requesting Genie Space creation for ${selectedIds.length} product(s)...` });
+      toast({ title: t('genie.initiating'), description: t('genie.requestingCreation', { count: selectedIds.length }) });
 
       try {
           const response = await post('/api/data-products/genie-space', { product_ids: selectedIds });
@@ -435,13 +437,13 @@ export default function DataProducts() {
               throw new Error(response.data.detail as string);
           }
 
-          toast({ title: 'Request Submitted', description: `Genie Space creation initiated. You'll be notified.` });
+          toast({ title: t('genie.requestSubmitted'), description: t('genie.willBeNotified') });
           refreshNotifications();
 
       } catch (err: any) {
           console.error('Error initiating Genie Space creation:', err);
-          const errorMsg = err.message || 'Failed to start Genie Space creation.';
-          toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+          const errorMsg = err.message || t('genie.creationError');
+          toast({ title: t('messages.error'), description: errorMsg, variant: 'destructive' });
           setError(errorMsg);
       }
   };
@@ -628,7 +630,7 @@ export default function DataProducts() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Package className="w-8 h-8" />
-          Data Products
+          {t('title')}
         </h1>
       </div>
 
@@ -641,7 +643,7 @@ export default function DataProducts() {
         // 2. Check Read Permission (if permissions loaded)
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>You do not have permission to view data products.</AlertDescription>
+          <AlertDescription>{t('permissions.noView')}</AlertDescription>
         </Alert>
       ) : loading ? (
         // 3. Check Data Loading (if permissions OK)
@@ -690,24 +692,24 @@ export default function DataProducts() {
                     onClick={handleToggleMySubscriptions}
                     className="gap-2 h-9"
                     variant={showMySubscriptions ? "default" : "outline"}
-                    title={showMySubscriptions ? "Show all products" : "Show only my subscriptions"}
+                    title={showMySubscriptions ? t('toolbar.showAll') : t('toolbar.showSubscriptions')}
                   >
                     {showMySubscriptions ? (
                       <Bell className="h-4 w-4" />
                     ) : (
                       <BellOff className="h-4 w-4" />
                     )}
-                    {showMySubscriptions ? `My Subscriptions (${mySubscribedProductIds.size})` : 'My Subscriptions'}
+                    {showMySubscriptions ? t('toolbar.mySubscriptionsCount', { count: mySubscribedProductIds.size }) : t('filters.mySubscriptions')}
                   </Button>
                   {/* Create Button - Conditionally enabled */}
                   <Button
                       onClick={() => handleOpenCreateDialog()}
                       className="gap-2 h-9"
                       disabled={!canWrite || permissionsLoading}
-                      title={canWrite ? "Create Data Product" : "Create (Permission Denied)"}
+                      title={canWrite ? t('toolbar.createProduct') : t('permissions.denied')}
                   >
                     <Plus className="h-4 w-4" />
-                    Create Product
+                    {t('toolbar.createProduct')}
                   </Button>
                   {/* Upload Button - Conditionally enabled */}
                   <TooltipProvider>
@@ -720,17 +722,17 @@ export default function DataProducts() {
                             disabled={isUploading || !canWrite || permissionsLoading}
                         >
                           <Upload className="h-4 w-4" />
-                          {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : 'Upload File'}
+                          {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('upload.uploading')}</>) : t('toolbar.uploadFile')}
                           <HelpCircle className="h-3 w-3 ml-1 opacity-50" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="font-medium">Upload Data Product (ODPS format)</p>
+                        <p className="font-medium">{t('upload.tooltipTitle')}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Accepts YAML or JSON files following the ODPS (Open Data Product Standard) schema.
+                          {t('upload.tooltipDescription')}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          For Data Contracts (ODCS), use the Data Contracts page instead.
+                          {t('upload.tooltipHint')}
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -754,10 +756,10 @@ export default function DataProducts() {
                       className="h-9 gap-1"
                       onClick={() => handleBulkRequestAccess(selectedRows)}
                       disabled={selectedRows.length === 0}
-                      title="Request access for selected"
+                      title={t('bulk.requestAccessTitle')}
                   >
                       <KeyRound className="w-4 h-4 mr-1" />
-                      Request Access ({selectedRows.length})
+                      {t('bulk.requestAccess', { count: selectedRows.length })}
                   </Button>
                   <Button
                       variant="outline"
@@ -765,10 +767,10 @@ export default function DataProducts() {
                       className="h-9 gap-1"
                       onClick={() => handleCreateGenieSpace(selectedRows)}
                       disabled={selectedRows.length === 0 || !canWrite}
-                      title={canWrite ? "Create Genie Space from selected" : "Create Genie Space (Permission Denied)"}
+                      title={canWrite ? t('bulk.createGenieSpaceTitle') : t('permissions.denied')}
                   >
                       <Sparkles className="w-4 h-4 mr-1" />
-                      Create Genie Space ({selectedRows.length})
+                      {t('bulk.createGenieSpace', { count: selectedRows.length })}
                   </Button>
                   <Button
                       variant="destructive"
@@ -776,10 +778,10 @@ export default function DataProducts() {
                       className="h-9 gap-1"
                       onClick={() => handleBulkDelete(selectedRows)}
                       disabled={selectedRows.length === 0 || !canAdmin}
-                      title={canAdmin ? "Delete selected" : "Delete (Permission Denied)"}
+                      title={canAdmin ? t('bulk.deleteTitle') : t('permissions.denied')}
                   >
                       <Trash2 className="w-4 h-4 mr-1" />
-                      Delete Selected ({selectedRows.length})
+                      {t('bulk.deleteSelected', { count: selectedRows.length })}
                   </Button>
                 </>
               );
@@ -790,7 +792,7 @@ export default function DataProducts() {
                 navigate(`/data-products/${productId}`);
               } else {
                 console.warn("Cannot navigate: Product ID is missing.", row.original);
-                toast({ title: 'Navigation Error', description: 'Could not navigate to details, product ID is missing.', variant: "default" });
+                toast({ title: t('navigation.error'), description: t('navigation.missingId'), variant: "default" });
               }
             }}
           />

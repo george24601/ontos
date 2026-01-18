@@ -1,0 +1,64 @@
+{
+  "title": "Compliance",
+  "subtitle": "Verwalten Sie Compliance-Richtlinien und -Ausführungen",
+  "newPolicy": "Neue Richtlinie",
+  "searchPlaceholder": "Richtlinien suchen...",
+  "loading": "Compliance-Daten werden geladen...",
+  "score": {
+    "title": "Compliance-Score",
+    "overall": "Gesamtscore",
+    "trend": "Trend"
+  },
+  "filters": {
+    "allStatus": "Alle Status",
+    "allSeverity": "Alle Schweregrade"
+  },
+  "table": {
+    "name": "Name",
+    "status": "Status",
+    "severity": "Schweregrad",
+    "lastRun": "Letzte Ausführung",
+    "score": "Score",
+    "actions": "Aktionen"
+  },
+  "messages": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "deleteConfirm": "Möchten Sie diese Richtlinie wirklich löschen?",
+    "deleteSuccess": "Richtlinie erfolgreich gelöscht",
+    "deleteError": "Fehler beim Löschen der Richtlinie"
+  },
+  "status": {
+    "draft": "Entwurf",
+    "active": "Aktiv",
+    "paused": "Pausiert",
+    "disabled": "Deaktiviert"
+  },
+  "severity": {
+    "critical": "Kritisch",
+    "high": "Hoch",
+    "medium": "Mittel",
+    "low": "Niedrig"
+  },
+  "details": {
+    "backToList": "Zurück zu Richtlinien",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "run": "Jetzt ausführen",
+    "notFound": "Richtlinie nicht gefunden",
+    "loading": "Wird geladen..."
+  },
+  "runs": {
+    "title": "Compliance-Ausführungen",
+    "runNow": "Jetzt ausführen",
+    "noRuns": "Noch keine Compliance-Ausführungen",
+    "table": {
+      "startTime": "Startzeit",
+      "endTime": "Endzeit",
+      "status": "Status",
+      "score": "Score",
+      "issues": "Probleme"
+    }
+  }
+}
+

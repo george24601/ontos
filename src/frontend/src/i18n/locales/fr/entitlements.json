@@ -1,0 +1,59 @@
+{
+  "title": "Droits",
+  "subtitle": "Gérez les droits d'accès et les permissions",
+  "newEntitlement": "Nouveau Droit",
+  "searchPlaceholder": "Rechercher des droits...",
+  "loading": "Chargement des droits...",
+  "filters": {
+    "allTypes": "Tous les Types",
+    "allStatus": "Tous les Statuts"
+  },
+  "table": {
+    "name": "Nom",
+    "type": "Type",
+    "principal": "Principal",
+    "resource": "Ressource",
+    "permissions": "Permissions",
+    "status": "Statut",
+    "updated": "Mis à jour",
+    "actions": "Actions"
+  },
+  "messages": {
+    "success": "Succès",
+    "error": "Erreur",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce droit ?",
+    "deleteSuccess": "Droit supprimé avec succès",
+    "deleteError": "Échec de la suppression du droit"
+  },
+  "sync": {
+    "title": "Synchronisation des Droits",
+    "subtitle": "Synchroniser les droits avec les systèmes externes",
+    "lastSync": "Dernière Synchronisation",
+    "syncNow": "Synchroniser Maintenant",
+    "syncing": "Synchronisation...",
+    "status": {
+      "success": "Succès",
+      "failed": "Échec",
+      "in_progress": "En Cours"
+    }
+  },
+  "details": {
+    "backToList": "Retour aux Droits",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "notFound": "Droit non trouvé",
+    "loading": "Chargement..."
+  },
+  "form": {
+    "createTitle": "Créer un Droit",
+    "editTitle": "Modifier le Droit",
+    "name": "Nom",
+    "type": "Type",
+    "principal": "Principal",
+    "resource": "Ressource",
+    "permissions": "Permissions",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  }
+}
+

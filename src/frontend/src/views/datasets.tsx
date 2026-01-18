@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +45,7 @@ import {
 import DatasetFormDialog from '@/components/datasets/dataset-form-dialog';
 
 export default function Datasets() {
+  const { t } = useTranslation('datasets');
   const { toast } = useToast();
   const navigate = useNavigate();
   const { currentProject, hasProjectContext } = useProjectContext();
@@ -100,32 +102,32 @@ export default function Datasets() {
   useEffect(() => {
     // Set breadcrumbs
     setStaticSegments([]);
-    setDynamicTitle('Datasets');
+    setDynamicTitle(t('title'));
 
     return () => {
       setStaticSegments([]);
       setDynamicTitle(null);
     };
-  }, [setStaticSegments, setDynamicTitle]);
+  }, [setStaticSegments, setDynamicTitle, t]);
 
   // Delete dataset
   const deleteDataset = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this dataset?')) return;
+    if (!confirm(t('messages.deleteConfirm'))) return;
 
     try {
       const response = await fetch(`/api/datasets/${id}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Failed to delete dataset');
+      if (!response.ok) throw new Error(t('messages.deleteError'));
       await fetchDatasets();
       toast({
-        title: 'Success',
-        description: 'Dataset deleted successfully',
+        title: t('messages.success'),
+        description: t('messages.deleteSuccess'),
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete dataset';
+      const message = err instanceof Error ? err.message : t('messages.deleteError');
       toast({
-        title: 'Error',
+        title: t('messages.error'),
         description: message,
         variant: 'destructive',
       });
@@ -136,7 +138,7 @@ export default function Datasets() {
   const columns: ColumnDef<DatasetListItem>[] = [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: t('table.name'),
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span
@@ -155,7 +157,7 @@ export default function Datasets() {
     },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: t('table.status'),
       cell: ({ row }) => {
         const status = row.original.status as DatasetStatus;
         return (
@@ -163,14 +165,14 @@ export default function Datasets() {
             variant="outline"
             className={DATASET_STATUS_COLORS[status] || 'bg-gray-100'}
           >
-            {DATASET_STATUS_LABELS[status] || status}
+            {t(`status.${status}`) || DATASET_STATUS_LABELS[status] || status}
           </Badge>
         );
       },
     },
     {
       accessorKey: 'instance_count',
-      header: 'Instances',
+      header: t('table.instances'),
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <Server className="h-3 w-3 text-muted-foreground" />
@@ -182,7 +184,7 @@ export default function Datasets() {
     },
     {
       accessorKey: 'contract_name',
-      header: 'Contract',
+      header: t('table.contract'),
       cell: ({ row }) => {
         if (!row.original.contract_id) {
           return <span className="text-muted-foreground text-sm">-</span>;
@@ -200,12 +202,12 @@ export default function Datasets() {
                 >
                   <FileText className="h-3 w-3" />
                   <span className="text-sm truncate max-w-[150px]">
-                    {row.original.contract_name || 'View Contract'}
+                    {row.original.contract_name || t('table.viewContract')}
                   </span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>View linked contract</p>
+                <p>{t('table.viewContract')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -214,7 +216,7 @@ export default function Datasets() {
     },
     {
       accessorKey: 'owner_team_name',
-      header: 'Owner',
+      header: t('table.owner'),
       cell: ({ row }) => {
         if (!row.original.owner_team_id) {
           return <span className="text-muted-foreground text-sm">-</span>;
@@ -222,14 +224,14 @@ export default function Datasets() {
         return (
           <div className="flex items-center gap-1">
             <Users className="h-3 w-3 text-muted-foreground" />
-            <span className="text-sm">{row.original.owner_team_name || 'Team'}</span>
+            <span className="text-sm">{row.original.owner_team_name || t('table.owner')}</span>
           </div>
         );
       },
     },
     {
       accessorKey: 'subscriber_count',
-      header: 'Subscribers',
+      header: t('table.subscribers'),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.subscriber_count || 0}
@@ -238,7 +240,7 @@ export default function Datasets() {
     },
     {
       accessorKey: 'version',
-      header: 'Version',
+      header: t('table.version'),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground font-mono">
           {row.original.version || '-'}
@@ -247,7 +249,7 @@ export default function Datasets() {
     },
     {
       accessorKey: 'updated_at',
-      header: 'Updated',
+      header: t('table.updated'),
       cell: ({ row }) => (
         <RelativeDate date={row.original.updated_at} />
       ),
@@ -273,7 +275,7 @@ export default function Datasets() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Delete dataset</p>
+                <p>{t('table.deleteDataset')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -289,15 +291,15 @@ export default function Datasets() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Database className="w-8 h-8" />
-            Datasets
+            {t('title')}
           </h1>
           <p className="text-muted-foreground">
-            Logical groupings of related data assets
+            {t('subtitle')}
           </p>
         </div>
         <Button onClick={() => setOpenCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Dataset
+          {t('newDataset')}
         </Button>
       </div>
 
@@ -306,7 +308,7 @@ export default function Datasets() {
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search datasets..."
+            placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -315,14 +317,14 @@ export default function Datasets() {
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t('table.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="deprecated">Deprecated</SelectItem>
-            <SelectItem value="retired">Retired</SelectItem>
+            <SelectItem value="all">{t('filters.allStatus')}</SelectItem>
+            <SelectItem value="draft">{t('filters.draft')}</SelectItem>
+            <SelectItem value="active">{t('filters.active')}</SelectItem>
+            <SelectItem value="deprecated">{t('filters.deprecated')}</SelectItem>
+            <SelectItem value="retired">{t('filters.retired')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -1,0 +1,54 @@
+{
+  "title": "Semantische Modelle",
+  "subtitle": "Verwalten Sie Geschäftsglossare und semantische Definitionen",
+  "newModel": "Neues Glossar",
+  "newTerm": "Neuer Begriff",
+  "searchPlaceholder": "Begriffe suchen...",
+  "loading": "Semantische Modelle werden geladen...",
+  "filters": {
+    "allGlossaries": "Alle Glossare",
+    "allStatus": "Alle Status"
+  },
+  "table": {
+    "name": "Name",
+    "glossary": "Glossar",
+    "definition": "Definition",
+    "status": "Status",
+    "updated": "Aktualisiert",
+    "actions": "Aktionen"
+  },
+  "messages": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "deleteConfirm": "Möchten Sie diesen Begriff wirklich löschen?",
+    "deleteSuccess": "Begriff erfolgreich gelöscht",
+    "deleteError": "Fehler beim Löschen des Begriffs"
+  },
+  "status": {
+    "draft": "Entwurf",
+    "approved": "Genehmigt",
+    "deprecated": "Veraltet"
+  },
+  "details": {
+    "backToList": "Zurück zu Begriffen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "notFound": "Begriff nicht gefunden",
+    "loading": "Wird geladen...",
+    "linkedAssets": "Verknüpfte Assets",
+    "synonyms": "Synonyme",
+    "relatedTerms": "Verwandte Begriffe"
+  },
+  "form": {
+    "createTitle": "Begriff erstellen",
+    "editTitle": "Begriff bearbeiten",
+    "name": "Name",
+    "glossary": "Glossar",
+    "definition": "Definition",
+    "synonyms": "Synonyme",
+    "status": "Status",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  }
+}
+
