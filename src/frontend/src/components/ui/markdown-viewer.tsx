@@ -167,16 +167,30 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ markdown }) => {
             )}
           </div>
         ),
-        code: ({ children }) => (
-          <code className="relative rounded bg-muted px-[0.4rem] py-[0.2rem] font-mono text-sm font-medium text-foreground border border-border/50">
-            {children}
-          </code>
-        ),
-        pre: ({ children }) => (
-          <pre className="my-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4">
-            <code className="relative font-mono text-sm text-foreground">
+        code: ({ children, className }) => {
+          // className is set for fenced code blocks (e.g., "language-plaintext")
+          // but not for inline code
+          const isBlock = Boolean(className);
+          
+          if (isBlock) {
+            // For fenced code blocks, minimal styling - container handled by <pre>
+            return (
+              <code className="font-mono text-sm text-foreground whitespace-pre block">
+                {children}
+              </code>
+            );
+          }
+          
+          // For inline code, apply the styled box
+          return (
+            <code className="relative rounded bg-muted px-[0.4rem] py-[0.2rem] font-mono text-sm font-medium text-foreground border border-border/50">
               {children}
             </code>
+          );
+        },
+        pre: ({ children }) => (
+          <pre className="my-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4">
+            {children}
           </pre>
         ),
         blockquote: ({ children }) => (

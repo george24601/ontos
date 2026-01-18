@@ -55,7 +55,7 @@ export interface Estate {
 // --- End TypeScript Interfaces ---
 
 export default function EstateDetailsView() {
-  const { t } = useTranslation('estates');
+  const { t } = useTranslation(['estates', 'common']);
   const { estateId } = useParams<{ estateId: string }>();
   const navigate = useNavigate();
   const { get, put } = useApi();
@@ -179,7 +179,7 @@ export default function EstateDetailsView() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center items-center h-64">Loading estate details...</div>;
+    return <div className="flex justify-center items-center h-64">{t('common:labels.loadingEstateDetails')}</div>;
   }
 
   if (error) {

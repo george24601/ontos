@@ -21,7 +21,7 @@ const SLUG_TO_TAB: Record<string, 'llm' | 'index' | 'concepts' | 'kg'> = {
 const DEFAULT_TAB = 'llm';
 
 export default function SearchView() {
-  const { t } = useTranslation('search');
+  const { t } = useTranslation(['search', 'common']);
   const location = useLocation();
   const navigate = useNavigate();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
@@ -34,7 +34,7 @@ export default function SearchView() {
 
   useEffect(() => {
     setStaticSegments([]);
-    setDynamicTitle('Search');
+    setDynamicTitle(t('title'));
     return () => {
       setStaticSegments([]);
       setDynamicTitle(null);
@@ -84,14 +84,14 @@ export default function SearchView() {
     <div className="py-4 space-y-4">
       <h1 className="text-3xl font-bold mb-4 flex items-center gap-2">
         <SearchIcon className="w-8 h-8" />
-        Search
+        {t('title')}
       </h1>
       <Tabs value={currentTab} onValueChange={(v) => handleModeChange(v as 'llm' | 'index' | 'concepts' | 'kg')}>
         <TabsList>
-          <TabsTrigger value="llm">Ask Ontos</TabsTrigger>
-          <TabsTrigger value="index">Index Search</TabsTrigger>
-          <TabsTrigger value="kg">Knowledge Graph</TabsTrigger>
-          <TabsTrigger value="concepts">Concepts</TabsTrigger>
+          <TabsTrigger value="llm">{t('tabs.askOntos')}</TabsTrigger>
+          <TabsTrigger value="index">{t('tabs.indexSearch')}</TabsTrigger>
+          <TabsTrigger value="kg">{t('tabs.knowledgeGraph')}</TabsTrigger>
+          <TabsTrigger value="concepts">{t('tabs.concepts')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="llm">

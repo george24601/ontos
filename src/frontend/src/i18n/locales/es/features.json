@@ -51,6 +51,10 @@
     "name": "Características de seguridad",
     "description": "Habilita seguridad avanzada como privacidad diferencial."
   },
+  "security-features": {
+    "name": "Características de seguridad",
+    "description": "Habilita seguridad avanzada como privacidad diferencial."
+  },
   "entitlements": {
     "name": "Derechos",
     "description": "Gestiona privilegios de acceso mediante personas y grupos."

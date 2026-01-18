@@ -161,7 +161,7 @@ const getStatusColor = (status: string | undefined): 'default' | 'secondary' | '
 };
 
 export default function DataContractDetails() {
-  const { t } = useTranslation('data-contracts')
+  const { t } = useTranslation(['data-contracts', 'common'])
   const { contractId } = useParams<{ contractId: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -1417,7 +1417,7 @@ export default function DataContractDetails() {
               variant={viewMode === 'minimal' ? 'default' : 'ghost'}
               onClick={() => setViewMode('minimal')}
               className="h-full w-8 p-0 font-semibold text-xs rounded-none"
-              title="Small View"
+              title={t('common:tooltips.smallView')}
             >
               S
             </Button>
@@ -1425,7 +1425,7 @@ export default function DataContractDetails() {
               variant={viewMode === 'medium' ? 'default' : 'ghost'}
               onClick={() => setViewMode('medium')}
               className="h-full w-8 p-0 font-semibold text-xs rounded-none"
-              title="Medium View"
+              title={t('common:tooltips.mediumView')}
             >
               M
             </Button>
@@ -1433,7 +1433,7 @@ export default function DataContractDetails() {
               variant={viewMode === 'large' ? 'default' : 'ghost'}
               onClick={() => setViewMode('large')}
               className="h-full w-8 p-0 font-semibold text-xs rounded-none"
-              title="Large View"
+              title={t('common:tooltips.largeView')}
             >
               L
             </Button>

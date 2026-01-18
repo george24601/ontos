@@ -51,7 +51,7 @@ type Result = {
 };
 
 export default function CompliancePolicyDetails() {
-  const { t } = useTranslation('compliance');
+  const { t } = useTranslation(['compliance', 'common']);
   const { policyId } = useParams<{ policyId: string }>();
   const navigate = useNavigate();
   const { get, post } = useApi();

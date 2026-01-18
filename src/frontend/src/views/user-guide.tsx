@@ -144,7 +144,7 @@ export default function UserGuide() {
           <BookOpenCheck className="w-8 h-8" />
           <h1 className="text-4xl font-bold">User Guide</h1>
         </div>
-        <div className="text-muted-foreground">Loading user guide...</div>
+        <div className="text-muted-foreground">{t('labels.loadingUserGuide')}</div>
       </div>
     );
   }

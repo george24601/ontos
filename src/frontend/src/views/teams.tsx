@@ -43,7 +43,7 @@ export default function TeamsView() {
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<string | null>(null);
 
-  const { t } = useTranslation('teams');
+  const { t } = useTranslation(['teams', 'common']);
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();

@@ -36,7 +36,7 @@ interface Result {
 }
 
 export default function ComplianceRunDetails() {
-  const { t } = useTranslation('compliance');
+  const { t } = useTranslation(['compliance', 'common']);
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
   const { get } = useApi();
@@ -99,7 +99,7 @@ export default function ComplianceRunDetails() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-10 text-center text-muted-foreground">Loading…</div>
+      <div className="container mx-auto py-10 text-center text-muted-foreground">{t('common:labels.loading')}</div>
     );
   }
   if (error || !run) {

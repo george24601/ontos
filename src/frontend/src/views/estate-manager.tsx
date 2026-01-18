@@ -70,7 +70,7 @@ interface Estate {
 // --- End TypeScript Interfaces ---
 
 export default function EstateManager() {
-  const { t } = useTranslation('estates');
+  const { t } = useTranslation(['estates', 'common']);
   const { toast } = useToast();
   const { get, post, put, delete: deleteEstateApi } = useApi();
   const navigate = useNavigate();
@@ -111,8 +111,8 @@ export default function EstateManager() {
       setEstates(response.data || []);
     } catch (error) {
       toast({
-        title: 'Error Fetching Estates',
-        description: error instanceof Error ? error.message : 'Could not load estates.',
+        title: t('estates:errors.fetchEstates'),
+        description: error instanceof Error ? error.message : t('estates:errors.couldNotLoad'),
         variant: 'destructive',
       });
       setEstates([]);
@@ -122,8 +122,8 @@ export default function EstateManager() {
   const handleSubmit = async () => {
     if (!formData.name || !formData.description || !formData.workspace_url || !formData.metastore_name || !formData.cloud_type || !formData.connection_type) {
         toast({
-            title: "Validation Error",
-            description: "Please fill in all required fields: Name, Description, Workspace URL, Metastore Name, Cloud Type, and Connection Type.",
+            title: t('estates:errors.validationError'),
+            description: t('estates:errors.validationMessage'),
             variant: "destructive",
         });
         return;
@@ -162,42 +162,42 @@ export default function EstateManager() {
       }
       
       toast({
-        title: 'Success',
-        description: `Estate ${selectedEstate ? 'updated' : 'created'} successfully`,
+        title: t('common:toast.success'),
+        description: selectedEstate ? t('estates:toast.estateUpdated') : t('estates:toast.estateCreated'),
       });
       
       setIsDialogOpen(false);
       fetchEstates();
     } catch (error) {
       toast({
-        title: 'Error Saving Estate',
-        description: error instanceof Error ? error.message : 'Failed to save estate',
+        title: t('estates:errors.savingEstate'),
+        description: error instanceof Error ? error.message : t('common:errors.saveFailed'),
         variant: 'destructive',
       });
     }
   };
 
   const handleDelete = async (estateId: string) => {
-    if (!confirm('Are you sure you want to delete this estate?')) return;
+    if (!confirm(t('estates:messages.deleteConfirm'))) return;
     try {
       const response = await deleteEstateApi(`/api/estates/${estateId}`);
       if (response.error) throw new Error(response.error);
       toast({
-        title: 'Success',
-        description: 'Estate deleted successfully',
+        title: t('common:toast.success'),
+        description: t('estates:toast.estateDeleted'),
       });
       fetchEstates();
     } catch (error) {
       toast({
-        title: 'Error Deleting Estate',
-        description: error instanceof Error ? error.message : 'Failed to delete estate',
+        title: t('estates:errors.deletingEstate'),
+        description: error instanceof Error ? error.message : t('common:errors.deleteFailed'),
         variant: 'destructive',
       });
     }
   };
 
   const handleSync = async (id: string) => {
-    toast({ title: 'Triggering Sync', description: 'Requesting sync for the estate...' });
+    toast({ title: t('estates:toast.triggeringSync'), description: t('estates:toast.syncRequested') });
     try {
       const response = await post(`/api/estates/${id}/sync`, {});
       if (response.error) throw new Error(response.error);
@@ -205,14 +205,14 @@ export default function EstateManager() {
         throw new Error(response.data.detail);
       }
       toast({
-        title: 'Success',
-        description: 'Sync triggered successfully. Refreshing data...',
+        title: t('common:toast.success'),
+        description: t('estates:toast.syncTriggered'),
       });
       setTimeout(fetchEstates, 1000);
     } catch (error) {
       toast({
-        title: 'Error Triggering Sync',
-        description: error instanceof Error ? error.message : 'Failed to trigger sync',
+        title: t('estates:errors.triggeringSync'),
+        description: error instanceof Error ? error.message : t('common:errors.updateFailed'),
         variant: 'destructive',
       });
     }
@@ -250,24 +250,24 @@ export default function EstateManager() {
   const columns: ColumnDef<Estate>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: t('common:labels.name'),
       cell: ({ row }) => (
         <div className="font-medium">{row.getValue("name")}</div>
       ),
     },
     {
       accessorKey: "workspace_url",
-      header: "Workspace URL",
+      header: t('common:labels.workspaceUrl'),
       cell: ({ row }) => <div>{row.getValue("workspace_url")}</div>,
     },
     {
       accessorKey: "cloud_type",
-      header: "Cloud",
+      header: t('common:labels.cloud'),
       cell: ({ row }) => <div className="capitalize">{row.getValue("cloud_type")}</div>,
     },
     {
       accessorKey: "connection_type",
-      header: "Connection",
+      header: t('common:labels.connection'),
       cell: ({ row }) => {
         const connectionType = row.getValue("connection_type") as ConnectionType;
         return (
@@ -282,21 +282,21 @@ export default function EstateManager() {
     },
     {
       accessorKey: "metastore_name",
-      header: "Metastore",
+      header: t('common:labels.metastore'),
       cell: ({ row }) => <div>{row.getValue("metastore_name")}</div>,
     },
     {
       accessorKey: "is_enabled",
-      header: "Sync Status",
+      header: t('common:labels.syncStatus'),
       cell: ({ row }) => (
         <Badge variant={row.getValue("is_enabled") ? "default" : "secondary"}>
-          {row.getValue("is_enabled") ? "Enabled" : "Disabled"}
+          {row.getValue("is_enabled") ? t('common:labels.enabled') : t('common:labels.disabled')}
         </Badge>
       ),
     },
     {
       accessorKey: "last_sync_status",
-      header: "Last Sync",
+      header: t('common:labels.lastSync'),
       cell: ({ row }) => {
         const lastSyncTime = row.original.last_sync_time;
         const status = row.original.last_sync_status;
@@ -346,20 +346,20 @@ export default function EstateManager() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleNodeClick(estate.id); }}>View Details</DropdownMenuItem>
+              <DropdownMenuLabel>{t('common:labels.actions')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleNodeClick(estate.id); }}>{t('estates:details.viewDetails')}</DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSync(estate.id); }}>
-                Trigger Sync
+                {t('estates:details.sync')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDialog(estate); }}>
-                Edit
+                {t('common:actions.edit')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-600 focus:text-red-50 focus:bg-red-600"
                 onClick={(e) => { e.stopPropagation(); handleDelete(estate.id); }}
               >
-                Delete
+                {t('common:actions.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -371,7 +371,7 @@ export default function EstateManager() {
   return (
     <div className="py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-        <Globe className="w-8 h-8" /> Estate Manager
+        <Globe className="w-8 h-8" /> {t('estates:title')}
       </h1>
 
       <div className="space-y-4">
@@ -392,7 +392,7 @@ export default function EstateManager() {
             toolbarActions={
               <Button onClick={() => openDialog()} className="h-9">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Estate
+                {t('estates:addEstate')}
               </Button>
             }
             onRowClick={(row) => handleNodeClick(row.original.id)}
@@ -407,14 +407,14 @@ export default function EstateManager() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>{selectedEstate ? 'Edit Estate' : 'Add New Estate'}</DialogTitle>
+            <DialogTitle>{selectedEstate ? t('estates:editEstate') : t('estates:form.createTitle')}</DialogTitle>
             <DialogDescription>
-              Configure the Databricks estate connection and basic settings. Sharing policies are managed on the detail page.
+              {t('estates:form.dialogDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Name</Label>
+              <Label htmlFor="name" className="text-right">{t('common:labels.name')}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -424,7 +424,7 @@ export default function EstateManager() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">Description</Label>
+              <Label htmlFor="description" className="text-right">{t('common:labels.description')}</Label>
               <Input
                 id="description"
                 value={formData.description}
@@ -434,7 +434,7 @@ export default function EstateManager() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="workspace_url" className="text-right">Workspace URL</Label>
+              <Label htmlFor="workspace_url" className="text-right">{t('common:labels.workspaceUrl')}</Label>
               <Input
                 id="workspace_url"
                 value={formData.workspace_url}
@@ -444,13 +444,13 @@ export default function EstateManager() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="cloud_type" className="text-right">Cloud</Label>
+              <Label htmlFor="cloud_type" className="text-right">{t('common:labels.cloud')}</Label>
               <Select
                 value={formData.cloud_type}
                 onValueChange={(value) => setFormData({ ...formData, cloud_type: value as CloudType })}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select cloud provider" />
+                  <SelectValue placeholder={t('common:placeholders.selectCloudProvider')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="aws">AWS</SelectItem>
@@ -460,22 +460,22 @@ export default function EstateManager() {
               </Select>
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="connection_type" className="text-right">Connection Type</Label>
+              <Label htmlFor="connection_type" className="text-right">{t('estates:form.connectionType')}</Label>
               <Select
                 value={formData.connection_type}
                 onValueChange={(value) => setFormData({ ...formData, connection_type: value as ConnectionType })}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select connection type" />
+                  <SelectValue placeholder={t('common:placeholders.selectConnectionType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="delta_share">Delta Share</SelectItem>
-                  <SelectItem value="database">Database (Future Use)</SelectItem>
+                  <SelectItem value="delta_share">{t('estates:connectionTypes.deltaShare')}</SelectItem>
+                  <SelectItem value="database">{t('estates:connectionTypes.database')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="metastore_name" className="text-right">Metastore Name</Label>
+              <Label htmlFor="metastore_name" className="text-right">{t('estates:form.metastoreName')}</Label>
               <Input
                 id="metastore_name"
                 value={formData.metastore_name}
@@ -485,17 +485,17 @@ export default function EstateManager() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="sync_schedule" className="text-right">Sync Schedule</Label>
+              <Label htmlFor="sync_schedule" className="text-right">{t('estates:form.syncSchedule')}</Label>
               <Input
                 id="sync_schedule"
                 value={formData.sync_schedule}
                 onChange={(e) => setFormData({ ...formData, sync_schedule: e.target.value })}
                 className="col-span-3"
-                placeholder="Cron expression, e.g., 0 0 * * *"
+                placeholder={t('common:placeholders.enterCronExpression')}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="is_enabled" className="text-right">Enable Sync</Label>
+                <Label htmlFor="is_enabled" className="text-right">{t('estates:form.enableSync')}</Label>
                 <div className="col-span-3 flex items-center">
                     <Switch
                         id="is_enabled"
@@ -507,10 +507,10 @@ export default function EstateManager() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             <Button onClick={handleSubmit}>
-              {selectedEstate ? 'Save Changes' : 'Create Estate'}
+              {selectedEstate ? t('common:actions.save') : t('common:actions.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

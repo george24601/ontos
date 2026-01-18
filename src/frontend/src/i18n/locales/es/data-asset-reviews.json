@@ -2,8 +2,21 @@
   "title": "Revisiones de Activos de Datos",
   "subtitle": "Revisa y aprueba activos de datos",
   "newReview": "Nueva Revisión",
+  "createRequest": "Crear Nueva Solicitud de Revisión de Activo de Datos",
   "searchPlaceholder": "Buscar revisiones...",
   "loading": "Cargando revisiones...",
+  "noRequests": "No se encontraron solicitudes de revisión.",
+  "toast": {
+    "requestCreated": "Solicitud de revisión {{id}} creada.",
+    "requestDeleted": "Solicitud de revisión eliminada.",
+    "deleteError": "Error al eliminar la solicitud.",
+    "bulkDeleted": "{{count}} solicitud(es) eliminada(s).",
+    "bulkDeleteError": "No se pudieron eliminar algunas solicitudes."
+  },
+  "confirm": {
+    "deleteRequest": "¿Está seguro de que desea eliminar esta solicitud de revisión?",
+    "bulkDelete": "¿Está seguro de que desea eliminar {{count}} solicitud(es) seleccionada(s)?"
+  },
   "filters": {
     "allStatus": "Todos los Estados",
     "pending": "Pendiente",
@@ -11,12 +24,16 @@
     "rejected": "Rechazado"
   },
   "table": {
+    "requestId": "ID de Solicitud",
     "asset": "Activo",
     "type": "Tipo",
     "requester": "Solicitante",
     "reviewer": "Revisor",
     "status": "Estado",
+    "assets": "Activos",
     "requested": "Solicitado",
+    "created": "Creado",
+    "updated": "Actualizado",
     "actions": "Acciones"
   },
   "messages": {
@@ -49,4 +66,3 @@
     "addComment": "Agregar Comentario"
   }
 }
-

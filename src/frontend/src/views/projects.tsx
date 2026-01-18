@@ -41,7 +41,7 @@ export default function ProjectsView() {
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<string | null>(null);
 
-  const { t } = useTranslation('projects');
+  const { t } = useTranslation(['projects', 'common']);
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();

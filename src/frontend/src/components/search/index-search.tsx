@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, FileText, Database, Book, Shield, Loader2 } from 'lucide-react';
@@ -22,6 +23,7 @@ interface IndexSearchProps {
 export default function IndexSearch({ initialQuery = '' }: IndexSearchProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation(['search', 'common']);
 
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<IndexSearchResult[]>([]);
@@ -101,15 +103,15 @@ export default function IndexSearch({ initialQuery = '' }: IndexSearchProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Index Search</CardTitle>
-        <CardDescription className="text-xs">Search across all indexed application data. Type to search.</CardDescription>
+        <CardTitle className="text-base">{t('search:index.title')}</CardTitle>
+        <CardDescription className="text-xs">{t('search:index.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="relative">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for data products, terms, contracts..."
+            placeholder={t('common:placeholders.searchDataProductsTermsContracts')}
             className="h-9 text-sm"
           />
         </div>
@@ -117,10 +119,10 @@ export default function IndexSearch({ initialQuery = '' }: IndexSearchProps) {
           {loading ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading...
+              {t('common:labels.loading')}
             </div>
           ) : results.length === 0 ? (
-            <div className="text-xs text-muted-foreground">No results</div>
+            <div className="text-xs text-muted-foreground">{t('search:noResults')}</div>
           ) : (
             results.map(r => (
               <a 

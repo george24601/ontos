@@ -2,8 +2,21 @@
   "title": "Daten-Asset-Überprüfungen",
   "subtitle": "Überprüfen und genehmigen Sie Daten-Assets",
   "newReview": "Neue Überprüfung",
+  "createRequest": "Neue Daten-Asset-Überprüfungsanfrage erstellen",
   "searchPlaceholder": "Überprüfungen suchen...",
   "loading": "Überprüfungen werden geladen...",
+  "noRequests": "Keine Überprüfungsanfragen gefunden.",
+  "toast": {
+    "requestCreated": "Überprüfungsanfrage {{id}} erstellt.",
+    "requestDeleted": "Überprüfungsanfrage gelöscht.",
+    "deleteError": "Anfrage konnte nicht gelöscht werden.",
+    "bulkDeleted": "{{count}} Anfrage(n) gelöscht.",
+    "bulkDeleteError": "Einige Anfragen konnten nicht gelöscht werden."
+  },
+  "confirm": {
+    "deleteRequest": "Sind Sie sicher, dass Sie diese Überprüfungsanfrage löschen möchten?",
+    "bulkDelete": "Sind Sie sicher, dass Sie {{count}} ausgewählte Anfrage(n) löschen möchten?"
+  },
   "filters": {
     "allStatus": "Alle Status",
     "pending": "Ausstehend",
@@ -11,12 +24,16 @@
     "rejected": "Abgelehnt"
   },
   "table": {
+    "requestId": "Anfrage-ID",
     "asset": "Asset",
     "type": "Typ",
     "requester": "Antragsteller",
     "reviewer": "Prüfer",
     "status": "Status",
+    "assets": "Assets",
     "requested": "Angefordert",
+    "created": "Erstellt",
+    "updated": "Aktualisiert",
     "actions": "Aktionen"
   },
   "messages": {
@@ -49,4 +66,3 @@
     "addComment": "Kommentar hinzufügen"
   }
 }
-

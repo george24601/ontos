@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -106,6 +107,7 @@ export default function KGSearch({
   const { get, post } = useApi();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation(['search', 'common']);
 
   const [prefix, setPrefix] = useState(initialPrefix);
   const [prefixResults, setPrefixResults] = useState<KGItem[]>([]);
@@ -269,8 +271,8 @@ export default function KGSearch({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Prefix Search</CardTitle>
-          <CardDescription className="text-xs">Find resources or properties by IRI substring.</CardDescription>
+          <CardTitle className="text-base">{t('search:kg.prefixSearch')}</CardTitle>
+          <CardDescription className="text-xs">{t('search:kg.prefixSearchDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <Input
@@ -287,7 +289,7 @@ export default function KGSearch({
                     <span className="hover:underline cursor-pointer" title={r.value}>{r.value}</span>
                   </AppEntityHover>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => selectStart(r.value)}>Start path</Button>
+                <Button size="sm" variant="outline" onClick={() => selectStart(r.value)}>{t('search:kg.startPath')}</Button>
               </div>
             ))}
           </div>
@@ -296,8 +298,8 @@ export default function KGSearch({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Path Explorer</CardTitle>
-          <CardDescription className="text-xs">Click objects to extend the path horizontally.</CardDescription>
+          <CardTitle className="text-base">{t('search:kg.pathExplorer')}</CardTitle>
+          <CardDescription className="text-xs">{t('search:kg.pathExplorerDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2 text-sm">
@@ -311,21 +313,21 @@ export default function KGSearch({
           {/* Filter Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border">
             <div className="flex flex-col space-y-2">
-              <Label htmlFor="direction-filter" className="text-sm font-medium">Direction Filter</Label>
+              <Label htmlFor="direction-filter" className="text-sm font-medium">{t('search:kg.directionFilter')}</Label>
               <Select value={directionFilter} onValueChange={handleDirectionFilterChange}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Everything</SelectItem>
-                  <SelectItem value="incoming">Incoming Only</SelectItem>
-                  <SelectItem value="outgoing">Outgoing Only</SelectItem>
+                  <SelectItem value="all">{t('search:kg.everything')}</SelectItem>
+                  <SelectItem value="incoming">{t('search:kg.incomingOnly')}</SelectItem>
+                  <SelectItem value="outgoing">{t('search:kg.outgoingOnly')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex flex-col space-y-2">
-              <Label className="text-sm font-medium">Content Filter</Label>
+              <Label className="text-sm font-medium">{t('search:kg.contentFilter')}</Label>
               <div className="flex items-center space-x-3 h-9">
                 <Switch
                   id="concepts-only"
@@ -333,7 +335,7 @@ export default function KGSearch({
                   onCheckedChange={handleConceptsOnlyToggle}
                 />
                 <Label htmlFor="concepts-only" className="text-sm cursor-pointer">
-                  Show concepts/classes only
+                  {t('search:kg.showConceptsOnly')}
                 </Label>
               </div>
             </div>
@@ -345,8 +347,8 @@ export default function KGSearch({
             {filteredNeighbors.length === 0 ? (
               <div className="text-sm text-muted-foreground">
                 {neighbors.length === 0
-                  ? "No outgoing links for current selection."
-                  : "No links match the current filters."}
+                  ? t('search:kg.noOutgoingLinks')
+                  : t('search:kg.noLinksMatch')}
               </div>
             ) : filteredNeighbors.map((n, i) => (
               <div key={i} className="flex items-center justify-between">
@@ -367,7 +369,7 @@ export default function KGSearch({
                   </div>
                 </div>
                 {n.stepIsResource && n.stepIri ? (
-                  <Button variant="ghost" size="sm" onClick={() => stepTo(n.stepIri)}>Step</Button>
+                  <Button variant="ghost" size="sm" onClick={() => stepTo(n.stepIri)}>{t('search:kg.step')}</Button>
                 ) : null}
               </div>
             ))}
@@ -380,26 +382,26 @@ export default function KGSearch({
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <div>
-              <CardTitle>SPARQL</CardTitle>
-              <CardDescription>Run advanced queries over the loaded graph.</CardDescription>
+              <CardTitle>{t('search:kg.sparql')}</CardTitle>
+              <CardDescription>{t('search:kg.sparqlDesc')}</CardDescription>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">Examples</Button>
+                <Button variant="outline" size="sm">{t('search:kg.examples')}</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[420px] max-w-[80vw]">
-                <DropdownMenuItem onClick={() => setSparql('SELECT ?resource WHERE { ?resource ?p ?o . FILTER(REGEX(STR(?resource), "^urn:ontos")) }')}>Resources in app namespace</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSparql('SELECT ?s ?label WHERE { ?s <http://www.w3.org/2000/01/rdf-schema#label> ?label } LIMIT 50')}>Resources with rdfs:label</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSparql('SELECT ?s ?type WHERE { ?s a ?type } LIMIT 100')}>Subjects and their types</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSparql('SELECT ?p (COUNT(*) AS ?count) WHERE { ?s ?p ?o } GROUP BY ?p ORDER BY DESC(?count) LIMIT 25')}>Top predicates by frequency</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSparql('SELECT ?o (COUNT(*) AS ?count) WHERE { ?s <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?o } GROUP BY ?o ORDER BY DESC(?count) LIMIT 25')}>Most linked via rdfs:seeAlso</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSparql('SELECT ?resource WHERE { ?resource ?p ?o . FILTER(REGEX(STR(?resource), "^urn:ontos")) }')}>{t('search:kg.resourcesInNamespace')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSparql('SELECT ?s ?label WHERE { ?s <http://www.w3.org/2000/01/rdf-schema#label> ?label } LIMIT 50')}>{t('search:kg.resourcesWithLabel')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSparql('SELECT ?s ?type WHERE { ?s a ?type } LIMIT 100')}>{t('search:kg.subjectsAndTypes')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSparql('SELECT ?p (COUNT(*) AS ?count) WHERE { ?s ?p ?o } GROUP BY ?p ORDER BY DESC(?count) LIMIT 25')}>{t('search:kg.topPredicates')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSparql('SELECT ?o (COUNT(*) AS ?count) WHERE { ?s <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?o } GROUP BY ?o ORDER BY DESC(?count) LIMIT 25')}>{t('search:kg.mostLinkedSeeAlso')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input value={sparql} onChange={(e) => setSparql(e.target.value)} />
-          <Button onClick={runSparql}>Run SPARQL</Button>
+          <Button onClick={runSparql}>{t('search:kg.runSparql')}</Button>
           <div className="space-y-1 text-sm">
             {sparqlRows.map((row, idx) => (
               <pre key={idx} className="bg-muted p-2 rounded-md overflow-auto whitespace-pre-wrap">{JSON.stringify(row, null, 2)}</pre>

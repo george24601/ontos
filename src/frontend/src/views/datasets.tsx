@@ -45,7 +45,7 @@ import {
 import DatasetFormDialog from '@/components/datasets/dataset-form-dialog';
 
 export default function Datasets() {
-  const { t } = useTranslation('datasets');
+  const { t } = useTranslation(['datasets', 'common']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { currentProject, hasProjectContext } = useProjectContext();

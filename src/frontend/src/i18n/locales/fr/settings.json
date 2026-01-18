@@ -7,12 +7,73 @@
     "jobs": "Jobs & Workflows",
     "roles": "Rôles",
     "semanticModels": "Modèles sémantiques",
-    "tags": "Tags"
+    "tags": "Tags",
+    "search": "Recherche",
+    "mcpTokens": "Jetons MCP"
+  },
+  "accessDenied": {
+    "title": "Accès refusé",
+    "message": "Vous n'avez pas la permission d'accéder à la page Paramètres. Cette page est réservée aux utilisateurs disposant de privilèges administratifs.",
+    "action": "Si vous pensez devoir avoir accès, veuillez contacter votre administrateur ou ",
+    "returnHome": "retourner à la page d'accueil",
+    "requestRole": " pour demander un rôle approprié."
   },
   "general": {
     "title": "Paramètres généraux",
     "description": "Configurer les paramètres de base de l'application",
-    "enableBackgroundJobs": "Activer les jobs en arrière-plan"
+    "enableBackgroundJobs": "Activer les jobs en arrière-plan",
+    "workspaceDeploymentPath": {
+      "label": "Chemin de déploiement du workspace",
+      "placeholder": "/Workspace/Users/user@domain.com/ontos-workflows",
+      "help": "Chemin dans le workspace Databricks où les fichiers de workflow sont déployés pour les jobs en arrière-plan."
+    },
+    "unityCatalog": {
+      "title": "Unity Catalog",
+      "help": "Emplacement Unity Catalog pour stocker les données de l'application.",
+      "catalog": {
+        "label": "Catalogue",
+        "placeholder": "app_data"
+      },
+      "schema": {
+        "label": "Schéma",
+        "placeholder": "app_ontos"
+      },
+      "volume": {
+        "label": "Volume",
+        "placeholder": "app_files"
+      }
+    },
+    "auditLog": {
+      "label": "Répertoire des journaux d'audit",
+      "placeholder": "audit_logs",
+      "help": "Répertoire où les fichiers de journaux d'audit sont stockés."
+    },
+    "llm": {
+      "title": "Configuration AI / LLM",
+      "enabled": {
+        "label": "Activer les fonctionnalités IA"
+      },
+      "endpoint": {
+        "label": "Point de terminaison LLM",
+        "placeholder": "databricks-claude-sonnet-4-5",
+        "help": "Nom du point de terminaison de service Databricks pour le LLM."
+      },
+      "systemPrompt": {
+        "label": "Invite système",
+        "placeholder": "Vous êtes un Data Steward...",
+        "help": "Invite système qui définit le comportement de l'assistant IA."
+      },
+      "disclaimer": {
+        "label": "Texte de clause de non-responsabilité",
+        "placeholder": "Cette fonctionnalité utilise l'IA pour analyser les actifs de données...",
+        "help": "Clause de non-responsabilité affichée aux utilisateurs lors de l'utilisation des fonctionnalités IA."
+      }
+    },
+    "saveButton": "Enregistrer les paramètres",
+    "messages": {
+      "saveSuccess": "Paramètres enregistrés avec succès",
+      "saveError": "Échec de l'enregistrement des paramètres"
+    }
   },
   "databricks": {
     "title": "Paramètres Databricks",
@@ -115,7 +176,8 @@
       "general": "Général",
       "privileges": "Privilèges",
       "permissions": "Autorisations",
-      "deployment": "Déploiement"
+      "deployment": "Déploiement",
+      "accessControl": "Contrôle d'accès"
     },
     "general": {
       "roleName": "Nom du rôle",
@@ -167,6 +229,20 @@
       "requireApproval": "Nécessite une approbation pour les déploiements",
       "canApprove": "Peut approuver les demandes de déploiement"
     },
+    "accessControl": {
+      "requestableBy": {
+        "title": "Qui peut demander ce rôle ?",
+        "description": "Sélectionnez les rôles autorisés à demander l'accès à ce rôle. Les utilisateurs avec ces rôles verront ce rôle dans leur liste des rôles demandables."
+      },
+      "approvers": {
+        "title": "Qui peut approuver les demandes pour ce rôle ?",
+        "description": "Sélectionnez les rôles pouvant approuver les demandes d'accès pour ce rôle. Les utilisateurs avec ces rôles recevront des notifications lorsque quelqu'un demandera ce rôle.",
+        "hint": "Si aucun approbateur n'est sélectionné, les demandes seront envoyées à l'Admin par défaut."
+      },
+      "noRole": "Utilisateurs sans rôle (nouveaux utilisateurs)",
+      "noRolesAvailable": "Aucun autre rôle disponible",
+      "defaultApprover": "Par défaut"
+    },
     "actions": {
       "cancel": "Annuler",
       "create": "Créer le rôle",
@@ -175,6 +251,85 @@
       "actions": "Actions",
       "editRole": "Modifier le rôle",
       "deleteRole": "Supprimer le rôle"
+    }
+  },
+  "mcpTokens": {
+    "title": "Jetons API MCP",
+    "description": "Gérer les jetons API pour les intégrations d'assistants IA via le Model Context Protocol",
+    "refresh": "Actualiser",
+    "createToken": "Créer un jeton",
+    "showRevokedTokens": "Afficher les jetons révoqués",
+    "emptyState": {
+      "title": "Aucun jeton MCP pour l'instant",
+      "description": "Créez un jeton pour permettre aux assistants IA d'accéder à vos outils"
+    },
+    "table": {
+      "name": "Nom",
+      "scopes": "Portées",
+      "created": "Créé",
+      "lastUsed": "Dernière utilisation",
+      "expires": "Expire",
+      "status": "Statut",
+      "actions": "Actions",
+      "never": "Jamais",
+      "moreScopes": "+{{count}} autres",
+      "createdBy": "par {{name}}"
+    },
+    "status": {
+      "active": "Actif",
+      "revoked": "Révoqué",
+      "expired": "Expiré"
+    },
+    "tooltips": {
+      "revokeToken": "Révoquer le jeton"
+    },
+    "info": {
+      "title": "Utilisation des jetons MCP",
+      "description": "Les jetons MCP permettent aux assistants IA d'interagir avec votre plateforme de gouvernance des données. Chaque jeton a des portées spécifiques qui contrôlent les outils accessibles.",
+      "endpoint": "Point de terminaison :",
+      "header": "En-tête :"
+    },
+    "createDialog": {
+      "title": "Créer un jeton MCP",
+      "description": "Créez un nouveau jeton API pour les intégrations d'assistants IA. Le jeton ne sera affiché qu'une seule fois.",
+      "tokenName": "Nom du jeton",
+      "tokenNamePlaceholder": "ex., Assistant Claude - Équipe Analytics",
+      "tokenNameHelp": "Un nom descriptif pour identifier ce jeton",
+      "expiration": "Expiration (jours)",
+      "expirationHelp": "Laisser vide pour pas d'expiration",
+      "scopes": "Portées",
+      "scopesHelp": "Sélectionnez les permissions que ce jeton doit avoir",
+      "selectedScopes": "Sélectionnées :",
+      "cancel": "Annuler",
+      "create": "Créer le jeton",
+      "creating": "Création..."
+    },
+    "createdDialog": {
+      "title": "Jeton créé avec succès",
+      "warning": "Copiez ce jeton maintenant — il ne sera plus affiché !",
+      "tokenName": "Nom du jeton",
+      "apiToken": "Jeton API",
+      "scopes": "Portées",
+      "expires": "Expire",
+      "copy": "Copier",
+      "copied": "Copié !",
+      "done": "Terminé"
+    },
+    "revokeDialog": {
+      "title": "Révoquer le jeton ?",
+      "description": "Êtes-vous sûr de vouloir révoquer le jeton",
+      "warning": "Cette action ne peut pas être annulée. Les assistants IA utilisant ce jeton perdront immédiatement l'accès.",
+      "cancel": "Annuler",
+      "revoke": "Révoquer le jeton"
+    },
+    "messages": {
+      "loadError": "Échec du chargement des jetons MCP",
+      "tokenNameRequired": "Le nom du jeton est requis",
+      "scopeRequired": "Au moins une portée est requise",
+      "createError": "Échec de la création du jeton",
+      "copied": "Jeton copié dans le presse-papiers",
+      "revoked": "Le jeton \"{{name}}\" a été révoqué",
+      "revokeError": "Échec de la révocation du jeton"
     }
   }
 }

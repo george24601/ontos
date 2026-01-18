@@ -53,7 +53,7 @@ const checkApiResponse: CheckApiResponseFn = (response, name) => {
 // --- Component Code ---
 
 export default function DataProducts() {
-  const { t } = useTranslation('data-products');
+  const { t } = useTranslation(['data-products', 'common']);
   const [products, setProducts] = useState<DataProduct[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<DataProduct | null>(null);
@@ -475,7 +475,7 @@ export default function DataProducts() {
       accessorKey: "info.title",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Title <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.title')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -504,19 +504,19 @@ export default function DataProducts() {
       accessorKey: "team.members",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Owner <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.owner')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
         const owner = row.original.team?.members?.find(m => m.role === 'owner');
-        return <div>{owner?.name || owner?.username || 'N/A'}</div>;
+        return <div>{owner?.name || owner?.username || t('common:states.notAvailable')}</div>;
       },
     },
     {
       accessorKey: "version",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Version <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.version')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => <Badge variant="secondary">{row.original.version}</Badge>,
@@ -525,21 +525,21 @@ export default function DataProducts() {
       accessorKey: "outputPorts",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Type <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.type')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
         const firstOutputPort = row.original.outputPorts?.[0];
         const productType = firstOutputPort?.type;
         return productType ? 
-          <Badge variant="outline">{productType}</Badge> : 'N/A';
+          <Badge variant="outline">{productType}</Badge> : t('common:states.notAvailable');
       },
     },
     {
       accessorKey: "status",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Status <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.status')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => (
@@ -550,12 +550,12 @@ export default function DataProducts() {
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">Personal Draft</Badge>
             )}
           </div>
-        ) : 'N/A'
+        ) : t('common:states.notAvailable')
       ),
     },
     {
       accessorKey: "tags",
-      header: "Tags",
+      header: t('table.tags'),
       cell: ({ row }) => {
         const tags = row.original.tags || [];
         return (
@@ -572,16 +572,16 @@ export default function DataProducts() {
       accessorKey: "created_at",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Created <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.created')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => row.original.created_at ? <RelativeDate date={row.original.created_at} /> : 'N/A',
+      cell: ({ row }) => row.original.created_at ? <RelativeDate date={row.original.created_at} /> : t('common:states.notAvailable'),
     },
     {
       accessorKey: "updated_at",
       header: ({ column }: { column: Column<DataProduct, unknown> }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Updated <ChevronDown className="ml-2 h-4 w-4" />
+          {t('table.updated')} <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => <RelativeDate date={row.original.updated_at} />,
@@ -663,7 +663,7 @@ export default function DataProducts() {
                 size="sm"
                 className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
                 onClick={() => setError(null)}
-                title="Dismiss"
+                title={t('common:tooltips.dismiss')}
               >
                 <span className="sr-only">Dismiss</span>
                 ×

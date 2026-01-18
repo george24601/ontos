@@ -30,7 +30,7 @@ interface SecurityFeature {
 }
 
 const SecurityFeatures: React.FC = () => {
-  const { t } = useTranslation('security-features');
+  const { t } = useTranslation(['security-features', 'common']);
   const [features, setFeatures] = useState<SecurityFeature[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFeature, setEditingFeature] = useState<SecurityFeature | null>(null);
@@ -58,8 +58,8 @@ const SecurityFeatures: React.FC = () => {
       setFeatures(data);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load security features',
+        title: t('common:toast.error'),
+        description: t('security-features:toast.loadError'),
         variant: 'destructive',
       });
     }
@@ -87,8 +87,8 @@ const SecurityFeatures: React.FC = () => {
       }
 
       toast({
-        title: 'Success',
-        description: `Security feature ${editingFeature ? 'updated' : 'created'} successfully`,
+        title: t('common:toast.success'),
+        description: editingFeature ? t('security-features:toast.featureUpdated') : t('security-features:toast.featureCreated'),
       });
 
       fetchFeatures();
@@ -104,8 +104,8 @@ const SecurityFeatures: React.FC = () => {
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to save security feature',
+        title: t('common:toast.error'),
+        description: t('security-features:toast.saveError'),
         variant: 'destructive',
       });
     }
@@ -122,15 +122,15 @@ const SecurityFeatures: React.FC = () => {
       }
 
       toast({
-        title: 'Success',
-        description: 'Security feature deleted successfully',
+        title: t('common:toast.success'),
+        description: t('security-features:toast.featureDeleted'),
       });
 
       fetchFeatures();
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete security feature',
+        title: t('common:toast.error'),
+        description: t('security-features:toast.deleteError'),
         variant: 'destructive',
       });
     }
@@ -147,23 +147,23 @@ const SecurityFeatures: React.FC = () => {
   return (
     <div className="py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-        <Gavel className="w-8 h-8" /> Security Features
+        <Gavel className="w-8 h-8" /> {t('security-features:title')}
       </h1>
       <div className="flex justify-between items-center mb-6">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Add Security Feature
+              {t('security-features:addFeature')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingFeature ? 'Edit Security Feature' : 'Add Security Feature'}</DialogTitle>
+              <DialogTitle>{editingFeature ? t('security-features:editFeature') : t('security-features:addFeature')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">{t('common:labels.name')}</Label>
                 <Input
                   id="name"
                   value={editingFeature?.name || newFeature.name}
@@ -177,7 +177,7 @@ const SecurityFeatures: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t('common:labels.description')}</Label>
                 <Textarea
                   id="description"
                   value={editingFeature?.description || newFeature.description}
@@ -191,7 +191,7 @@ const SecurityFeatures: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
+                <Label htmlFor="type">{t('common:labels.type')}</Label>
                 <Select
                   value={editingFeature?.type || newFeature.type}
                   onValueChange={(value) => {
@@ -203,20 +203,20 @@ const SecurityFeatures: React.FC = () => {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder={t('common:placeholders.selectType')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="row_filtering">Row Filtering</SelectItem>
-                    <SelectItem value="column_masking">Column Masking</SelectItem>
-                    <SelectItem value="differential_privacy">Differential Privacy</SelectItem>
-                    <SelectItem value="homomorphic_encryption">Homomorphic Encryption</SelectItem>
-                    <SelectItem value="envelope_encryption">Envelope Encryption</SelectItem>
-                    <SelectItem value="tokenization">Tokenization</SelectItem>
+                    <SelectItem value="row_filtering">{t('security-features:types.rowFiltering')}</SelectItem>
+                    <SelectItem value="column_masking">{t('security-features:types.columnMasking')}</SelectItem>
+                    <SelectItem value="differential_privacy">{t('security-features:types.differentialPrivacy')}</SelectItem>
+                    <SelectItem value="homomorphic_encryption">{t('security-features:types.homomorphicEncryption')}</SelectItem>
+                    <SelectItem value="envelope_encryption">{t('security-features:types.envelopeEncryption')}</SelectItem>
+                    <SelectItem value="tokenization">{t('security-features:types.tokenization')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="target">Target</Label>
+                <Label htmlFor="target">{t('common:labels.target')}</Label>
                 <Input
                   id="target"
                   value={editingFeature?.target || newFeature.target}
@@ -232,10 +232,10 @@ const SecurityFeatures: React.FC = () => {
             </div>
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button onClick={handleSaveFeature}>
-                {editingFeature ? 'Save Changes' : 'Add Feature'}
+                {editingFeature ? t('security-features:form.saveChanges') : t('security-features:form.addFeature')}
               </Button>
             </div>
           </DialogContent>
@@ -246,13 +246,13 @@ const SecurityFeatures: React.FC = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Target</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Conditions</TableHead>
-              <TableHead>Last Updated</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('common:labels.name')}</TableHead>
+              <TableHead>{t('common:labels.type')}</TableHead>
+              <TableHead>{t('common:labels.target')}</TableHead>
+              <TableHead>{t('common:labels.status')}</TableHead>
+              <TableHead>{t('security-features:table.conditions')}</TableHead>
+              <TableHead>{t('security-features:table.lastUpdated')}</TableHead>
+              <TableHead className="text-right">{t('common:labels.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

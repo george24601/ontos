@@ -51,6 +51,10 @@
     "name": "Sicherheitsfunktionen",
     "description": "Erweiterte Sicherheit wie Differenzialprivacy aktivieren."
   },
+  "security-features": {
+    "name": "Sicherheitsfunktionen",
+    "description": "Erweiterte Sicherheit wie Differenzialprivacy aktivieren."
+  },
   "entitlements": {
     "name": "Berechtigungen",
     "description": "Zugriffsrechte über Personas und Gruppen verwalten."

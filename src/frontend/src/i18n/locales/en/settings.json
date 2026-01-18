@@ -7,7 +7,9 @@
     "jobs": "Jobs & Workflows",
     "roles": "Roles",
     "semanticModels": "Semantic Models",
-    "tags": "Tags"
+    "tags": "Tags",
+    "search": "Search",
+    "mcpTokens": "MCP Tokens"
   },
   "accessDenied": {
     "title": "Access Denied",
@@ -249,6 +251,85 @@
       "actions": "Actions",
       "editRole": "Edit Role",
       "deleteRole": "Delete Role"
+    }
+  },
+  "mcpTokens": {
+    "title": "MCP API Tokens",
+    "description": "Manage API tokens for AI assistant integrations via the Model Context Protocol",
+    "refresh": "Refresh",
+    "createToken": "Create Token",
+    "showRevokedTokens": "Show revoked tokens",
+    "emptyState": {
+      "title": "No MCP tokens yet",
+      "description": "Create a token to allow AI assistants to access your tools"
+    },
+    "table": {
+      "name": "Name",
+      "scopes": "Scopes",
+      "created": "Created",
+      "lastUsed": "Last Used",
+      "expires": "Expires",
+      "status": "Status",
+      "actions": "Actions",
+      "never": "Never",
+      "moreScopes": "+{{count}} more",
+      "createdBy": "by {{name}}"
+    },
+    "status": {
+      "active": "Active",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    },
+    "tooltips": {
+      "revokeToken": "Revoke token"
+    },
+    "info": {
+      "title": "Using MCP Tokens",
+      "description": "MCP tokens allow AI assistants to interact with your data governance platform. Each token has specific scopes that control which tools can be accessed.",
+      "endpoint": "Endpoint:",
+      "header": "Header:"
+    },
+    "createDialog": {
+      "title": "Create MCP Token",
+      "description": "Create a new API token for AI assistant integrations. The token will only be shown once.",
+      "tokenName": "Token Name",
+      "tokenNamePlaceholder": "e.g., Claude Assistant - Analytics Team",
+      "tokenNameHelp": "A descriptive name to identify this token",
+      "expiration": "Expiration (days)",
+      "expirationHelp": "Leave empty for no expiration",
+      "scopes": "Scopes",
+      "scopesHelp": "Select the permissions this token should have",
+      "selectedScopes": "Selected:",
+      "cancel": "Cancel",
+      "create": "Create Token",
+      "creating": "Creating..."
+    },
+    "createdDialog": {
+      "title": "Token Created Successfully",
+      "warning": "Copy this token now — it won't be shown again!",
+      "tokenName": "Token Name",
+      "apiToken": "API Token",
+      "scopes": "Scopes",
+      "expires": "Expires",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "done": "Done"
+    },
+    "revokeDialog": {
+      "title": "Revoke Token?",
+      "description": "Are you sure you want to revoke the token",
+      "warning": "This action cannot be undone. Any AI assistants using this token will immediately lose access.",
+      "cancel": "Cancel",
+      "revoke": "Revoke Token"
+    },
+    "messages": {
+      "loadError": "Failed to load MCP tokens",
+      "tokenNameRequired": "Token name is required",
+      "scopeRequired": "At least one scope is required",
+      "createError": "Failed to create token",
+      "copied": "Token copied to clipboard",
+      "revoked": "Token \"{{name}}\" has been revoked",
+      "revokeError": "Failed to revoke token"
     }
   }
 }

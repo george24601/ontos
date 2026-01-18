@@ -21,7 +21,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { RelativeDate } from '@/components/common/relative-date';
 
 export default function DataContracts() {
-  const { t } = useTranslation('data-contracts');
+  const { t } = useTranslation(['data-contracts', 'common']);
   const { toast } = useToast();
   const { getDomainName } = useDomains();
   const [contracts, setContracts] = useState<DataContractListItem[]>([]);
@@ -292,7 +292,7 @@ export default function DataContracts() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Name
+            {t('table.name')}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -327,7 +327,7 @@ export default function DataContracts() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Owner
+            {t('table.owner')}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -335,7 +335,7 @@ export default function DataContracts() {
       cell: ({ row }) => {
         const teamId = row.original.owner_team_id;
         const teamName = teamId ? teamNames[teamId] : undefined;
-        return <div>{teamName || teamId || 'N/A'}</div>;
+        return <div>{teamName || teamId || t('common:states.notAvailable')}</div>;
       },
     },
     {
@@ -346,7 +346,7 @@ export default function DataContracts() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Version
+            {t('table.version')}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -361,7 +361,7 @@ export default function DataContracts() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Status
+            {t('table.status')}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -384,7 +384,7 @@ export default function DataContracts() {
     },
     {
       accessorKey: "tags",
-      header: "Tags",
+      header: t('table.tags'),
       cell: ({ row }) => {
         const tags = row.original.tags || [];
         return (
@@ -405,12 +405,12 @@ export default function DataContracts() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Created
+            {t('table.created')}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
-      cell: ({ row }) => row.original.created ? <RelativeDate date={row.original.created} /> : 'N/A',
+      cell: ({ row }) => row.original.created ? <RelativeDate date={row.original.created} /> : t('common:states.notAvailable'),
     },
     {
       accessorKey: "updated",
@@ -420,12 +420,12 @@ export default function DataContracts() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Updated
+            {t('table.updated')}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
-      cell: ({ row }) => row.original.updated ? <RelativeDate date={row.original.updated} /> : 'N/A',
+      cell: ({ row }) => row.original.updated ? <RelativeDate date={row.original.updated} /> : t('common:states.notAvailable'),
     },
     {
       id: "actions",
@@ -438,7 +438,7 @@ export default function DataContracts() {
               variant="ghost"
               size="icon"
               onClick={(e) => { e.stopPropagation(); contract.id && navigate(`/data-contracts/${contract.id}`) }}
-              title="Edit"
+              title={t('common:tooltips.edit')}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -448,7 +448,7 @@ export default function DataContracts() {
                 size="icon"
                 className="text-destructive hover:text-destructive"
                 onClick={(e) => { e.stopPropagation(); handleDeleteContract(contract.id as string) }}
-                title="Delete"
+                title={t('common:tooltips.delete')}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -463,7 +463,7 @@ export default function DataContracts() {
     <div className="py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
         <FileText className="w-8 h-8" />
-        Data Contracts
+        {t('title')}
       </h1>
 
       {error && (
@@ -475,7 +475,7 @@ export default function DataContracts() {
             size="sm"
             className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
             onClick={() => setError(null)}
-            title="Dismiss"
+            title={t('common:tooltips.dismiss')}
           >
             <span className="sr-only">Dismiss</span>
             ×
@@ -495,16 +495,16 @@ export default function DataContracts() {
           storageKey="data-contracts-sort"
           toolbarActions={
             <>
-              <Button onClick={() => setOpenWizard(true)} className="gap-2 h-9" title="Create Data Contract">
+              <Button onClick={() => setOpenWizard(true)} className="gap-2 h-9" title={t('common:tooltips.createDataContract')}>
                 <Plus className="h-4 w-4" />
-                New Contract
+                {t('newContract')}
               </Button>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button onClick={() => setOpenUploadDialog(true)} variant="outline" className="gap-2 h-9">
                       <Upload className="h-4 w-4" />
-                      Upload File
+                      {t('uploadFile')}
                       <HelpCircle className="h-3 w-3 ml-1 opacity-50" />
                     </Button>
                   </TooltipTrigger>
@@ -528,7 +528,7 @@ export default function DataContracts() {
                 size="sm"
                 className="h-9 gap-1"
                 onClick={() => handleBulkRequestAccess(selectedRows.map(r => r.id!).filter(Boolean))}
-                title="Request access for selected"
+                title={t('common:tooltips.requestAccessForSelected')}
               >
                 <KeyRound className="w-4 h-4 mr-1" />
                 Request Access ({selectedRows.length})
@@ -538,7 +538,7 @@ export default function DataContracts() {
                 size="sm"
                 className="h-9 gap-1"
                 onClick={() => handleBulkDelete(selectedRows.map(r => r.id!).filter(Boolean))}
-                title="Delete selected"
+                title={t('common:tooltips.deleteSelected')}
               >
                 <Trash2 className="w-4 h-4 mr-1" />
                 Delete Selected ({selectedRows.length})
@@ -567,7 +567,7 @@ export default function DataContracts() {
                 size="sm"
                 className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
                 onClick={() => setUploadError(null)}
-                title="Dismiss"
+                title={t('common:tooltips.dismiss')}
               >
                 <span className="sr-only">Dismiss</span>
                 ×
@@ -602,7 +602,7 @@ export default function DataContracts() {
             <Label htmlFor="odcsPaste">Or paste ODCS JSON</Label>
             <textarea
               id="odcsPaste"
-              placeholder="Paste ODCS JSON"
+              placeholder={t('common:placeholders.pasteODCSJSON')}
               className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               value={odcsPaste}
               onChange={(e) => setOdcsPaste(e.target.value)}

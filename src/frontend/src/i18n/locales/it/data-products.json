@@ -71,11 +71,15 @@
     "missingId": "Impossibile navigare ai dettagli, ID prodotto mancante."
   },
   "table": {
+    "title": "Titolo",
     "name": "Nome",
     "status": "Stato",
     "domain": "Dominio",
     "owner": "Proprietario",
     "version": "Versione",
+    "type": "Tipo",
+    "tags": "Tag",
+    "created": "Creato",
     "updated": "Aggiornato",
     "actions": "Azioni",
     "viewDetails": "Visualizza dettagli",

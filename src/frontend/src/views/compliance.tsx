@@ -50,7 +50,7 @@ interface ComplianceApiResponse {
 }
 
 export default function Compliance() {
-  const { t } = useTranslation('compliance');
+  const { t } = useTranslation(['compliance', 'common']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { get: apiGet, post: apiPost, put: apiPut, delete: apiDeleteApi, loading: apiIsLoading } = useApi();
@@ -90,7 +90,7 @@ export default function Compliance() {
       const errorMessage = error instanceof Error ? error.message : "Failed to load compliance policies";
       setComponentError(errorMessage);
       toast({
-        title: "Error Loading Policies",
+        title: t('compliance:errors.loadingPolicies'),
         description: errorMessage,
         variant: "destructive"
       });
@@ -102,7 +102,7 @@ export default function Compliance() {
   useEffect(() => {
     loadPolicies();
     setStaticSegments([]);
-    setDynamicTitle('Compliance');
+    setDynamicTitle(t('compliance:title'));
 
     return () => {
         setStaticSegments([]);
@@ -148,8 +148,8 @@ export default function Compliance() {
       }
       
       toast({
-        title: "Success",
-        description: `Policy '${response.data.name}' saved successfully`
+        title: t('common:toast.success'),
+        description: t('compliance:toast.policySaved', { name: response.data.name })
       });
       
       setIsDialogOpen(false);
@@ -159,7 +159,7 @@ export default function Compliance() {
       setComponentError(errorMessage);
       toast({
         variant: "destructive",
-        title: "Error Saving Policy",
+        title: t('compliance:errors.savingPolicy'),
         description: errorMessage
       });
     }
@@ -175,8 +175,8 @@ export default function Compliance() {
       }
       
       toast({
-        title: "Success",
-        description: "Policy deleted successfully"
+        title: t('common:toast.success'),
+        description: t('compliance:toast.policyDeleted')
       });
       
       loadPolicies();
@@ -185,7 +185,7 @@ export default function Compliance() {
       setComponentError(errorMessage);
       toast({
         variant: "destructive",
-        title: "Error Deleting Policy",
+        title: t('compliance:errors.deletingPolicy'),
         description: errorMessage
       });
     }
@@ -224,21 +224,21 @@ export default function Compliance() {
   const columns: ColumnDef<CompliancePolicy>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: t('common:labels.name'),
       cell: ({ row }) => (
         <div className="font-medium">{row.getValue("name")}</div>
       ),
     },
     {
       accessorKey: "category",
-      header: "Category",
+      header: t('common:labels.category'),
       cell: ({ row }) => (
         <Badge variant="outline">{row.getValue("category")}</Badge>
       ),
     },
     {
       accessorKey: "severity",
-      header: "Severity",
+      header: t('common:labels.severity'),
       cell: ({ row }) => (
         <Badge className={getSeverityBadge(row.getValue("severity"))}>
           {row.getValue("severity")}
@@ -247,7 +247,7 @@ export default function Compliance() {
     },
     {
       accessorKey: "compliance",
-      header: "Compliance",
+      header: t('common:labels.compliance'),
       cell: ({ row }) => (
         <div className={`font-semibold ${getComplianceColor(row.getValue("compliance"))}`}>
           {row.getValue("compliance")}%
@@ -256,10 +256,10 @@ export default function Compliance() {
     },
     {
       accessorKey: "is_active",
-      header: "Status",
+      header: t('common:labels.status'),
       cell: ({ row }) => (
         <Badge variant={row.getValue("is_active") ? "default" : "secondary"}>
-          {row.getValue("is_active") ? "Active" : "Inactive"}
+          {row.getValue("is_active") ? t('common:labels.active') : t('common:labels.inactive')}
         </Badge>
       ),
     },
@@ -272,21 +272,21 @@ export default function Compliance() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
+                <span className="sr-only">{t('common:actions.open')}</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('common:labels.actions')}</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => handleEditRule(policy)}>
-                Edit
+                {t('common:actions.edit')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-600"
                 onClick={() => handleDelete(policy.id)}
               >
-                Delete
+                {t('common:actions.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -300,17 +300,17 @@ export default function Compliance() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
           <Scale className="w-8 h-8" />
-          Compliance
+          {t('compliance:title')}
         </h1>
         <Button onClick={handleCreateRule} className="gap-2" disabled={apiIsLoading}>
           <Plus className="h-4 w-4" />
-          Create Rule
+          {t('compliance:createRule')}
         </Button>
       </div>
 
       {apiIsLoading && !isDialogOpen && (
         <div className="flex justify-center items-center h-64">
-          <p>Loading compliance data...</p>
+          <p>{t('compliance:loading')}</p>
         </div>
       )}
 
@@ -326,39 +326,39 @@ export default function Compliance() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Overall Compliance</CardTitle>
+                <CardTitle className="text-lg">{t('compliance:stats.overallCompliance')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className={`text-3xl font-bold ${getComplianceColor(overallCompliance)}`}>
                   {overallCompliance.toFixed(0)}%
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">Across all rules</p>
+                <p className="text-sm text-muted-foreground mt-2">{t('compliance:stats.acrossAllRules')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Active Rules</CardTitle>
+                <CardTitle className="text-lg">{t('compliance:stats.activeRules')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">{activePolicies}</div>
-                <p className="text-sm text-muted-foreground mt-2">Currently enforced</p>
+                <p className="text-sm text-muted-foreground mt-2">{t('compliance:stats.currentlyEnforced')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Critical Issues</CardTitle>
+                <CardTitle className="text-lg">{t('compliance:stats.criticalIssues')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-red-600">{criticalIssues}</div>
-                <p className="text-sm text-muted-foreground mt-2">Require attention</p>
+                <p className="text-sm text-muted-foreground mt-2">{t('compliance:stats.requireAttention')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Last Updated</CardTitle>
+                <CardTitle className="text-lg">{t('compliance:stats.lastUpdated')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">Today</div>
+                <div className="text-3xl font-bold">{t('compliance:stats.today')}</div>
                 <p className="text-sm text-muted-foreground mt-2">12:30 PM</p>
               </CardContent>
             </Card>
@@ -376,12 +376,12 @@ export default function Compliance() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {selectedPolicy ? 'Edit Compliance Rule' : 'Create New Compliance Rule'}
+                  {selectedPolicy ? t('compliance:editRule') : t('compliance:createNewRule')}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSave} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">{t('common:labels.name')}</Label>
                   <Input
                     id="name"
                     defaultValue={selectedPolicy?.name}
@@ -389,7 +389,7 @@ export default function Compliance() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">{t('common:labels.description')}</Label>
                   <Textarea
                     id="description"
                     defaultValue={selectedPolicy?.description}
@@ -397,50 +397,50 @@ export default function Compliance() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{t('common:labels.category')}</Label>
                   <Select defaultValue={selectedPolicy?.category}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={t('common:placeholders.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Security">Security</SelectItem>
-                      <SelectItem value="Data Quality">Data Quality</SelectItem>
-                      <SelectItem value="Privacy">Privacy</SelectItem>
-                      <SelectItem value="Governance">Governance</SelectItem>
+                      <SelectItem value="Security">{t('compliance:categories.security')}</SelectItem>
+                      <SelectItem value="Data Quality">{t('compliance:categories.dataQuality')}</SelectItem>
+                      <SelectItem value="Privacy">{t('compliance:categories.privacy')}</SelectItem>
+                      <SelectItem value="Governance">{t('compliance:categories.governance')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="severity">Severity</Label>
+                  <Label htmlFor="severity">{t('common:labels.severity')}</Label>
                   <Select defaultValue={selectedPolicy?.severity}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select severity" />
+                      <SelectValue placeholder={t('common:placeholders.selectSeverity')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="low">{t('compliance:severity.low')}</SelectItem>
+                      <SelectItem value="medium">{t('compliance:severity.medium')}</SelectItem>
+                      <SelectItem value="high">{t('compliance:severity.high')}</SelectItem>
+                      <SelectItem value="critical">{t('compliance:severity.critical')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="rule">Rule Code</Label>
+                  <Label htmlFor="rule">{t('compliance:form.ruleCode')}</Label>
                   <Textarea
                     id="rule"
                     defaultValue={selectedPolicy?.rule}
                     className="font-mono text-sm"
                     rows={8}
                     required
-                    placeholder="Enter the compliance rule in Compliance DSL format"
+                    placeholder={t('compliance:form.rulePlaceholder')}
                   />
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={apiIsLoading}>
-                    Cancel
+                    {t('common:actions.cancel')}
                   </Button>
                   <Button type="submit" disabled={apiIsLoading}>
-                    {apiIsLoading ? 'Saving...' : 'Save'}
+                    {apiIsLoading ? t('common:states.saving') : t('common:actions.save')}
                   </Button>
                 </DialogFooter>
               </form>

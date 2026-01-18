@@ -135,6 +135,8 @@ const UnifiedConceptTree: React.FC<UnifiedConceptTreeProps> = ({
   searchQuery,
   onShowKnowledgeGraph
 }) => {
+  const { t } = useTranslation(['semantic-models', 'common']);
+  
   // Helper function to find the path from root to a specific concept
   // const findPathToConcept = useCallback((targetIri: string, conceptMap: Map<string, OntologyConcept>, hierarchy: Map<string, string[]>): string[] => {
   //   const visited = new Set<string>();
@@ -314,7 +316,7 @@ const UnifiedConceptTree: React.FC<UnifiedConceptTreeProps> = ({
         }}
       >
         <Network className="h-4 w-4 text-blue-600" />
-        <span className="font-medium">Knowledge Graph</span>
+        <span className="font-medium">{t('common:labels.knowledgeGraph')}</span>
         <Badge variant="secondary" className="text-xs">
           {treeData.conceptMap.size} concepts
         </Badge>
@@ -390,7 +392,7 @@ const ConceptDetails: React.FC<ConceptDetailsProps> = ({ concept, concepts, onSe
               size="sm"
               className="h-7 w-7 p-0 shrink-0"
               onClick={() => navigate(`/search/concepts?iri=${encodeURIComponent(concept.iri)}`)}
-              title="Open in Concept Search"
+              title={t('common:tooltips.openInConceptSearch')}
             >
               <ExternalLink className="h-4 w-4" />
             </Button>
@@ -554,7 +556,7 @@ const TaggedAssetsView: React.FC<TaggedAssetsViewProps> = ({ concept }) => {
 };
 
 export default function SemanticModelsView() {
-  const { t } = useTranslation('semantic-models');
+  const { t } = useTranslation(['semantic-models', 'common']);
   const [searchParams, setSearchParams] = useSearchParams();
   const [taxonomies, setTaxonomies] = useState<SemanticModel[]>([]);
   const [groupedConcepts, setGroupedConcepts] = useState<GroupedConcepts>({});
@@ -583,7 +585,7 @@ export default function SemanticModelsView() {
     
     // Set breadcrumbs
     setStaticSegments([]);
-    setDynamicTitle('Semantic Models');
+    setDynamicTitle(t('semantic-models:title'));
 
     // Cleanup breadcrumbs and search timeout on unmount
     return () => {
@@ -1029,7 +1031,7 @@ export default function SemanticModelsView() {
     <div className="py-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-          <Network className="w-8 h-8" /> Semantic Models
+          <Network className="w-8 h-8" /> {t('semantic-models:title')}
         </h1>
         <div className="flex items-center gap-4">
           {stats && (
@@ -1058,7 +1060,7 @@ export default function SemanticModelsView() {
               <div className="relative flex-1">
                 <Input
                   type="text"
-                  placeholder="Search concepts and terms..."
+                  placeholder={t('common:placeholders.searchConceptsAndTerms')}
                   value={searchQuery}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1191,7 +1193,7 @@ export default function SemanticModelsView() {
                       {renderLineage(selectedHierarchy, selectedConcept)}
                     </div>
                   ) : (
-                    <div className="text-muted-foreground">Loading hierarchy...</div>
+                    <div className="text-muted-foreground">{t('common:labels.loadingHierarchy')}</div>
                   )}
                 </div>
 

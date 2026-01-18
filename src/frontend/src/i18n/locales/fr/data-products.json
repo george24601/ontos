@@ -71,11 +71,15 @@
     "missingId": "Impossible de naviguer vers les détails, l'ID du produit est manquant."
   },
   "table": {
+    "title": "Titre",
     "name": "Nom",
     "status": "Statut",
     "domain": "Domaine",
     "owner": "Propriétaire",
     "version": "Version",
+    "type": "Type",
+    "tags": "Tags",
+    "created": "Créé",
     "updated": "Mis à jour",
     "actions": "Actions",
     "viewDetails": "Voir les détails",

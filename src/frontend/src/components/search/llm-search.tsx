@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Bot, User, Loader2, AlertCircle, Trash2, MessageSquare, Plus, ChevronDown, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -188,6 +189,8 @@ function SessionList({
   onDeleteSession,
   onNewSession 
 }: SessionListProps) {
+  const { t } = useTranslation(['search', 'common']);
+
   if (sessions.length === 0) {
     return null;
   }
@@ -197,14 +200,14 @@ function SessionList({
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <MessageSquare className="w-4 h-4" />
-          History
+          {t('search:llm.history')}
           <ChevronDown className="w-3 h-3" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuItem onClick={onNewSession} className="gap-2">
           <Plus className="w-4 h-4" />
-          New Conversation
+          {t('search:llm.newConversation')}
         </DropdownMenuItem>
         <Separator className="my-1" />
         {sessions.map((session) => (
@@ -216,7 +219,7 @@ function SessionList({
             onClick={() => onSelectSession(session.id)}
           >
             <span className="truncate flex-1">
-              {session.title || 'Untitled'}
+              {session.title || t('search:llm.untitled')}
             </span>
             <Button
               variant="ghost"
@@ -246,16 +249,18 @@ interface ExampleQuestionsProps {
 }
 
 function ExampleQuestions({ onSelectQuestion }: ExampleQuestionsProps) {
+  const { t } = useTranslation(['search']);
+
   const examples = [
-    "Where can I find customer data?",
-    "How much do all data products cost?",
-    "What business terms are related to sales?",
-    "Show me data products in the Customer domain",
+    t('search:llm.examples.findCustomerData'),
+    t('search:llm.examples.dataProductsCost'),
+    t('search:llm.examples.businessTermsSales'),
+    t('search:llm.examples.showDataProducts'),
   ];
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">Try asking:</p>
+      <p className="text-sm text-muted-foreground">{t('search:llm.tryAsking')}</p>
       <div className="flex flex-wrap gap-2">
         {examples.map((question, idx) => (
           <Button
@@ -279,6 +284,7 @@ function ExampleQuestions({ onSelectQuestion }: ExampleQuestionsProps) {
 // ============================================================================
 
 export default function LLMSearch() {
+  const { t } = useTranslation(['search', 'common']);
   const [status, setStatus] = useState<LLMSearchStatus | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>();
@@ -321,7 +327,7 @@ export default function LLMSearch() {
         setSessions(sessionsData);
       } catch (err) {
         console.error('Failed to load LLM search data:', err);
-        setError('Failed to load LLM search. Please try again later.');
+        setError(t('search:llm.messages.loadFailed'));
       }
     }
     loadInitialData();
@@ -399,8 +405,8 @@ export default function LLMSearch() {
       ));
     } catch (err) {
       toast({
-        title: 'Error',
-        description: 'Failed to load session',
+        title: t('common:toast.error'),
+        description: t('search:llm.messages.loadSessionFailed'),
         variant: 'destructive',
       });
     }
@@ -416,13 +422,13 @@ export default function LLMSearch() {
         setMessages([]);
       }
       toast({
-        title: 'Session deleted',
-        description: 'The conversation has been removed.',
+        title: t('search:llm.messages.sessionDeleted'),
+        description: t('search:llm.messages.sessionDeletedDesc'),
       });
     } catch (err) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete session',
+        title: t('common:toast.error'),
+        description: t('search:llm.messages.deleteSessionFailed'),
         variant: 'destructive',
       });
     }
@@ -449,18 +455,17 @@ export default function LLMSearch() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bot className="w-5 h-5" />
-            AI-Powered Search
+            {t('search:llm.disabledTitle')}
           </CardTitle>
           <CardDescription>
-            Natural language search is not currently enabled.
+            {t('search:llm.disabledSubtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              LLM search requires configuration. Please contact your administrator
-              to enable this feature.
+              {t('search:llm.disabledMessage')}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -497,10 +502,10 @@ export default function LLMSearch() {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              Ask Ontos
+              {t('search:llm.title')}
             </CardTitle>
             <CardDescription className="mt-1">
-              Ask questions about data products, costs, and analytics
+              {t('search:llm.subtitle')}
             </CardDescription>
           </div>
           <SessionList
@@ -524,10 +529,9 @@ export default function LLMSearch() {
                 <Sparkles className="w-8 h-8 text-violet-500" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">How can I help you today?</h3>
+                <h3 className="text-lg font-medium">{t('search:llm.welcomeTitle')}</h3>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  I can help you discover data products, understand business terms,
-                  analyze costs, and run analytics queries.
+                  {t('search:llm.welcomeMessage')}
                 </p>
               </div>
               <ExampleQuestions onSelectQuestion={handleSelectQuestion} />
@@ -549,7 +553,7 @@ export default function LLMSearch() {
                   </div>
                   <div className="bg-muted rounded-lg px-4 py-3 flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Thinking...</span>
+                    <span className="text-sm text-muted-foreground">{t('search:llm.thinking')}</span>
                   </div>
                 </div>
               )}
@@ -577,7 +581,7 @@ export default function LLMSearch() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question about your data..."
+            placeholder={t('search:llm.inputPlaceholder')}
             className="min-h-[44px] max-h-32 resize-none"
             disabled={isLoading}
           />
@@ -596,9 +600,9 @@ export default function LLMSearch() {
         </div>
         
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Press Enter to send, Shift+Enter for new line
+          {t('search:llm.inputHint')}
           {status?.model_name && (
-            <span className="ml-2 opacity-60">• Model: {status.model_name}</span>
+            <span className="ml-2 opacity-60">• {t('search:llm.model')}: {status.model_name}</span>
           )}
         </p>
       </div>

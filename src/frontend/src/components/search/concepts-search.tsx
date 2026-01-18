@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ export default function ConceptsSearch({
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation(['search', 'common']);
 
   const [conceptSearchQuery, setConceptSearchQuery] = useState(initialQuery);
   const [conceptSearchResults, setConceptSearchResults] = useState<ConceptItem[]>([]);
@@ -348,8 +350,8 @@ export default function ConceptsSearch({
         break;
       default:
         toast({
-          title: 'Navigation Error',
-          description: `Cannot navigate to ${link.entity_type}`,
+          title: t('common:toast.error'),
+          description: t('search:concepts.messages.navigationError', { entityType: link.entity_type }),
           variant: 'destructive'
         });
         return;
@@ -361,8 +363,8 @@ export default function ConceptsSearch({
   const handleAssignToObject = async () => {
     if (!selectedConcept || !selectedEntityType || !selectedEntityId) {
       toast({
-        title: 'Error',
-        description: 'Please select both an entity type and specific entity.',
+        title: t('common:toast.error'),
+        description: t('search:concepts.messages.assignError'),
         variant: 'destructive'
       });
       return;
@@ -379,9 +381,17 @@ export default function ConceptsSearch({
         throw new Error(res.error);
       }
 
+      const entityTypeLabel = selectedEntityType === 'data_product' ? t('search:concepts.assignDialog.dataProduct') :
+                              selectedEntityType === 'data_contract' ? t('search:concepts.assignDialog.dataContract') :
+                              t('search:concepts.assignDialog.dataDomain');
+
       toast({
-        title: 'Linked Successfully',
-        description: `Concept "${selectedConcept.label}" linked to ${selectedEntityType.replace('_', ' ')} "${selectedEntityId}".`,
+        title: t('common:toast.success'),
+        description: t('search:concepts.messages.linkedSuccess', {
+          label: selectedConcept.label,
+          entityType: entityTypeLabel,
+          entityId: selectedEntityId
+        }),
       });
 
       setAssignDialogOpen(false);
@@ -392,8 +402,8 @@ export default function ConceptsSearch({
       await selectConcept(selectedConcept);
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to assign concept to object.',
+        title: t('common:toast.error'),
+        description: error.message || t('search:concepts.messages.assignFailed'),
         variant: 'destructive'
       });
     }
@@ -403,13 +413,13 @@ export default function ConceptsSearch({
     <div className="space-y-6">
       {/* Search Section */}
       <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">Search and select a concept:</p>
+        <p className="text-sm text-muted-foreground">{t('search:concepts.searchAndSelect')}</p>
         <div className="relative">
           <Input
             value={conceptSearchQuery}
             onChange={(e) => setConceptSearchQuery(e.target.value)}
             onFocus={() => setIsConceptDropdownOpen(conceptSearchResults.length > 0)}
-            placeholder="Type to search by name, label, or IRI..."
+            placeholder={t('search:concepts.searchPlaceholder')}
             className="w-full"
           />
           {(conceptSearchQuery || selectedConcept) && (
@@ -419,7 +429,7 @@ export default function ConceptsSearch({
               size="icon"
               className="absolute right-1 top-1 h-7 w-7"
               onClick={clearSearch}
-              aria-label="Clear"
+              aria-label={t('search:concepts.clear')}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -479,14 +489,14 @@ export default function ConceptsSearch({
             {/* Concept Hierarchy */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Concept Hierarchy</CardTitle>
+                <CardTitle className="text-lg">{t('search:concepts.conceptHierarchy')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Parent Classes:</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('search:concepts.parentClasses')}</h3>
                   <div className="space-y-2">
                     {getParentClasses().length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No parent classes found</p>
+                      <p className="text-sm text-muted-foreground">{t('search:concepts.noParentClasses')}</p>
                     ) : (
                       getParentClasses().map((parent, idx) => (
                         <Badge
@@ -505,10 +515,10 @@ export default function ConceptsSearch({
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Subclasses:</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('search:concepts.subclasses')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {getSubclasses().length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No subclasses found</p>
+                      <p className="text-sm text-muted-foreground">{t('search:concepts.noSubclasses')}</p>
                     ) : (
                       getSubclasses().map((sub, idx) => (
                         <Badge
@@ -531,11 +541,11 @@ export default function ConceptsSearch({
             {/* Related Properties */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Related Properties</CardTitle>
+                <CardTitle className="text-lg">{t('search:concepts.relatedProperties')}</CardTitle>
               </CardHeader>
               <CardContent>
                 {getRelatedProperties().length === 0 ? (
-                  <p className="text-sm text-center text-muted-foreground">No related properties found.</p>
+                  <p className="text-sm text-center text-muted-foreground">{t('search:concepts.noRelatedProperties')}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {getRelatedProperties().map((prop, idx) => (
@@ -552,11 +562,11 @@ export default function ConceptsSearch({
             {/* Linked Catalog Objects */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Linked Catalog Objects</CardTitle>
+                <CardTitle className="text-lg">{t('search:concepts.linkedCatalogObjects')}</CardTitle>
               </CardHeader>
               <CardContent>
                 {getCatalogObjects().length === 0 ? (
-                  <p className="text-sm text-center text-muted-foreground">No catalog objects assigned.</p>
+                  <p className="text-sm text-center text-muted-foreground">{t('search:concepts.noCatalogObjects')}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {getCatalogObjects().map((link) => {
@@ -597,7 +607,7 @@ export default function ConceptsSearch({
               onClick={() => setAssignDialogOpen(true)}
               disabled={!selectedConcept}
             >
-              Assign to Object
+              {t('search:concepts.assignToObject')}
             </Button>
           </div>
         </div>
@@ -607,7 +617,7 @@ export default function ConceptsSearch({
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Concept to Object</DialogTitle>
+            <DialogTitle>{t('search:concepts.assignDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {selectedConcept && (
@@ -618,15 +628,15 @@ export default function ConceptsSearch({
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Entity Type</label>
+              <label className="text-sm font-medium">{t('search:concepts.assignDialog.entityType')}</label>
               <Select value={selectedEntityType} onValueChange={handleEntityTypeChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select entity type..." />
+                  <SelectValue placeholder={t('search:concepts.assignDialog.selectEntityType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="data_product">Data Product</SelectItem>
-                  <SelectItem value="data_contract">Data Contract</SelectItem>
-                  <SelectItem value="data_domain">Data Domain</SelectItem>
+                  <SelectItem value="data_product">{t('search:concepts.assignDialog.dataProduct')}</SelectItem>
+                  <SelectItem value="data_contract">{t('search:concepts.assignDialog.dataContract')}</SelectItem>
+                  <SelectItem value="data_domain">{t('search:concepts.assignDialog.dataDomain')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -634,11 +644,17 @@ export default function ConceptsSearch({
             {selectedEntityType && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {selectedEntityType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {selectedEntityType === 'data_product' ? t('search:concepts.assignDialog.dataProduct') :
+                   selectedEntityType === 'data_contract' ? t('search:concepts.assignDialog.dataContract') :
+                   t('search:concepts.assignDialog.dataDomain')}
                 </label>
                 <Select value={selectedEntityId} onValueChange={setSelectedEntityId}>
                   <SelectTrigger>
-                    <SelectValue placeholder={`Select ${selectedEntityType.replace('_', ' ')}...`} />
+                    <SelectValue placeholder={t('search:concepts.assignDialog.selectEntity', { 
+                      entityType: selectedEntityType === 'data_product' ? t('search:concepts.assignDialog.dataProduct') :
+                                  selectedEntityType === 'data_contract' ? t('search:concepts.assignDialog.dataContract') :
+                                  t('search:concepts.assignDialog.dataDomain')
+                    })} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableEntities.map((entity) => (
@@ -653,13 +669,13 @@ export default function ConceptsSearch({
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button
                 onClick={handleAssignToObject}
                 disabled={!selectedEntityType || !selectedEntityId}
               >
-                Assign
+                {t('common:actions.assign')}
               </Button>
             </div>
           </div>

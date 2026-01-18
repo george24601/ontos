@@ -51,6 +51,10 @@
     "name": "Funzionalità di sicurezza",
     "description": "Abilita sicurezza avanzata come la privacy differenziale."
   },
+  "security-features": {
+    "name": "Funzionalità di sicurezza",
+    "description": "Abilita sicurezza avanzata come la privacy differenziale."
+  },
   "entitlements": {
     "name": "Diritti",
     "description": "Gestisci privilegi di accesso tramite personas e gruppi."

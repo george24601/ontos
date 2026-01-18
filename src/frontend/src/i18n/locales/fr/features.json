@@ -51,6 +51,10 @@
     "name": "Fonctionnalités de sécurité",
     "description": "Activez la sécurité avancée comme la confidentialité différentielle."
   },
+  "security-features": {
+    "name": "Fonctionnalités de sécurité",
+    "description": "Activez la sécurité avancée comme la confidentialité différentielle."
+  },
   "entitlements": {
     "name": "Droits",
     "description": "Gérez les privilèges d'accès via des personas et des groupes."

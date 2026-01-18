@@ -219,7 +219,7 @@ const LinkedAssetsView: React.FC<LinkedAssetsViewProps> = ({ assets }) => {
 };
 
 export default function DataDomainDetailsView() {
-  const { t } = useTranslation('data-domains');
+  const { t } = useTranslation(['data-domains', 'common']);
   const { domainId } = useParams<{ domainId: string }>();
   const navigate = useNavigate();
   const { get, post, delete: del } = useApi();

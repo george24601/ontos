@@ -63,7 +63,7 @@ const checkApiResponse: CheckApiResponseFn = (response, name) => {
 };
 
 export default function DataProductDetails() {
-  const { t } = useTranslation('data-products');
+  const { t } = useTranslation(['data-products', 'common']);
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const api = useApi();
@@ -1324,7 +1324,7 @@ export default function DataProductDetails() {
                             setEditingOutputPortIndex(idx);
                             setIsOutputPortDialogOpen(true);
                           }}
-                          title="Edit port"
+                          title={t('common:tooltips.editPort')}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -1333,7 +1333,7 @@ export default function DataProductDetails() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleUnlinkContract(idx)}
-                            title="Unlink contract"
+                            title={t('common:tooltips.unlinkContract')}
                           >
                             <Unlink className="h-4 w-4" />
                           </Button>
@@ -1342,7 +1342,7 @@ export default function DataProductDetails() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleLinkContract(idx)}
-                            title="Link contract"
+                            title={t('common:tooltips.linkContract')}
                           >
                             <Link2 className="h-4 w-4" />
                           </Button>
@@ -1352,7 +1352,7 @@ export default function DataProductDetails() {
                           variant="ghost"
                           onClick={() => handleDeleteOutputPort(idx)}
                           className="text-destructive hover:text-destructive"
-                          title="Delete port"
+                          title={t('common:tooltips.deletePort')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

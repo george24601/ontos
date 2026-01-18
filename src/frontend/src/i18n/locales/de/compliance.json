@@ -2,8 +2,46 @@
   "title": "Compliance",
   "subtitle": "Verwalten Sie Compliance-Richtlinien und -Ausführungen",
   "newPolicy": "Neue Richtlinie",
+  "createRule": "Regel erstellen",
+  "editRule": "Compliance-Regel bearbeiten",
+  "createNewRule": "Neue Compliance-Regel erstellen",
   "searchPlaceholder": "Richtlinien suchen...",
   "loading": "Compliance-Daten werden geladen...",
+  "stats": {
+    "overallCompliance": "Gesamte Compliance",
+    "acrossAllRules": "Über alle Regeln",
+    "activeRules": "Aktive Regeln",
+    "currentlyEnforced": "Derzeit durchgesetzt",
+    "criticalIssues": "Kritische Probleme",
+    "requireAttention": "Erfordern Aufmerksamkeit",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "today": "Heute"
+  },
+  "form": {
+    "name": "Name",
+    "description": "Beschreibung",
+    "category": "Kategorie",
+    "selectCategory": "Kategorie auswählen",
+    "severity": "Schweregrad",
+    "selectSeverity": "Schweregrad auswählen",
+    "ruleCode": "Regelcode",
+    "rulePlaceholder": "Compliance-Regel im DSL-Format eingeben"
+  },
+  "categories": {
+    "security": "Sicherheit",
+    "dataQuality": "Datenqualität",
+    "privacy": "Datenschutz",
+    "governance": "Governance"
+  },
+  "errors": {
+    "loadingPolicies": "Fehler beim Laden der Richtlinien",
+    "savingPolicy": "Fehler beim Speichern der Richtlinie",
+    "deletingPolicy": "Fehler beim Löschen der Richtlinie"
+  },
+  "toast": {
+    "policySaved": "Richtlinie '{{name}}' erfolgreich gespeichert",
+    "policyDeleted": "Richtlinie erfolgreich gelöscht"
+  },
   "score": {
     "title": "Compliance-Score",
     "overall": "Gesamtscore",

@@ -71,11 +71,15 @@
     "missingId": "Could not navigate to details, product ID is missing."
   },
   "table": {
+    "title": "Title",
     "name": "Name",
     "status": "Status",
     "domain": "Domain",
     "owner": "Owner",
     "version": "Version",
+    "type": "Type",
+    "tags": "Tags",
+    "created": "Created",
     "updated": "Updated",
     "actions": "Actions",
     "viewDetails": "View details",

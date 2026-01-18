@@ -110,8 +110,8 @@ export default function MCPTokensSettings() {
     } catch (error) {
       console.error('Failed to load MCP tokens:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load MCP tokens',
+        title: t('common:toast.error'),
+        description: t('settings:mcpTokens.messages.loadError'),
         variant: 'destructive',
       });
     } finally {
@@ -134,8 +134,8 @@ export default function MCPTokensSettings() {
   const handleCreateToken = async () => {
     if (!newTokenName.trim()) {
       toast({
-        title: 'Validation Error',
-        description: 'Token name is required',
+        title: t('common:errors.validationError'),
+        description: t('settings:mcpTokens.messages.tokenNameRequired'),
         variant: 'destructive',
       });
       return;
@@ -143,8 +143,8 @@ export default function MCPTokensSettings() {
 
     if (newTokenScopes.length === 0) {
       toast({
-        title: 'Validation Error',
-        description: 'At least one scope is required',
+        title: t('common:errors.validationError'),
+        description: t('settings:mcpTokens.messages.scopeRequired'),
         variant: 'destructive',
       });
       return;
@@ -174,8 +174,8 @@ export default function MCPTokensSettings() {
       }
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create token',
+        title: t('common:toast.error'),
+        description: error.message || t('settings:mcpTokens.messages.createError'),
         variant: 'destructive',
       });
     } finally {
@@ -190,8 +190,8 @@ export default function MCPTokensSettings() {
       setTokenCopied(true);
       setTimeout(() => setTokenCopied(false), 2000);
       toast({
-        title: 'Copied',
-        description: 'Token copied to clipboard',
+        title: t('common:toast.copied'),
+        description: t('settings:mcpTokens.messages.copied'),
       });
     }
   };
@@ -208,16 +208,16 @@ export default function MCPTokensSettings() {
       }
 
       toast({
-        title: 'Token Revoked',
-        description: `Token "${tokenToRevoke.name}" has been revoked`,
+        title: t('common:toast.success'),
+        description: t('settings:mcpTokens.messages.revoked', { name: tokenToRevoke.name }),
       });
 
       setTokenToRevoke(null);
       loadTokens();
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to revoke token',
+        title: t('common:toast.error'),
+        description: error.message || t('settings:mcpTokens.messages.revokeError'),
         variant: 'destructive',
       });
     }
@@ -250,9 +250,9 @@ export default function MCPTokensSettings() {
           <div className="flex items-center gap-3">
             <Key className="h-6 w-6 text-primary" />
             <div>
-              <CardTitle>MCP API Tokens</CardTitle>
+              <CardTitle>{t('settings:mcpTokens.title')}</CardTitle>
               <CardDescription>
-                Manage API tokens for AI assistant integrations via the Model Context Protocol
+                {t('settings:mcpTokens.description')}
               </CardDescription>
             </div>
           </div>
@@ -264,11 +264,11 @@ export default function MCPTokensSettings() {
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('settings:mcpTokens.refresh')}
             </Button>
             <Button onClick={() => setCreateDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Token
+              {t('settings:mcpTokens.createToken')}
             </Button>
           </div>
         </div>
@@ -283,7 +283,7 @@ export default function MCPTokensSettings() {
             onCheckedChange={(checked) => setIncludeInactive(!!checked)}
           />
           <Label htmlFor="include-inactive" className="text-sm text-muted-foreground">
-            Show revoked tokens
+            {t('settings:mcpTokens.showRevokedTokens')}
           </Label>
         </div>
 
@@ -295,21 +295,21 @@ export default function MCPTokensSettings() {
         ) : tokens.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium">No MCP tokens yet</p>
-            <p className="text-sm">Create a token to allow AI assistants to access your tools</p>
+            <p className="text-lg font-medium">{t('settings:mcpTokens.emptyState.title')}</p>
+            <p className="text-sm">{t('settings:mcpTokens.emptyState.description')}</p>
           </div>
         ) : (
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Scopes</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Last Used</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
+                  <TableHead>{t('settings:mcpTokens.table.name')}</TableHead>
+                  <TableHead>{t('settings:mcpTokens.table.scopes')}</TableHead>
+                  <TableHead>{t('settings:mcpTokens.table.created')}</TableHead>
+                  <TableHead>{t('settings:mcpTokens.table.lastUsed')}</TableHead>
+                  <TableHead>{t('settings:mcpTokens.table.expires')}</TableHead>
+                  <TableHead>{t('settings:mcpTokens.table.status')}</TableHead>
+                  <TableHead className="w-[80px]">{t('settings:mcpTokens.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -328,7 +328,7 @@ export default function MCPTokensSettings() {
                             <Tooltip>
                               <TooltipTrigger>
                                 <Badge variant="outline" className="text-xs">
-                                  +{token.scopes.length - 3} more
+                                  {t('settings:mcpTokens.table.moreScopes', { count: token.scopes.length - 3 })}
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -353,7 +353,7 @@ export default function MCPTokensSettings() {
                             <div className="text-xs">
                               <div>{formatDate(token.created_at)}</div>
                               {token.created_by && (
-                                <div className="text-muted-foreground">by {token.created_by}</div>
+                                <div className="text-muted-foreground">{t('settings:mcpTokens.table.createdBy', { name: token.created_by })}</div>
                               )}
                             </div>
                           </TooltipContent>
@@ -371,7 +371,7 @@ export default function MCPTokensSettings() {
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
-                        <span className="text-muted-foreground text-sm">Never</span>
+                        <span className="text-muted-foreground text-sm">{t('settings:mcpTokens.table.never')}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -390,19 +390,19 @@ export default function MCPTokensSettings() {
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
-                        <span className="text-muted-foreground text-sm">Never</span>
+                        <span className="text-muted-foreground text-sm">{t('settings:mcpTokens.table.never')}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {!token.is_active ? (
                         <Badge variant="secondary" className="bg-muted">
-                          Revoked
+                          {t('settings:mcpTokens.status.revoked')}
                         </Badge>
                       ) : token.is_expired ? (
-                        <Badge variant="destructive">Expired</Badge>
+                        <Badge variant="destructive">{t('settings:mcpTokens.status.expired')}</Badge>
                       ) : (
                         <Badge variant="default" className="bg-green-600">
-                          Active
+                          {t('settings:mcpTokens.status.active')}
                         </Badge>
                       )}
                     </TableCell>
@@ -419,7 +419,7 @@ export default function MCPTokensSettings() {
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Revoke token</TooltipContent>
+                            <TooltipContent>{t('settings:mcpTokens.tooltips.revokeToken')}</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       )}
@@ -435,18 +435,17 @@ export default function MCPTokensSettings() {
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <h4 className="font-medium flex items-center gap-2 mb-2">
             <Shield className="h-4 w-4" />
-            Using MCP Tokens
+            {t('settings:mcpTokens.info.title')}
           </h4>
           <p className="text-sm text-muted-foreground mb-2">
-            MCP tokens allow AI assistants to interact with your data governance platform.
-            Each token has specific scopes that control which tools can be accessed.
+            {t('settings:mcpTokens.info.description')}
           </p>
           <div className="text-sm text-muted-foreground">
-            <strong>Endpoint:</strong>{' '}
+            <strong>{t('settings:mcpTokens.info.endpoint')}</strong>{' '}
             <code className="bg-background px-1 rounded">/api/mcp</code>
           </div>
           <div className="text-sm text-muted-foreground">
-            <strong>Header:</strong>{' '}
+            <strong>{t('settings:mcpTokens.info.header')}</strong>{' '}
             <code className="bg-background px-1 rounded">X-API-Key: mcp_...</code>
           </div>
         </div>
@@ -458,32 +457,31 @@ export default function MCPTokensSettings() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Create MCP Token
+              {t('settings:mcpTokens.createDialog.title')}
             </DialogTitle>
             <DialogDescription>
-              Create a new API token for AI assistant integrations. The token will only be shown
-              once.
+              {t('settings:mcpTokens.createDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {/* Token Name */}
             <div className="space-y-2">
-              <Label htmlFor="token-name">Token Name *</Label>
+              <Label htmlFor="token-name">{t('settings:mcpTokens.createDialog.tokenName')} *</Label>
               <Input
                 id="token-name"
-                placeholder="e.g., Claude Assistant - Analytics Team"
+                placeholder={t('settings:mcpTokens.createDialog.tokenNamePlaceholder')}
                 value={newTokenName}
                 onChange={(e) => setNewTokenName(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                A descriptive name to identify this token
+                {t('settings:mcpTokens.createDialog.tokenNameHelp')}
               </p>
             </div>
 
             {/* Expiration */}
             <div className="space-y-2">
-              <Label htmlFor="token-expires">Expiration (days)</Label>
+              <Label htmlFor="token-expires">{t('settings:mcpTokens.createDialog.expiration')}</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="token-expires"
@@ -498,16 +496,16 @@ export default function MCPTokensSettings() {
                   className="w-32"
                 />
                 <span className="text-sm text-muted-foreground">
-                  Leave empty for no expiration
+                  {t('settings:mcpTokens.createDialog.expirationHelp')}
                 </span>
               </div>
             </div>
 
             {/* Scopes */}
             <div className="space-y-2">
-              <Label>Scopes *</Label>
+              <Label>{t('settings:mcpTokens.createDialog.scopes')} *</Label>
               <p className="text-xs text-muted-foreground mb-2">
-                Select the permissions this token should have
+                {t('settings:mcpTokens.createDialog.scopesHelp')}
               </p>
               <ScrollArea className="h-[300px] border rounded-lg p-4">
                 {Object.entries(MCP_SCOPE_CATEGORIES).map(([category, scopes]) => (
@@ -539,7 +537,7 @@ export default function MCPTokensSettings() {
               </ScrollArea>
               {newTokenScopes.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  <span className="text-xs text-muted-foreground">Selected:</span>
+                  <span className="text-xs text-muted-foreground">{t('settings:mcpTokens.createDialog.selectedScopes')}</span>
                   {newTokenScopes.map((scope) => (
                     <Badge key={scope} variant="secondary" className="text-xs">
                       {scope}
@@ -552,18 +550,18 @@ export default function MCPTokensSettings() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
+              {t('settings:mcpTokens.createDialog.cancel')}
             </Button>
             <Button onClick={handleCreateToken} disabled={isCreating}>
               {isCreating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  {t('settings:mcpTokens.createDialog.creating')}
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Token
+                  {t('settings:mcpTokens.createDialog.create')}
                 </>
               )}
             </Button>
@@ -577,23 +575,23 @@ export default function MCPTokensSettings() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600">
               <Check className="h-5 w-5" />
-              Token Created Successfully
+              {t('settings:mcpTokens.createdDialog.title')}
             </DialogTitle>
             <DialogDescription>
               <span className="text-destructive font-medium">
-                Copy this token now — it won't be shown again!
+                {t('settings:mcpTokens.createdDialog.warning')}
               </span>
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Token Name</Label>
+              <Label>{t('settings:mcpTokens.createdDialog.tokenName')}</Label>
               <div className="font-medium">{createdToken?.name}</div>
             </div>
 
             <div className="space-y-2">
-              <Label>API Token</Label>
+              <Label>{t('settings:mcpTokens.createdDialog.apiToken')}</Label>
               <div className="flex items-center gap-2">
                 <div className="flex-1 relative">
                   <Input
@@ -619,12 +617,12 @@ export default function MCPTokensSettings() {
                   {tokenCopied ? (
                     <>
                       <Check className="h-4 w-4 mr-2" />
-                      Copied!
+                      {t('settings:mcpTokens.createdDialog.copied')}
                     </>
                   ) : (
                     <>
                       <Copy className="h-4 w-4 mr-2" />
-                      Copy
+                      {t('settings:mcpTokens.createdDialog.copy')}
                     </>
                   )}
                 </Button>
@@ -632,7 +630,7 @@ export default function MCPTokensSettings() {
             </div>
 
             <div className="space-y-2">
-              <Label>Scopes</Label>
+              <Label>{t('settings:mcpTokens.createdDialog.scopes')}</Label>
               <div className="flex flex-wrap gap-1">
                 {createdToken?.scopes.map((scope) => (
                   <Badge key={scope} variant="secondary">
@@ -644,7 +642,7 @@ export default function MCPTokensSettings() {
 
             {createdToken?.expires_at && (
               <div className="space-y-2">
-                <Label>Expires</Label>
+                <Label>{t('settings:mcpTokens.createdDialog.expires')}</Label>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   {formatDate(createdToken.expires_at)}
@@ -654,7 +652,7 @@ export default function MCPTokensSettings() {
           </div>
 
           <DialogFooter>
-            <Button onClick={() => setCreatedToken(null)}>Done</Button>
+            <Button onClick={() => setCreatedToken(null)}>{t('settings:mcpTokens.createdDialog.done')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -665,23 +663,22 @@ export default function MCPTokensSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Revoke Token?
+              {t('settings:mcpTokens.revokeDialog.title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to revoke the token <strong>"{tokenToRevoke?.name}"</strong>?
+              {t('settings:mcpTokens.revokeDialog.description')} <strong>"{tokenToRevoke?.name}"</strong>?
               <br />
               <br />
-              This action cannot be undone. Any AI assistants using this token will immediately
-              lose access.
+              {t('settings:mcpTokens.revokeDialog.warning')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('settings:mcpTokens.revokeDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRevokeToken}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Revoke Token
+              {t('settings:mcpTokens.revokeDialog.revoke')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

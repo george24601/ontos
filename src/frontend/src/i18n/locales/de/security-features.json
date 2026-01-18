@@ -2,8 +2,18 @@
   "title": "Sicherheitsfunktionen",
   "subtitle": "Verwalten Sie Datensicherheits- und Datenschutzeinstellungen",
   "newFeature": "Neue Sicherheitsfunktion",
+  "addFeature": "Sicherheitsfunktion hinzufügen",
+  "editFeature": "Sicherheitsfunktion bearbeiten",
   "searchPlaceholder": "Sicherheitsfunktionen suchen...",
   "loading": "Sicherheitsfunktionen werden geladen...",
+  "toast": {
+    "featureCreated": "Sicherheitsfunktion erfolgreich erstellt",
+    "featureUpdated": "Sicherheitsfunktion erfolgreich aktualisiert",
+    "featureDeleted": "Sicherheitsfunktion erfolgreich gelöscht",
+    "loadError": "Sicherheitsfunktionen konnten nicht geladen werden",
+    "saveError": "Sicherheitsfunktion konnte nicht gespeichert werden",
+    "deleteError": "Sicherheitsfunktion konnte nicht gelöscht werden"
+  },
   "table": {
     "name": "Name",
     "type": "Typ",
@@ -11,7 +21,9 @@
     "status": "Status",
     "enabled": "Aktiviert",
     "updated": "Aktualisiert",
-    "actions": "Aktionen"
+    "actions": "Aktionen",
+    "conditions": "Bedingungen",
+    "lastUpdated": "Zuletzt aktualisiert"
   },
   "messages": {
     "success": "Erfolg",
@@ -27,7 +39,13 @@
     "masking": "Datenmaskierung",
     "rowLevel": "Zeilenebenen-Sicherheit",
     "columnLevel": "Spaltenebenen-Sicherheit",
-    "differential": "Differentielle Privatsphäre"
+    "differential": "Differentielle Privatsphäre",
+    "rowFiltering": "Zeilenfilterung",
+    "columnMasking": "Spaltenmaskierung",
+    "differentialPrivacy": "Differentielle Privatsphäre",
+    "homomorphicEncryption": "Homomorphe Verschlüsselung",
+    "envelopeEncryption": "Envelope-Verschlüsselung",
+    "tokenization": "Tokenisierung"
   },
   "details": {
     "backToList": "Zurück zu Sicherheitsfunktionen",
@@ -43,10 +61,12 @@
     "editTitle": "Sicherheitsfunktion bearbeiten",
     "name": "Name",
     "type": "Typ",
+    "selectType": "Typ auswählen",
     "target": "Ziel-Asset",
     "configuration": "Konfiguration",
     "cancel": "Abbrechen",
-    "save": "Speichern"
+    "save": "Speichern",
+    "saveChanges": "Änderungen speichern",
+    "addFeature": "Funktion hinzufügen"
   }
 }
-

@@ -27,7 +27,7 @@ interface EntitlementsSyncConfig {
 }
 
 export default function EntitlementsSync() {
-  const { t } = useTranslation('entitlements')
+  const { t } = useTranslation(['entitlements', 'common'])
   const [configs, setConfigs] = useState<EntitlementsSyncConfig[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -42,7 +42,7 @@ export default function EntitlementsSync() {
   useEffect(() => {
     fetchConfigs()
     setStaticSegments([])
-    setDynamicTitle('Entitlements Sync')
+    setDynamicTitle(t('entitlements:sync.title'))
 
     return () => {
       setStaticSegments([])
@@ -66,8 +66,8 @@ export default function EntitlementsSync() {
       setConfigs(data)
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load configurations',
+        title: t('common:toast.error'),
+        description: t('entitlements:sync.errors.loadConfigsFailed'),
         variant: 'destructive',
       })
     } finally {
@@ -83,8 +83,8 @@ export default function EntitlementsSync() {
       setConnections(data)
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load connections',
+        title: t('common:toast.error'),
+        description: t('entitlements:sync.errors.loadConnectionsFailed'),
         variant: 'destructive',
       })
     }
@@ -98,8 +98,8 @@ export default function EntitlementsSync() {
       setCatalogs(data)
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load catalogs',
+        title: t('common:toast.error'),
+        description: t('entitlements:sync.errors.loadCatalogsFailed'),
         variant: 'destructive',
       })
     }
@@ -131,8 +131,8 @@ export default function EntitlementsSync() {
       if (!response.ok) throw new Error('Failed to save configuration')
 
       toast({
-        title: 'Success',
-        description: `Configuration ${editingConfig ? 'updated' : 'created'} successfully`,
+        title: t('common:toast.success'),
+        description: editingConfig ? t('entitlements:sync.configUpdated') : t('entitlements:sync.configCreated'),
       })
 
       setIsDialogOpen(false)
@@ -140,15 +140,15 @@ export default function EntitlementsSync() {
       fetchConfigs()
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to save configuration',
+        title: t('common:toast.error'),
+        description: t('entitlements:sync.errors.saveConfigFailed'),
         variant: 'destructive',
       })
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this configuration?')) return
+    if (!window.confirm(t('entitlements:sync.confirmDelete'))) return
 
     try {
       const response = await fetch(`/api/entitlements-sync/configs/${id}`, {
@@ -158,15 +158,15 @@ export default function EntitlementsSync() {
       if (!response.ok) throw new Error('Failed to delete configuration')
 
       toast({
-        title: 'Success',
-        description: 'Configuration deleted successfully',
+        title: t('common:toast.success'),
+        description: t('entitlements:sync.configDeleted'),
       })
 
       fetchConfigs()
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete configuration',
+        title: t('common:toast.error'),
+        description: t('entitlements:sync.errors.deleteConfigFailed'),
         variant: 'destructive',
       })
     }
@@ -180,33 +180,33 @@ export default function EntitlementsSync() {
   const columns: ColumnDef<EntitlementsSyncConfig>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: t('common:labels.name'),
       cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
     },
     {
       accessorKey: "connection",
-      header: "Connection",
+      header: t('common:labels.connection'),
       cell: ({ row }) => <div>{row.getValue("connection")}</div>,
     },
     {
       accessorKey: "schedule",
-      header: "Schedule",
+      header: t('common:labels.schedule'),
       cell: ({ row }) => <div>{row.getValue("schedule")}</div>,
     },
     {
       accessorKey: "enabled",
-      header: "Status",
+      header: t('common:labels.status'),
       cell: ({ row }) => (
         <div className="flex items-center">
           {row.getValue("enabled") ? (
             <span className="flex items-center text-green-600">
               <CheckCircle2 className="w-4 h-4 mr-1" />
-              Enabled
+              {t('common:labels.enabled')}
             </span>
           ) : (
             <span className="flex items-center text-gray-500">
               <XCircle className="w-4 h-4 mr-1" />
-              Disabled
+              {t('common:labels.disabled')}
             </span>
           )}
         </div>
@@ -214,7 +214,7 @@ export default function EntitlementsSync() {
     },
     {
       accessorKey: "lastSync",
-      header: "Last Sync",
+      header: t('common:labels.lastSync'),
       cell: ({ row }) => {
         const lastSync = row.getValue("lastSync") as any;
         return (
@@ -228,7 +228,7 @@ export default function EntitlementsSync() {
             {lastSync?.status === 'error' && (
               <XCircle className="w-4 h-4 mr-1 text-red-600" />
             )}
-            {lastSync?.timestamp || 'Never'}
+            {lastSync?.timestamp || t('entitlements:sync.never')}
           </div>
         );
       },
@@ -263,25 +263,25 @@ export default function EntitlementsSync() {
   return (
     <div className="py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-        <ArrowLeftRight className="w-8 h-8" /> Entitlements Sync
+        <ArrowLeftRight className="w-8 h-8" /> {t('entitlements:sync.title')}
       </h1>
       <div className="flex justify-between items-center mb-8">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              New Configuration
+              {t('entitlements:sync.newConfig')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingConfig ? 'Edit Configuration' : 'New Configuration'}
+                {editingConfig ? t('entitlements:sync.editConfig') : t('entitlements:sync.newConfig')}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">{t('common:labels.name')}</Label>
                 <Input
                   id="name"
                   name="name"
@@ -290,10 +290,10 @@ export default function EntitlementsSync() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="connection">Connection</Label>
+                <Label htmlFor="connection">{t('common:labels.connection')}</Label>
                 <Select name="connection" defaultValue={editingConfig?.connection}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a connection" />
+                    <SelectValue placeholder={t('common:placeholders.selectConnection')} />
                   </SelectTrigger>
                   <SelectContent>
                     {connections.map((conn) => (
@@ -305,20 +305,20 @@ export default function EntitlementsSync() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="schedule">Schedule (Cron)</Label>
+                <Label htmlFor="schedule">{t('entitlements:sync.scheduleCron')}</Label>
                 <Input
                   id="schedule"
                   name="schedule"
                   defaultValue={editingConfig?.schedule}
-                  placeholder="0 0 * * *"
+                  placeholder={t('common:placeholders.enterCronExpression')}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="catalogs">Catalogs</Label>
+                <Label htmlFor="catalogs">{t('entitlements:sync.catalogs')}</Label>
                 <Select name="catalogs" defaultValue={editingConfig?.catalogs[0]}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select catalogs" />
+                    <SelectValue placeholder={t('common:placeholders.selectCatalogs')} />
                   </SelectTrigger>
                   <SelectContent>
                     {catalogs.map((catalog) => (
@@ -335,7 +335,7 @@ export default function EntitlementsSync() {
                   name="enabled"
                   defaultChecked={editingConfig?.enabled}
                 />
-                <Label htmlFor="enabled">Enabled</Label>
+                <Label htmlFor="enabled">{t('common:labels.enabled')}</Label>
               </div>
               <div className="flex justify-end space-x-2">
                 <Button
@@ -346,9 +346,9 @@ export default function EntitlementsSync() {
                     setEditingConfig(null)
                   }}
                 >
-                  Cancel
+                  {t('common:actions.cancel')}
                 </Button>
-                <Button type="submit">Save</Button>
+                <Button type="submit">{t('common:actions.save')}</Button>
               </div>
             </form>
           </DialogContent>

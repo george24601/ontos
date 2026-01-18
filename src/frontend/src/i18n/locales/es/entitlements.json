@@ -4,6 +4,45 @@
   "newEntitlement": "Nuevo Derecho",
   "searchPlaceholder": "Buscar derechos...",
   "loading": "Cargando derechos...",
+  "personas": {
+    "title": "Personas",
+    "createPersona": "Crear Persona",
+    "editPersona": "Editar Persona",
+    "createNewPersona": "Crear Nueva Persona",
+    "personaName": "Nombre de Persona",
+    "noPersonas": "No se encontraron personas. Crea una para comenzar.",
+    "privileges": "privilegios",
+    "accessPrivileges": "Privilegios de Acceso",
+    "noPrivileges": "No hay privilegios configurados",
+    "groupAssignments": "Asignaciones de Grupo",
+    "noGroups": "No hay grupos asignados",
+    "addPrivilege": "Agregar Privilegio",
+    "addGroups": "Agregar Grupos",
+    "securableId": "ID de Securable",
+    "securableType": "Tipo de Securable",
+    "permission": "Permiso",
+    "selectSecurableType": "Seleccionar tipo",
+    "selectPermission": "Seleccionar permiso",
+    "selectPersona": "Seleccionar una Persona",
+    "selectPersonaHint": "Selecciona una persona para ver detalles",
+    "createPersonaHint": "O crea una nueva usando el botón \"Crear Persona\"",
+    "toast": {
+      "personaCreated": "Persona creada exitosamente",
+      "personaUpdated": "Persona actualizada exitosamente",
+      "personaDeleted": "Persona eliminada exitosamente",
+      "privilegeAdded": "Privilegio agregado exitosamente",
+      "privilegeRemoved": "Privilegio eliminado exitosamente",
+      "groupsUpdated": "Grupos actualizados exitosamente"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar personas",
+      "saveFailed": "Error al guardar persona",
+      "deleteFailed": "Error al eliminar persona",
+      "privilegeAddFailed": "Error al agregar privilegio",
+      "privilegeRemoveFailed": "Error al eliminar privilegio",
+      "groupsUpdateFailed": "Error al actualizar grupos"
+    }
+  },
   "filters": {
     "allTypes": "Todos los Tipos",
     "allStatus": "Todos los Estados"
@@ -31,6 +70,22 @@
     "lastSync": "Última Sincronización",
     "syncNow": "Sincronizar Ahora",
     "syncing": "Sincronizando...",
+    "newConfig": "Nueva Configuración",
+    "editConfig": "Editar Configuración",
+    "scheduleCron": "Programación (Cron)",
+    "catalogs": "Catálogos",
+    "never": "Nunca",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar esta configuración?",
+    "configCreated": "Configuración creada correctamente",
+    "configUpdated": "Configuración actualizada correctamente",
+    "configDeleted": "Configuración eliminada correctamente",
+    "errors": {
+      "loadConfigsFailed": "Error al cargar configuraciones",
+      "loadConnectionsFailed": "Error al cargar conexiones",
+      "loadCatalogsFailed": "Error al cargar catálogos",
+      "saveConfigFailed": "Error al guardar configuración",
+      "deleteConfigFailed": "Error al eliminar configuración"
+    },
     "status": {
       "success": "Éxito",
       "failed": "Fallido",

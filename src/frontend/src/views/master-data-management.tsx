@@ -37,7 +37,7 @@ import {
 } from '@/types/mdm';
 
 export default function MasterDataManagement() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['mdm', 'common']);
   const [configs, setConfigs] = useState<MdmConfig[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<MdmConfig | null>(null);
   const [sourceLinks, setSourceLinks] = useState<MdmSourceLink[]>([]);
@@ -60,7 +60,7 @@ export default function MasterDataManagement() {
 
   useEffect(() => {
     setStaticSegments([]);
-    setDynamicTitle('Master Data Management');
+    setDynamicTitle(t('mdm:title'));
     return () => {
       setStaticSegments([]);
       setDynamicTitle(null);
@@ -146,11 +146,11 @@ export default function MasterDataManagement() {
     try {
       const response = await post<MdmMatchRun>(`/api/mdm/configs/${configId}/start-run`, {});
       if (response.data) {
-        toast({ title: 'Success', description: 'MDM matching job started' });
+        toast({ title: t('common:toast.success'), description: t('mdm:toast.matchingStarted') });
         fetchMatchRuns(configId);
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Failed to start matching', variant: 'destructive' });
+      toast({ title: t('common:toast.error'), description: err.message || t('mdm:errors.startMatchingFailed'), variant: 'destructive' });
     }
   };
 
@@ -159,8 +159,8 @@ export default function MasterDataManagement() {
       const response = await post(`/api/mdm/runs/${runId}/merge-approved`, {});
       if (response.data) {
         toast({ 
-          title: 'Success', 
-          description: (response.data as any).message || 'Merge completed' 
+          title: t('common:toast.success'), 
+          description: (response.data as any).message || t('mdm:toast.mergeCompleted') 
         });
         if (selectedConfig) {
           fetchMatchRuns(selectedConfig.id);
@@ -170,31 +170,31 @@ export default function MasterDataManagement() {
         }
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Merge failed', variant: 'destructive' });
+      toast({ title: t('common:toast.error'), description: err.message || t('mdm:errors.mergeFailed'), variant: 'destructive' });
     }
   };
 
   const handleDeleteConfig = async (configId: string) => {
-    if (!confirm('Are you sure you want to delete this MDM configuration?')) return;
+    if (!confirm(t('mdm:confirm.deleteConfig'))) return;
     
     try {
       await deleteApi(`/api/mdm/configs/${configId}`);
-      toast({ title: 'Success', description: 'Configuration deleted' });
+      toast({ title: t('common:toast.success'), description: t('mdm:toast.configDeleted') });
       if (selectedConfig?.id === configId) {
         setSelectedConfig(null);
       }
       fetchConfigs();
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Delete failed', variant: 'destructive' });
+      toast({ title: t('common:toast.error'), description: err.message || t('mdm:errors.deleteFailed'), variant: 'destructive' });
     }
   };
 
   const handleDeleteSourceLink = async (linkId: string) => {
-    if (!confirm('Are you sure you want to remove this source link?')) return;
+    if (!confirm(t('mdm:confirm.deleteSource'))) return;
     
     try {
       await deleteApi(`/api/mdm/sources/${linkId}`);
-      toast({ title: 'Success', description: 'Source link removed' });
+      toast({ title: t('common:toast.success'), description: t('mdm:toast.sourceRemoved') });
       if (selectedConfig) {
         fetchSourceLinks(selectedConfig.id);
         fetchConfigs(); // Refresh source count
@@ -261,15 +261,15 @@ export default function MasterDataManagement() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <GitCompare className="w-8 h-8" />
-            Master Data Management
+            {t('mdm:title')}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Define master data contracts and manage entity matching across systems
+            {t('mdm:subtitle')}
           </p>
         </div>
         <Button onClick={() => setIsConfigDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New MDM Configuration
+          {t('mdm:newConfiguration')}
         </Button>
       </div>
 
@@ -292,7 +292,7 @@ export default function MasterDataManagement() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Database className="h-5 w-5" />
-                  MDM Configurations
+                  {t('mdm:configurations')}
                 </CardTitle>
               </CardHeader>
               <CardContent>

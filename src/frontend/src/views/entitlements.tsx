@@ -31,7 +31,7 @@ interface Persona {
 }
 
 const Entitlements: React.FC = () => {
-  const { t } = useTranslation('entitlements');
+  const { t } = useTranslation(['entitlements', 'common']);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -69,7 +69,7 @@ const Entitlements: React.FC = () => {
   useEffect(() => {
     fetchPersonas();
     setStaticSegments([]);
-    setDynamicTitle('Entitlements');
+    setDynamicTitle(t('entitlements:title'));
 
     return () => {
         setStaticSegments([]);
@@ -85,10 +85,10 @@ const Entitlements: React.FC = () => {
       const data = await response.json();
       setPersonas(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load personas');
+      setError(err instanceof Error ? err.message : t('entitlements:personas.errors.loadFailed'));
       toast({
-        title: 'Error',
-        description: 'Failed to load personas',
+        title: t('common:toast.error'),
+        description: t('entitlements:personas.errors.loadFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -126,14 +126,14 @@ const Entitlements: React.FC = () => {
       await fetchPersonas();
       setSelectedPersona(null);
       toast({
-        title: 'Success',
-        description: 'Persona deleted successfully',
+        title: t('common:toast.success'),
+        description: t('entitlements:personas.toast.personaDeleted'),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete persona');
+      setError(err instanceof Error ? err.message : t('entitlements:personas.errors.deleteFailed'));
       toast({
-        title: 'Error',
-        description: 'Failed to delete persona',
+        title: t('common:toast.error'),
+        description: t('entitlements:personas.errors.deleteFailed'),
         variant: 'destructive',
       });
     }
@@ -167,14 +167,14 @@ const Entitlements: React.FC = () => {
       await fetchPersonas();
       setIsDialogOpen(false);
       toast({
-        title: 'Success',
-        description: `Persona ${isEditMode ? 'updated' : 'created'} successfully`,
+        title: t('common:toast.success'),
+        description: isEditMode ? t('entitlements:personas.toast.personaUpdated') : t('entitlements:personas.toast.personaCreated'),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save persona');
+      setError(err instanceof Error ? err.message : t('entitlements:personas.errors.saveFailed'));
       toast({
-        title: 'Error',
-        description: 'Failed to save persona',
+        title: t('common:toast.error'),
+        description: t('entitlements:personas.errors.saveFailed'),
         variant: 'destructive',
       });
     }
@@ -211,14 +211,14 @@ const Entitlements: React.FC = () => {
         permission: 'READ'
       });
       toast({
-        title: 'Success',
-        description: 'Privilege added successfully',
+        title: t('common:toast.success'),
+        description: t('entitlements:personas.toast.privilegeAdded'),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add privilege');
+      setError(err instanceof Error ? err.message : t('entitlements:personas.errors.privilegeAddFailed'));
       toast({
-        title: 'Error',
-        description: 'Failed to add privilege',
+        title: t('common:toast.error'),
+        description: t('entitlements:personas.errors.privilegeAddFailed'),
         variant: 'destructive',
       });
     }
@@ -240,14 +240,14 @@ const Entitlements: React.FC = () => {
         p.id === updatedPersona.id ? updatedPersona : p
       ));
       toast({
-        title: 'Success',
-        description: 'Privilege removed successfully',
+        title: t('common:toast.success'),
+        description: t('entitlements:personas.toast.privilegeRemoved'),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove privilege');
+      setError(err instanceof Error ? err.message : t('entitlements:personas.errors.privilegeRemoveFailed'));
       toast({
-        title: 'Error',
-        description: 'Failed to remove privilege',
+        title: t('common:toast.error'),
+        description: t('entitlements:personas.errors.privilegeRemoveFailed'),
         variant: 'destructive',
       });
     }
@@ -284,14 +284,14 @@ const Entitlements: React.FC = () => {
         p.id === updatedPersona.id ? updatedPersona : p
       ));
       toast({
-        title: 'Success',
-        description: 'Groups updated successfully',
+        title: t('common:toast.success'),
+        description: t('entitlements:personas.toast.groupsUpdated'),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update groups');
+      setError(err instanceof Error ? err.message : t('entitlements:personas.errors.groupsUpdateFailed'));
       toast({
-        title: 'Error',
-        description: 'Failed to update groups',
+        title: t('common:toast.error'),
+        description: t('entitlements:personas.errors.groupsUpdateFailed'),
         variant: 'destructive',
       });
     }
@@ -300,24 +300,24 @@ const Entitlements: React.FC = () => {
   return (
     <div className="py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-        <Shield className="w-8 h-8" /> Entitlements
+        <Shield className="w-8 h-8" /> {t('entitlements:title')}
       </h1>
       <div className="flex justify-between items-center mb-6">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={handleAddPersona} className="gap-2">
               <Plus className="h-4 w-4" />
-              Create Persona
+              {t('entitlements:personas.createPersona')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Edit Persona' : 'Create New Persona'}</DialogTitle>
+              <DialogTitle>{isEditMode ? t('entitlements:personas.editPersona') : t('entitlements:personas.createNewPersona')}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSavePersona}>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Persona Name</Label>
+                  <Label htmlFor="name">{t('entitlements:personas.personaName')}</Label>
                   <Input
                     id="name"
                     name="name"
@@ -326,7 +326,7 @@ const Entitlements: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">{t('common:labels.description')}</Label>
                   <Textarea
                     id="description"
                     name="description"
@@ -336,10 +336,10 @@ const Entitlements: React.FC = () => {
               </div>
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
+                  {t('common:actions.cancel')}
                 </Button>
                 <Button type="submit">
-                  {isEditMode ? 'Save Changes' : 'Create Persona'}
+                  {isEditMode ? t('common:actions.saveChanges') : t('entitlements:personas.createPersona')}
                 </Button>
               </div>
             </form>
@@ -357,7 +357,7 @@ const Entitlements: React.FC = () => {
         {/* Personas List */}
         <Card className="md:col-span-1">
           <CardHeader>
-            <CardTitle>Personas</CardTitle>
+            <CardTitle>{t('entitlements:personas.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[70vh]">
@@ -367,7 +367,7 @@ const Entitlements: React.FC = () => {
                 </div>
               ) : personas.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No personas found. Create one to get started.
+                  {t('entitlements:personas.noPersonas')}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -403,17 +403,17 @@ const Entitlements: React.FC = () => {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>
-                {selectedPersona ? selectedPersona.name : 'Select a Persona'}
+                {selectedPersona ? selectedPersona.name : t('entitlements:personas.selectPersona')}
               </CardTitle>
               {selectedPersona && (
                 <div className="flex space-x-2">
                   <Button variant="outline" onClick={handleEditPersona}>
                     <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
+                    {t('common:actions.edit')}
                   </Button>
                   <Button variant="outline" onClick={handleDeletePersona}>
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
+                    {t('common:actions.delete')}
                   </Button>
                 </div>
               )}
@@ -423,21 +423,21 @@ const Entitlements: React.FC = () => {
             {selectedPersona ? (
               <Tabs defaultValue="privileges">
                 <TabsList>
-                  <TabsTrigger value="privileges">Access Privileges</TabsTrigger>
-                  <TabsTrigger value="groups">Group Assignments</TabsTrigger>
+                  <TabsTrigger value="privileges">{t('entitlements:personas.accessPrivileges')}</TabsTrigger>
+                  <TabsTrigger value="groups">{t('entitlements:personas.groupAssignments')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="privileges">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-medium">Privileges</h3>
+                      <h3 className="text-lg font-medium">{t('entitlements:personas.accessPrivileges')}</h3>
                       <Button onClick={handleAddPrivilege}>
                         <Plus className="w-4 h-4 mr-2" />
-                        Add Privilege
+                        {t('entitlements:personas.addPrivilege')}
                       </Button>
                     </div>
                     {selectedPersona.privileges.length === 0 ? (
                       <div className="text-center text-muted-foreground py-4">
-                        No privileges assigned to this persona.
+                        {t('entitlements:personas.noPrivileges')}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -472,7 +472,7 @@ const Entitlements: React.FC = () => {
                 </TabsContent>
                 <TabsContent value="groups">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Assigned Groups</h3>
+                    <h3 className="text-lg font-medium">{t('entitlements:personas.groupAssignments')}</h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedPersona.groups.map((group) => (
                         <Badge key={group} variant="outline">
@@ -481,7 +481,7 @@ const Entitlements: React.FC = () => {
                       ))}
                     </div>
                     <div className="space-y-2">
-                      <Label>Add Groups</Label>
+                      <Label>{t('entitlements:personas.addGroups')}</Label>
                       <Select
                         onValueChange={(value) => {
                           if (!selectedPersona.groups.includes(value)) {
@@ -490,7 +490,7 @@ const Entitlements: React.FC = () => {
                         }}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a group" />
+                          <SelectValue placeholder={t('common:placeholders.selectGroup')} />
                         </SelectTrigger>
                         <SelectContent>
                           {availableGroups
@@ -509,8 +509,8 @@ const Entitlements: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center justify-center h-[70vh] text-muted-foreground">
                 <Settings className="w-12 h-12 mb-4" />
-                <p className="text-lg">Select a persona to view details</p>
-                <p className="text-sm">Or create a new one using the "Create Persona" button</p>
+                <p className="text-lg">{t('entitlements:personas.selectPersonaHint')}</p>
+                <p className="text-sm">{t('entitlements:personas.createPersonaHint')}</p>
               </div>
             )}
           </CardContent>
@@ -521,27 +521,27 @@ const Entitlements: React.FC = () => {
       <Dialog open={isPrivilegeDialogOpen} onOpenChange={setIsPrivilegeDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Access Privilege</DialogTitle>
+            <DialogTitle>{t('entitlements:personas.addPrivilege')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="securable_id">Securable ID</Label>
+              <Label htmlFor="securable_id">{t('common:labels.securableId')}</Label>
               <Input
                 id="securable_id"
                 value={newPrivilege.securable_id}
                 onChange={(e) => setNewPrivilege({...newPrivilege, securable_id: e.target.value})}
-                placeholder="Example: catalog.schema.table"
+                placeholder={t('common:placeholders.exampleCatalogSchemaTable')}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="securable_type">Securable Type</Label>
+              <Label htmlFor="securable_type">{t('common:labels.securableType')}</Label>
               <Select
                 value={newPrivilege.securable_type}
                 onValueChange={(value) => setNewPrivilege({...newPrivilege, securable_type: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue placeholder={t('common:placeholders.selectType')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="catalog">Catalog</SelectItem>
@@ -552,13 +552,13 @@ const Entitlements: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="permission">Permission</Label>
+              <Label htmlFor="permission">{t('common:labels.permission')}</Label>
               <Select
                 value={newPrivilege.permission}
                 onValueChange={(value) => setNewPrivilege({...newPrivilege, permission: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select permission" />
+                  <SelectValue placeholder={t('common:placeholders.selectPermission')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="READ">READ</SelectItem>
@@ -570,10 +570,10 @@ const Entitlements: React.FC = () => {
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setIsPrivilegeDialogOpen(false)}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             <Button onClick={handleSavePrivilege} disabled={!newPrivilege.securable_id}>
-              Add
+              {t('common:actions.add')}
             </Button>
           </div>
         </DialogContent>

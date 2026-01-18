@@ -71,7 +71,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Server } from 'lucide-react';
 
 export default function DatasetDetails() {
-  const { t } = useTranslation('datasets');
+  const { t } = useTranslation(['datasets', 'common']);
   const { datasetId } = useParams<{ datasetId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();

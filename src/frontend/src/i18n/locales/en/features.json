@@ -51,6 +51,10 @@
     "name": "Security Features",
     "description": "Enable advanced security like differential privacy."
   },
+  "security-features": {
+    "name": "Security Features",
+    "description": "Enable advanced security like differential privacy."
+  },
   "entitlements": {
     "name": "Entitlements",
     "description": "Manage access privileges through personas and groups."

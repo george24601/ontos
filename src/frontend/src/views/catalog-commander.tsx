@@ -89,7 +89,7 @@ interface Estate {
 type RightPanelMode = 'hidden' | 'ask' | 'dual-tree' | 'info' | 'comments';
 
 const CatalogCommander: React.FC = () => {
-  const { t } = useTranslation('catalog-commander');
+  const { t } = useTranslation(['catalog-commander', 'common']);
   const [searchInput, setSearchInput] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<CatalogItem[]>([]);

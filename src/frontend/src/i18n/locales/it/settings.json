@@ -7,12 +7,73 @@
     "jobs": "Job & Workflow",
     "roles": "Ruoli",
     "semanticModels": "Modelli semantici",
-    "tags": "Tag"
+    "tags": "Tag",
+    "search": "Ricerca",
+    "mcpTokens": "Token MCP"
+  },
+  "accessDenied": {
+    "title": "Accesso negato",
+    "message": "Non hai il permesso di accedere alla pagina Impostazioni. Questa pagina è riservata agli utenti con privilegi amministrativi.",
+    "action": "Se ritieni di dover avere accesso, contatta il tuo amministratore o ",
+    "returnHome": "torna alla home page",
+    "requestRole": " per richiedere un ruolo appropriato."
   },
   "general": {
     "title": "Impostazioni generali",
     "description": "Configura le impostazioni di base dell'applicazione",
-    "enableBackgroundJobs": "Abilita job in background"
+    "enableBackgroundJobs": "Abilita job in background",
+    "workspaceDeploymentPath": {
+      "label": "Percorso di distribuzione del workspace",
+      "placeholder": "/Workspace/Users/user@domain.com/ontos-workflows",
+      "help": "Percorso nel workspace Databricks dove vengono distribuiti i file di workflow per i job in background."
+    },
+    "unityCatalog": {
+      "title": "Unity Catalog",
+      "help": "Posizione Unity Catalog per l'archiviazione dei dati dell'applicazione.",
+      "catalog": {
+        "label": "Catalogo",
+        "placeholder": "app_data"
+      },
+      "schema": {
+        "label": "Schema",
+        "placeholder": "app_ontos"
+      },
+      "volume": {
+        "label": "Volume",
+        "placeholder": "app_files"
+      }
+    },
+    "auditLog": {
+      "label": "Directory log di audit",
+      "placeholder": "audit_logs",
+      "help": "Directory dove vengono archiviati i file di log di audit."
+    },
+    "llm": {
+      "title": "Configurazione AI / LLM",
+      "enabled": {
+        "label": "Abilita funzionalità AI"
+      },
+      "endpoint": {
+        "label": "Endpoint LLM",
+        "placeholder": "databricks-claude-sonnet-4-5",
+        "help": "Nome dell'endpoint di serving Databricks per l'LLM."
+      },
+      "systemPrompt": {
+        "label": "Prompt di sistema",
+        "placeholder": "Sei un Data Steward...",
+        "help": "Prompt di sistema che definisce il comportamento dell'assistente AI."
+      },
+      "disclaimer": {
+        "label": "Testo di esclusione di responsabilità",
+        "placeholder": "Questa funzionalità utilizza l'AI per analizzare le risorse dati...",
+        "help": "Esclusione di responsabilità mostrata agli utenti quando utilizzano le funzionalità AI."
+      }
+    },
+    "saveButton": "Salva impostazioni",
+    "messages": {
+      "saveSuccess": "Impostazioni salvate con successo",
+      "saveError": "Impossibile salvare le impostazioni"
+    }
   },
   "databricks": {
     "title": "Impostazioni Databricks",
@@ -115,7 +176,8 @@
       "general": "Generale",
       "privileges": "Privilegi",
       "permissions": "Permessi",
-      "deployment": "Distribuzione"
+      "deployment": "Distribuzione",
+      "accessControl": "Controllo accessi"
     },
     "general": {
       "roleName": "Nome ruolo",
@@ -167,6 +229,20 @@
       "requireApproval": "Richiede approvazione per le distribuzioni",
       "canApprove": "Può approvare richieste di distribuzione"
     },
+    "accessControl": {
+      "requestableBy": {
+        "title": "Chi può richiedere questo ruolo?",
+        "description": "Seleziona quali ruoli sono autorizzati a richiedere l'accesso a questo ruolo. Gli utenti con questi ruoli vedranno questo ruolo nella loro lista dei ruoli richiedibili."
+      },
+      "approvers": {
+        "title": "Chi può approvare le richieste per questo ruolo?",
+        "description": "Seleziona quali ruoli possono approvare le richieste di accesso per questo ruolo. Gli utenti con questi ruoli riceveranno notifiche quando qualcuno richiede questo ruolo.",
+        "hint": "Se non sono selezionati approvatori, le richieste saranno inviate all'Admin per impostazione predefinita."
+      },
+      "noRole": "Utenti senza ruolo (nuovi utenti)",
+      "noRolesAvailable": "Nessun altro ruolo disponibile",
+      "defaultApprover": "Predefinito"
+    },
     "actions": {
       "cancel": "Annulla",
       "create": "Crea ruolo",
@@ -175,6 +251,85 @@
       "actions": "Azioni",
       "editRole": "Modifica ruolo",
       "deleteRole": "Elimina ruolo"
+    }
+  },
+  "mcpTokens": {
+    "title": "Token API MCP",
+    "description": "Gestisci i token API per le integrazioni degli assistenti AI tramite il Model Context Protocol",
+    "refresh": "Aggiorna",
+    "createToken": "Crea token",
+    "showRevokedTokens": "Mostra token revocati",
+    "emptyState": {
+      "title": "Ancora nessun token MCP",
+      "description": "Crea un token per consentire agli assistenti AI di accedere ai tuoi strumenti"
+    },
+    "table": {
+      "name": "Nome",
+      "scopes": "Ambiti",
+      "created": "Creato",
+      "lastUsed": "Ultimo utilizzo",
+      "expires": "Scade",
+      "status": "Stato",
+      "actions": "Azioni",
+      "never": "Mai",
+      "moreScopes": "+{{count}} altri",
+      "createdBy": "da {{name}}"
+    },
+    "status": {
+      "active": "Attivo",
+      "revoked": "Revocato",
+      "expired": "Scaduto"
+    },
+    "tooltips": {
+      "revokeToken": "Revoca token"
+    },
+    "info": {
+      "title": "Utilizzo dei token MCP",
+      "description": "I token MCP consentono agli assistenti AI di interagire con la piattaforma di governance dei dati. Ogni token ha ambiti specifici che controllano quali strumenti sono accessibili.",
+      "endpoint": "Endpoint:",
+      "header": "Header:"
+    },
+    "createDialog": {
+      "title": "Crea token MCP",
+      "description": "Crea un nuovo token API per le integrazioni degli assistenti AI. Il token verrà mostrato solo una volta.",
+      "tokenName": "Nome del token",
+      "tokenNamePlaceholder": "es., Assistente Claude - Team Analytics",
+      "tokenNameHelp": "Un nome descrittivo per identificare questo token",
+      "expiration": "Scadenza (giorni)",
+      "expirationHelp": "Lascia vuoto per nessuna scadenza",
+      "scopes": "Ambiti",
+      "scopesHelp": "Seleziona i permessi che questo token deve avere",
+      "selectedScopes": "Selezionati:",
+      "cancel": "Annulla",
+      "create": "Crea token",
+      "creating": "Creazione..."
+    },
+    "createdDialog": {
+      "title": "Token creato con successo",
+      "warning": "Copia questo token ora — non verrà mostrato di nuovo!",
+      "tokenName": "Nome del token",
+      "apiToken": "Token API",
+      "scopes": "Ambiti",
+      "expires": "Scade",
+      "copy": "Copia",
+      "copied": "Copiato!",
+      "done": "Fatto"
+    },
+    "revokeDialog": {
+      "title": "Revocare il token?",
+      "description": "Sei sicuro di voler revocare il token",
+      "warning": "Questa azione non può essere annullata. Gli assistenti AI che utilizzano questo token perderanno immediatamente l'accesso.",
+      "cancel": "Annulla",
+      "revoke": "Revoca token"
+    },
+    "messages": {
+      "loadError": "Impossibile caricare i token MCP",
+      "tokenNameRequired": "Il nome del token è obbligatorio",
+      "scopeRequired": "È richiesto almeno un ambito",
+      "createError": "Impossibile creare il token",
+      "copied": "Token copiato negli appunti",
+      "revoked": "Il token \"{{name}}\" è stato revocato",
+      "revokeError": "Impossibile revocare il token"
     }
   }
 }

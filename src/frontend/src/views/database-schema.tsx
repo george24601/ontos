@@ -90,12 +90,12 @@ function TableNode({ data }: { data: Table }) {
                     <td className="py-1 px-2 font-mono">
                       <div className="flex items-center gap-1">
                         {col.primary_key && (
-                          <span className="text-yellow-600 dark:text-yellow-400" title="Primary Key">
+                          <span className="text-yellow-600 dark:text-yellow-400" title={t('common:tooltips.primaryKey')}>
                             🔑
                           </span>
                         )}
                         {col.foreign_key && (
-                          <span className="text-blue-600 dark:text-blue-400" title="Foreign Key">
+                          <span className="text-blue-600 dark:text-blue-400" title={t('common:tooltips.foreignKey')}>
                             🔗
                           </span>
                         )}
@@ -198,7 +198,7 @@ const getLayoutedElements = (
 };
 
 export default function DatabaseSchema() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['database-schema', 'common']);
   const [schemaData, setSchemaData] = useState<SchemaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -215,7 +215,7 @@ export default function DatabaseSchema() {
   // Set breadcrumb
   useEffect(() => {
     setStaticSegments([]);
-    setDynamicTitle('Database Schema');
+    setDynamicTitle(t('database-schema:title'));
     return () => {
       setStaticSegments([]);
       setDynamicTitle(null);
@@ -304,7 +304,7 @@ export default function DatabaseSchema() {
       <div className="flex items-center justify-center h-[600px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading database schema...</p>
+          <p className="text-muted-foreground">{t('database-schema:loading')}</p>
         </div>
       </div>
     );
@@ -315,7 +315,7 @@ export default function DatabaseSchema() {
       <div className="flex items-center justify-center h-[600px]">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle className="text-destructive">Error Loading Schema</CardTitle>
+            <CardTitle className="text-destructive">{t('database-schema:errorLoadingSchema')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">{error}</p>
@@ -333,7 +333,7 @@ export default function DatabaseSchema() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search tables..."
+            placeholder={t('common:placeholders.searchTables')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -341,11 +341,10 @@ export default function DatabaseSchema() {
         </div>
         <Button onClick={handleDownload} variant="outline" size="sm">
           <Download className="h-4 w-4 mr-2" />
-          Export
+          {t('common:actions.export')}
         </Button>
         <div className="text-sm text-muted-foreground">
-          {schemaData?.tables.length || 0} tables, {schemaData?.relationships.length || 0}{' '}
-          relationships
+          {t('database-schema:tableCount', { count: schemaData?.tables.length || 0 })}, {t('database-schema:relationshipCount', { count: schemaData?.relationships.length || 0 })}
         </div>
       </div>
 
@@ -375,19 +374,19 @@ export default function DatabaseSchema() {
             pannable
           />
           <Panel position="top-left" className="bg-background/95 p-3 rounded-lg border shadow-sm text-xs m-2">
-            <div className="font-semibold mb-2">Legend</div>
+            <div className="font-semibold mb-2">{t('database-schema:legend')}</div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="text-yellow-600 dark:text-yellow-400">🔑</span>
-                <span>Primary Key</span>
+                <span>{t('common:tooltips.primaryKey')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-blue-600 dark:text-blue-400">🔗</span>
-                <span>Foreign Key</span>
+                <span>{t('common:tooltips.foreignKey')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-red-500">*</span>
-                <span>NOT NULL</span>
+                <span>{t('database-schema:notNull')}</span>
               </div>
             </div>
           </Panel>

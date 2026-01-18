@@ -63,7 +63,7 @@ export default function DataDomainsView() {
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const { currentProject, hasProjectContext } = useProjectContext();
-  const { t } = useTranslation('data-domains');
+  const { t } = useTranslation(['data-domains', 'common']);
 
   const featureId = 'data-domains';
   const canRead = !permissionsLoading && hasPermission(featureId, FeatureAccessLevel.READ_ONLY);

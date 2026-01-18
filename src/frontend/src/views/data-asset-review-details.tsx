@@ -39,7 +39,7 @@ const checkApiResponse = <T,>(response: { data?: T | { detail?: string }, error?
 };
 
 export default function DataAssetReviewDetails() {
-    const { t } = useTranslation('data-asset-reviews');
+    const { t } = useTranslation(['data-asset-reviews', 'common']);
     const { requestId } = useParams<{ requestId: string }>();
     const navigate = useNavigate();
     const api = useApi();
@@ -248,7 +248,7 @@ export default function DataAssetReviewDetails() {
                             disabled={isUpdatingStatus}
                         >
                             <SelectTrigger id="overall-status" className="w-[180px]">
-                                <SelectValue placeholder="Set Status" />
+                                <SelectValue placeholder={t('common:placeholders.setStatus')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(ReviewRequestStatus).map((status) => (

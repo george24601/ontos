@@ -2,8 +2,46 @@
   "title": "コンプライアンス",
   "subtitle": "コンプライアンスポリシーと実行を管理",
   "newPolicy": "新規ポリシー",
+  "createRule": "ルールを作成",
+  "editRule": "コンプライアンスルールを編集",
+  "createNewRule": "新規コンプライアンスルールを作成",
   "searchPlaceholder": "ポリシーを検索...",
   "loading": "コンプライアンスデータを読み込み中...",
+  "stats": {
+    "overallCompliance": "全体のコンプライアンス",
+    "acrossAllRules": "全ルール対象",
+    "activeRules": "アクティブなルール",
+    "currentlyEnforced": "現在適用中",
+    "criticalIssues": "重大な問題",
+    "requireAttention": "対応が必要",
+    "lastUpdated": "最終更新",
+    "today": "今日"
+  },
+  "form": {
+    "name": "名前",
+    "description": "説明",
+    "category": "カテゴリ",
+    "selectCategory": "カテゴリを選択",
+    "severity": "重大度",
+    "selectSeverity": "重大度を選択",
+    "ruleCode": "ルールコード",
+    "rulePlaceholder": "コンプライアンスDSL形式でルールを入力"
+  },
+  "categories": {
+    "security": "セキュリティ",
+    "dataQuality": "データ品質",
+    "privacy": "プライバシー",
+    "governance": "ガバナンス"
+  },
+  "errors": {
+    "loadingPolicies": "ポリシーの読み込みエラー",
+    "savingPolicy": "ポリシーの保存エラー",
+    "deletingPolicy": "ポリシーの削除エラー"
+  },
+  "toast": {
+    "policySaved": "ポリシー '{{name}}' を保存しました",
+    "policyDeleted": "ポリシーを削除しました"
+  },
   "score": {
     "title": "コンプライアンススコア",
     "overall": "総合スコア",

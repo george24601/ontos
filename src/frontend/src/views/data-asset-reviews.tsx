@@ -33,7 +33,7 @@ const checkApiResponse = <T,>(response: { data?: T | { detail?: string }, error?
 };
 
 export default function DataAssetReviews() {
-    const { t } = useTranslation('data-asset-reviews');
+    const { t } = useTranslation(['data-asset-reviews', 'common']);
     const [requests, setRequests] = useState<DataAssetReviewRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export default function DataAssetReviews() {
     };
 
     const handleCreateSuccess = (newRequest: DataAssetReviewRequest) => {
-        toast({ title: 'Success', description: `Review request ${newRequest.id} created.` });
+        toast({ title: t('common:toast.success'), description: t('data-asset-reviews:toast.requestCreated', { id: newRequest.id }) });
         fetchRequests(); // Refresh the list
         setIsCreateDialogOpen(false);
         // Optional: Navigate to the new request's details page
@@ -84,16 +84,16 @@ export default function DataAssetReviews() {
     };
 
     const handleDeleteRequest = async (id: string, skipConfirm = false) => {
-        if (!skipConfirm && !confirm('Are you sure you want to delete this review request?')) {
+        if (!skipConfirm && !confirm(t('data-asset-reviews:confirm.deleteRequest'))) {
             return;
         }
         try {
             await deleteApi(`/api/data-asset-reviews/${id}`);
-            toast({ title: 'Success', description: 'Review request deleted.' });
+            toast({ title: t('common:toast.success'), description: t('data-asset-reviews:toast.requestDeleted') });
             fetchRequests(); // Refresh list
         } catch (err: any) {
-            const errorMsg = err.message || 'Failed to delete request.';
-            toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+            const errorMsg = err.message || t('data-asset-reviews:toast.deleteError');
+            toast({ title: t('common:toast.error'), description: errorMsg, variant: 'destructive' });
             setError(errorMsg);
             if (skipConfirm) throw err; // Re-throw for bulk delete
         }
@@ -118,7 +118,7 @@ export default function DataAssetReviews() {
             accessorKey: "id",
             header: ({ column }) => (
                 <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-                    Request ID <ChevronDown className="ml-2 h-4 w-4" />
+                    {t('data-asset-reviews:table.requestId')} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
             ),
             cell: ({ row }) => <div className="text-xs">{row.original.id}</div>,
@@ -127,7 +127,7 @@ export default function DataAssetReviews() {
             accessorKey: "status",
             header: ({ column }) => (
                 <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-                    Status <ChevronDown className="ml-2 h-4 w-4" />
+                    {t('data-asset-reviews:table.status')} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
             ),
             cell: ({ row }) => (
@@ -136,17 +136,17 @@ export default function DataAssetReviews() {
         },
         {
             accessorKey: "reviewer_email",
-            header: "Reviewer",
+            header: t('data-asset-reviews:table.reviewer'),
             cell: ({ row }) => <div>{row.original.reviewer_email}</div>,
         },
         {
             accessorKey: "requester_email",
-            header: "Requester",
+            header: t('data-asset-reviews:table.requester'),
             cell: ({ row }) => <div>{row.original.requester_email}</div>,
         },
         {
             accessorKey: "assets",
-            header: "Assets",
+            header: t('data-asset-reviews:table.assets'),
             cell: ({ row }) => <Badge variant="outline">{row.original.assets?.length ?? 0}</Badge>,
             enableSorting: false,
         },
@@ -154,7 +154,7 @@ export default function DataAssetReviews() {
             accessorKey: "created_at",
             header: ({ column }) => (
                 <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-                    Created <ChevronDown className="ml-2 h-4 w-4" />
+                    {t('data-asset-reviews:table.created')} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
             ),
             cell: ({ row }) => <RelativeDate date={row.original.created_at} />,
@@ -163,7 +163,7 @@ export default function DataAssetReviews() {
             accessorKey: "updated_at",
             header: ({ column }) => (
                 <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-                    Updated <ChevronDown className="ml-2 h-4 w-4" />
+                    {t('data-asset-reviews:table.updated')} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
             ),
             cell: ({ row }) => <RelativeDate date={row.original.updated_at} />,
@@ -183,7 +183,7 @@ export default function DataAssetReviews() {
                                 e.stopPropagation();
                                 handleDeleteRequest(request.id, false);
                             }}
-                            title="Delete Request"
+                            title={t('common:tooltips.deleteRequest')}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
@@ -191,13 +191,13 @@ export default function DataAssetReviews() {
                 );
             },
         },
-    ], [handleDeleteRequest, getStatusColor]);
+    ], [t, handleDeleteRequest, getStatusColor]);
 
     return (
         <div className="py-6">
             <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
                 <ClipboardCheck className="w-8 h-8" />
-                Data Asset Reviews
+                {t('data-asset-reviews:title')}
             </h1>
 
             {error && (
@@ -220,7 +220,7 @@ export default function DataAssetReviews() {
                         <>
                             <Button onClick={handleOpenCreateDialog} className="gap-2 h-9">
                                 <Plus className="h-4 w-4" />
-                                Create Request
+                                {t('data-asset-reviews:createRequest')}
                             </Button>
                             {/* Add other toolbar actions if needed */}
                         </>
@@ -233,22 +233,22 @@ export default function DataAssetReviews() {
                             onClick={async () => {
                                 const selectedIds = selectedRows.map(r => r.id).filter((id): id is string => !!id);
                                 if (selectedIds.length === 0) return;
-                                if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected request(s)?`)) return;
+                                if (!confirm(t('data-asset-reviews:confirm.bulkDelete', { count: selectedIds.length }))) return;
 
                                 try {
                                     await Promise.all(selectedIds.map(id => deleteApi(`/api/data-asset-reviews/${id}`)));
-                                    toast({ title: 'Bulk Delete Success', description: `${selectedIds.length} request(s) deleted.` });
+                                    toast({ title: t('common:toast.success'), description: t('data-asset-reviews:toast.bulkDeleted', { count: selectedIds.length }) });
                                     fetchRequests();
                                 } catch (err: any) {
                                     console.error("Bulk delete failed:", err);
-                                    toast({ title: 'Bulk Delete Error', description: `Some requests could not be deleted. ${err.message}`, variant: 'destructive' });
+                                    toast({ title: t('common:toast.error'), description: t('data-asset-reviews:toast.bulkDeleteError'), variant: 'destructive' });
                                     fetchRequests(); // Still refresh to see partial success/failure
                                 }
                             }}
                             disabled={selectedRows.length === 0}
                         >
                             <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Selected ({selectedRows.length})
+                            {t('common:actions.deleteSelected', { count: selectedRows.length })}
                         </Button>
                     )}
                     onRowClick={(row) => {

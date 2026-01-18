@@ -40,7 +40,7 @@ import { Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 const ITEMS_PER_PAGE = 50;
 
 export default function AuditTrail() {
-  const { t } = useTranslation('audit-trail');
+  const { t } = useTranslation(['audit-trail', 'common']);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);

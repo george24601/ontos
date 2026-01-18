@@ -130,7 +130,7 @@ export default function DocumentationViewer() {
           <BookOpenCheck className="w-8 h-8" />
           <h1 className="text-4xl font-bold">{title}</h1>
         </div>
-        <div className="text-muted-foreground">Loading documentation...</div>
+        <div className="text-muted-foreground">{t('labels.loadingDocumentation')}</div>
       </div>
     );
   }

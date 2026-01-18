@@ -71,11 +71,15 @@
     "missingId": "詳細に移動できません。製品IDがありません。"
   },
   "table": {
+    "title": "タイトル",
     "name": "名前",
     "status": "ステータス",
     "domain": "ドメイン",
     "owner": "所有者",
     "version": "バージョン",
+    "type": "タイプ",
+    "tags": "タグ",
+    "created": "作成日",
     "updated": "更新日",
     "actions": "アクション",
     "viewDetails": "詳細を表示",

@@ -2,8 +2,18 @@
   "title": "Funzionalità di Sicurezza",
   "subtitle": "Gestisci la sicurezza dei dati e le impostazioni sulla privacy",
   "newFeature": "Nuova Funzionalità di Sicurezza",
+  "addFeature": "Aggiungi Funzionalità di Sicurezza",
+  "editFeature": "Modifica Funzionalità di Sicurezza",
   "searchPlaceholder": "Cerca funzionalità di sicurezza...",
   "loading": "Caricamento funzionalità di sicurezza...",
+  "toast": {
+    "featureCreated": "Funzionalità di sicurezza creata con successo",
+    "featureUpdated": "Funzionalità di sicurezza aggiornata con successo",
+    "featureDeleted": "Funzionalità di sicurezza eliminata con successo",
+    "loadError": "Impossibile caricare le funzionalità di sicurezza",
+    "saveError": "Impossibile salvare la funzionalità di sicurezza",
+    "deleteError": "Impossibile eliminare la funzionalità di sicurezza"
+  },
   "table": {
     "name": "Nome",
     "type": "Tipo",
@@ -11,7 +21,9 @@
     "status": "Stato",
     "enabled": "Abilitato",
     "updated": "Aggiornato",
-    "actions": "Azioni"
+    "actions": "Azioni",
+    "conditions": "Condizioni",
+    "lastUpdated": "Ultimo Aggiornamento"
   },
   "messages": {
     "success": "Successo",
@@ -27,7 +39,13 @@
     "masking": "Mascheramento Dati",
     "rowLevel": "Sicurezza a Livello di Riga",
     "columnLevel": "Sicurezza a Livello di Colonna",
-    "differential": "Privacy Differenziale"
+    "differential": "Privacy Differenziale",
+    "rowFiltering": "Filtraggio Righe",
+    "columnMasking": "Mascheramento Colonne",
+    "differentialPrivacy": "Privacy Differenziale",
+    "homomorphicEncryption": "Crittografia Omomorfica",
+    "envelopeEncryption": "Crittografia a Busta",
+    "tokenization": "Tokenizzazione"
   },
   "details": {
     "backToList": "Torna alle Funzionalità di Sicurezza",
@@ -43,10 +61,12 @@
     "editTitle": "Modifica Funzionalità di Sicurezza",
     "name": "Nome",
     "type": "Tipo",
+    "selectType": "Seleziona tipo",
     "target": "Asset Target",
     "configuration": "Configurazione",
     "cancel": "Annulla",
-    "save": "Salva"
+    "save": "Salva",
+    "saveChanges": "Salva Modifiche",
+    "addFeature": "Aggiungi Funzionalità"
   }
 }
-

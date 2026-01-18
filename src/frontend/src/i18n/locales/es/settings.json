@@ -7,12 +7,73 @@
     "jobs": "Jobs y Workflows",
     "roles": "Roles",
     "semanticModels": "Modelos semánticos",
-    "tags": "Etiquetas"
+    "tags": "Etiquetas",
+    "search": "Búsqueda",
+    "mcpTokens": "Tokens MCP"
+  },
+  "accessDenied": {
+    "title": "Acceso denegado",
+    "message": "No tiene permiso para acceder a la página de Configuración. Esta página está restringida a usuarios con privilegios administrativos.",
+    "action": "Si cree que debería tener acceso, comuníquese con su administrador o ",
+    "returnHome": "vuelva a la página de inicio",
+    "requestRole": " para solicitar un rol apropiado."
   },
   "general": {
     "title": "Configuración general",
     "description": "Configurar ajustes básicos de la aplicación",
-    "enableBackgroundJobs": "Habilitar jobs en segundo plano"
+    "enableBackgroundJobs": "Habilitar jobs en segundo plano",
+    "workspaceDeploymentPath": {
+      "label": "Ruta de despliegue del workspace",
+      "placeholder": "/Workspace/Users/user@domain.com/ontos-workflows",
+      "help": "Ruta en el workspace de Databricks donde se despliegan los archivos de workflow para jobs en segundo plano."
+    },
+    "unityCatalog": {
+      "title": "Unity Catalog",
+      "help": "Ubicación de Unity Catalog para almacenar datos de la aplicación.",
+      "catalog": {
+        "label": "Catálogo",
+        "placeholder": "app_data"
+      },
+      "schema": {
+        "label": "Esquema",
+        "placeholder": "app_ontos"
+      },
+      "volume": {
+        "label": "Volumen",
+        "placeholder": "app_files"
+      }
+    },
+    "auditLog": {
+      "label": "Directorio de logs de auditoría",
+      "placeholder": "audit_logs",
+      "help": "Directorio donde se almacenan los archivos de log de auditoría."
+    },
+    "llm": {
+      "title": "Configuración de AI / LLM",
+      "enabled": {
+        "label": "Habilitar funciones de IA"
+      },
+      "endpoint": {
+        "label": "Endpoint LLM",
+        "placeholder": "databricks-claude-sonnet-4-5",
+        "help": "Nombre del endpoint de serving de Databricks para el LLM."
+      },
+      "systemPrompt": {
+        "label": "Prompt del sistema",
+        "placeholder": "Eres un Data Steward...",
+        "help": "Prompt del sistema que define el comportamiento del asistente de IA."
+      },
+      "disclaimer": {
+        "label": "Texto de descargo de responsabilidad",
+        "placeholder": "Esta función utiliza IA para analizar activos de datos...",
+        "help": "Descargo de responsabilidad mostrado a los usuarios al usar funciones de IA."
+      }
+    },
+    "saveButton": "Guardar configuración",
+    "messages": {
+      "saveSuccess": "Configuración guardada con éxito",
+      "saveError": "Error al guardar la configuración"
+    }
   },
   "databricks": {
     "title": "Configuración de Databricks",
@@ -115,7 +176,8 @@
       "general": "General",
       "privileges": "Privilegios",
       "permissions": "Permisos",
-      "deployment": "Despliegue"
+      "deployment": "Despliegue",
+      "accessControl": "Control de acceso"
     },
     "general": {
       "roleName": "Nombre del rol",
@@ -167,6 +229,20 @@
       "requireApproval": "Requiere aprobación para despliegues",
       "canApprove": "Puede aprobar solicitudes de despliegue"
     },
+    "accessControl": {
+      "requestableBy": {
+        "title": "¿Quién puede solicitar este rol?",
+        "description": "Seleccione qué roles pueden solicitar acceso a este rol. Los usuarios con estos roles verán este rol en su lista de roles solicitables."
+      },
+      "approvers": {
+        "title": "¿Quién puede aprobar solicitudes para este rol?",
+        "description": "Seleccione qué roles pueden aprobar solicitudes de acceso para este rol. Los usuarios con estos roles recibirán notificaciones cuando alguien solicite este rol.",
+        "hint": "Si no se seleccionan aprobadores, las solicitudes se enviarán al Administrador por defecto."
+      },
+      "noRole": "Usuarios sin rol (usuarios nuevos)",
+      "noRolesAvailable": "No hay otros roles disponibles",
+      "defaultApprover": "Predeterminado"
+    },
     "actions": {
       "cancel": "Cancelar",
       "create": "Crear rol",
@@ -175,6 +251,85 @@
       "actions": "Acciones",
       "editRole": "Editar rol",
       "deleteRole": "Eliminar rol"
+    }
+  },
+  "mcpTokens": {
+    "title": "Tokens de API MCP",
+    "description": "Gestionar tokens de API para integraciones de asistentes de IA a través del Model Context Protocol",
+    "refresh": "Actualizar",
+    "createToken": "Crear token",
+    "showRevokedTokens": "Mostrar tokens revocados",
+    "emptyState": {
+      "title": "Aún no hay tokens MCP",
+      "description": "Cree un token para permitir que los asistentes de IA accedan a sus herramientas"
+    },
+    "table": {
+      "name": "Nombre",
+      "scopes": "Alcances",
+      "created": "Creado",
+      "lastUsed": "Último uso",
+      "expires": "Expira",
+      "status": "Estado",
+      "actions": "Acciones",
+      "never": "Nunca",
+      "moreScopes": "+{{count}} más",
+      "createdBy": "por {{name}}"
+    },
+    "status": {
+      "active": "Activo",
+      "revoked": "Revocado",
+      "expired": "Expirado"
+    },
+    "tooltips": {
+      "revokeToken": "Revocar token"
+    },
+    "info": {
+      "title": "Uso de tokens MCP",
+      "description": "Los tokens MCP permiten a los asistentes de IA interactuar con su plataforma de gobernanza de datos. Cada token tiene alcances específicos que controlan a qué herramientas se puede acceder.",
+      "endpoint": "Endpoint:",
+      "header": "Encabezado:"
+    },
+    "createDialog": {
+      "title": "Crear token MCP",
+      "description": "Cree un nuevo token de API para integraciones de asistentes de IA. El token solo se mostrará una vez.",
+      "tokenName": "Nombre del token",
+      "tokenNamePlaceholder": "ej., Asistente Claude - Equipo de Análisis",
+      "tokenNameHelp": "Un nombre descriptivo para identificar este token",
+      "expiration": "Expiración (días)",
+      "expirationHelp": "Dejar vacío para sin expiración",
+      "scopes": "Alcances",
+      "scopesHelp": "Seleccione los permisos que debe tener este token",
+      "selectedScopes": "Seleccionados:",
+      "cancel": "Cancelar",
+      "create": "Crear token",
+      "creating": "Creando..."
+    },
+    "createdDialog": {
+      "title": "Token creado exitosamente",
+      "warning": "¡Copie este token ahora — no se mostrará de nuevo!",
+      "tokenName": "Nombre del token",
+      "apiToken": "Token de API",
+      "scopes": "Alcances",
+      "expires": "Expira",
+      "copy": "Copiar",
+      "copied": "¡Copiado!",
+      "done": "Listo"
+    },
+    "revokeDialog": {
+      "title": "¿Revocar token?",
+      "description": "¿Está seguro de que desea revocar el token",
+      "warning": "Esta acción no se puede deshacer. Los asistentes de IA que usen este token perderán acceso inmediatamente.",
+      "cancel": "Cancelar",
+      "revoke": "Revocar token"
+    },
+    "messages": {
+      "loadError": "Error al cargar tokens MCP",
+      "tokenNameRequired": "El nombre del token es obligatorio",
+      "scopeRequired": "Se requiere al menos un alcance",
+      "createError": "Error al crear el token",
+      "copied": "Token copiado al portapapeles",
+      "revoked": "El token \"{{name}}\" ha sido revocado",
+      "revokeError": "Error al revocar el token"
     }
   }
 }

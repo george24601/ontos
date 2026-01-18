@@ -1,5 +1,9 @@
 {
   "title": "Informazioni su Ontos",
+  "version": "Versione",
+  "runningSince": "In esecuzione da",
+  "loading": "Caricamento...",
+  "unavailable": "Non disponibile",
   "intro": "Questa applicazione viene eseguita come Databricks App e fornisce Unity Catalog e servizi correlati incentrati sulla gestione dei metadati, governance e strumenti operativi.",
   "coreFeatures": "Funzionalità principali",
   "noFeatures": "Nessuna funzionalità disponibile per le anteprime delle funzionalità selezionate.",

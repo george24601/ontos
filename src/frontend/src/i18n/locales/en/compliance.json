@@ -2,8 +2,46 @@
   "title": "Compliance",
   "subtitle": "Manage compliance policies and runs",
   "newPolicy": "New Policy",
+  "createRule": "Create Rule",
+  "editRule": "Edit Compliance Rule",
+  "createNewRule": "Create New Compliance Rule",
   "searchPlaceholder": "Search policies...",
   "loading": "Loading compliance data...",
+  "stats": {
+    "overallCompliance": "Overall Compliance",
+    "acrossAllRules": "Across all rules",
+    "activeRules": "Active Rules",
+    "currentlyEnforced": "Currently enforced",
+    "criticalIssues": "Critical Issues",
+    "requireAttention": "Require attention",
+    "lastUpdated": "Last Updated",
+    "today": "Today"
+  },
+  "form": {
+    "name": "Name",
+    "description": "Description",
+    "category": "Category",
+    "selectCategory": "Select category",
+    "severity": "Severity",
+    "selectSeverity": "Select severity",
+    "ruleCode": "Rule Code",
+    "rulePlaceholder": "Enter the compliance rule in Compliance DSL format"
+  },
+  "categories": {
+    "security": "Security",
+    "dataQuality": "Data Quality",
+    "privacy": "Privacy",
+    "governance": "Governance"
+  },
+  "errors": {
+    "loadingPolicies": "Error Loading Policies",
+    "savingPolicy": "Error Saving Policy",
+    "deletingPolicy": "Error Deleting Policy"
+  },
+  "toast": {
+    "policySaved": "Policy '{{name}}' saved successfully",
+    "policyDeleted": "Policy deleted successfully"
+  },
   "score": {
     "title": "Compliance Score",
     "overall": "Overall Score",
