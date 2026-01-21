@@ -16,6 +16,7 @@ class GetDataProductCostsTool(BaseTool):
     """Get cost information for data products."""
     
     name = "get_data_product_costs"
+    category = "costs"
     description = "Get cost information for data products including infrastructure, HR, storage costs."
     parameters = {
         "product_id": {

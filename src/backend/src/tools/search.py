@@ -16,6 +16,7 @@ class GlobalSearchTool(BaseTool):
     """Search across all indexed features (data products, contracts, glossary, etc.)."""
     
     name = "global_search"
+    category = "discovery"
     description = "Search across all indexed features including data products, data contracts, glossary terms, and more. Returns results ranked by relevance."
     parameters = {
         "query": {

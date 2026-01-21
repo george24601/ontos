@@ -17,6 +17,7 @@ class SearchDataContractsTool(BaseTool):
     """Search for data contracts by name, domain, or status."""
     
     name = "search_data_contracts"
+    category = "data_contracts"
     description = "Search for data contracts by name, domain, description, or keywords. Returns matching contracts with their metadata."
     parameters = {
         "query": {
@@ -124,6 +125,7 @@ class GetDataContractTool(BaseTool):
     """Get a single data contract by ID."""
     
     name = "get_data_contract"
+    category = "data_contracts"
     description = "Get detailed information about a specific data contract by its ID."
     parameters = {
         "contract_id": {
@@ -186,6 +188,7 @@ class DeleteDataContractTool(BaseTool):
     """Delete a data contract."""
     
     name = "delete_data_contract"
+    category = "data_contracts"
     description = "Delete a data contract by its ID. This action cannot be undone."
     parameters = {
         "contract_id": {
@@ -238,6 +241,7 @@ class CreateDraftDataContractTool(BaseTool):
     """Create a new draft data contract based on schema information."""
     
     name = "create_draft_data_contract"
+    category = "data_contracts"
     description = "Create a new draft data contract based on schema information. The contract will be created in 'draft' status for user review. Use after exploring a catalog schema to formalize a data asset."
     parameters = {
         "name": {
@@ -362,6 +366,7 @@ class UpdateDataContractTool(BaseTool):
     """Update an existing data contract's properties."""
     
     name = "update_data_contract"
+    category = "data_contracts"
     description = "Update an existing data contract's properties like domain, description, or status."
     parameters = {
         "contract_id": {
@@ -453,6 +458,7 @@ class SearchDataContractsTool(BaseTool):
     """Search for data contracts by name, domain, or keywords."""
     
     name = "search_data_contracts"
+    category = "data_contracts"
     description = "Search for data contracts by name, domain, description, or keywords."
     parameters = {
         "query": {
@@ -537,6 +543,7 @@ class GetDataContractTool(BaseTool):
     """Get a data contract by ID."""
     
     name = "get_data_contract"
+    category = "data_contracts"
     description = "Get detailed information about a specific data contract by its ID."
     parameters = {
         "contract_id": {
@@ -587,6 +594,7 @@ class ListDataContractsTool(BaseTool):
     """List all data contracts."""
     
     name = "list_data_contracts"
+    category = "data_contracts"
     description = "List all data contracts with optional filtering."
     parameters = {
         "domain": {
@@ -660,6 +668,7 @@ class DeleteDataContractTool(BaseTool):
     """Delete a data contract by ID."""
     
     name = "delete_data_contract"
+    category = "data_contracts"
     description = "Delete a data contract by its ID. This action cannot be undone."
     parameters = {
         "contract_id": {

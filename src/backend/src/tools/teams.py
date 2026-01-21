@@ -16,6 +16,7 @@ class SearchTeamsTool(BaseTool):
     """Search for teams by name or domain."""
     
     name = "search_teams"
+    category = "organization"
     description = "Search for teams by name, title, or domain. Returns matching teams with their member counts."
     parameters = {
         "query": {
@@ -95,6 +96,7 @@ class GetTeamTool(BaseTool):
     """Get a single team by ID."""
     
     name = "get_team"
+    category = "organization"
     description = "Get detailed information about a specific team by its ID, including its members."
     parameters = {
         "team_id": {
@@ -157,6 +159,7 @@ class CreateTeamTool(BaseTool):
     """Create a new team."""
     
     name = "create_team"
+    category = "organization"
     description = "Create a new team. Teams can be assigned to domains and contain members (users or groups)."
     parameters = {
         "name": {
@@ -231,6 +234,7 @@ class UpdateTeamTool(BaseTool):
     """Update an existing team."""
     
     name = "update_team"
+    category = "organization"
     description = "Update an existing team's name, title, description, or domain assignment."
     parameters = {
         "team_id": {
@@ -328,6 +332,7 @@ class DeleteTeamTool(BaseTool):
     """Delete a team."""
     
     name = "delete_team"
+    category = "organization"
     description = "Delete a team by its ID. This will also remove all team member associations."
     parameters = {
         "team_id": {

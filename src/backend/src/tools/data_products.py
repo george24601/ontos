@@ -18,6 +18,7 @@ class GetDataProductTool(BaseTool):
     """Get a single data product by ID."""
     
     name = "get_data_product"
+    category = "data_products"
     description = "Get detailed information about a specific data product by its ID."
     parameters = {
         "product_id": {
@@ -94,6 +95,7 @@ class DeleteDataProductTool(BaseTool):
     """Delete a data product."""
     
     name = "delete_data_product"
+    category = "data_products"
     description = "Delete a data product by its ID. This action cannot be undone."
     parameters = {
         "product_id": {
@@ -146,6 +148,7 @@ class SearchDataProductsTool(BaseTool):
     """Search for data products by name, domain, description, or keywords."""
     
     name = "search_data_products"
+    category = "data_products"
     description = "Search for data products by name, domain, description, or keywords. Returns matching data products with their metadata."
     parameters = {
         "query": {
@@ -278,6 +281,7 @@ class CreateDraftDataProductTool(BaseTool):
     """Create a new draft data product."""
     
     name = "create_draft_data_product"
+    category = "data_products"
     description = "Create a new draft data product. The product will be created in 'draft' status for user review. Optionally link to an existing data contract."
     parameters = {
         "name": {
@@ -382,6 +386,7 @@ class UpdateDataProductTool(BaseTool):
     """Update an existing data product's properties."""
     
     name = "update_data_product"
+    category = "data_products"
     description = "Update an existing data product's properties like domain, description, or status."
     parameters = {
         "product_id": {
@@ -472,6 +477,7 @@ class GetDataProductTool(BaseTool):
     """Get a data product by ID."""
     
     name = "get_data_product"
+    category = "data_products"
     description = "Get detailed information about a specific data product by its ID."
     parameters = {
         "product_id": {
@@ -536,6 +542,7 @@ class ListDataProductsTool(BaseTool):
     """List all data products with optional filters."""
     
     name = "list_data_products"
+    category = "data_products"
     description = "List all data products with optional filtering by domain, status, or limit."
     parameters = {
         "domain": {
@@ -619,6 +626,7 @@ class DeleteDataProductTool(BaseTool):
     """Delete a data product by ID."""
     
     name = "delete_data_product"
+    category = "data_products"
     description = "Delete a data product by its ID. This action cannot be undone."
     parameters = {
         "product_id": {

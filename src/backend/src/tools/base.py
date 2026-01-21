@@ -67,6 +67,7 @@ class BaseTool(ABC):
     - parameters: JSON Schema for input parameters
     - required_params: List of required parameter names
     - required_scope: MCP scope required to use this tool (e.g., 'data-products:read')
+    - category: Tool category for query-based filtering
     - execute(): Async method that performs the tool's action
     
     Tools can be converted to OpenAI or MCP format for use with
@@ -79,6 +80,7 @@ class BaseTool(ABC):
     parameters: Dict[str, Any] = {}
     required_params: List[str] = []
     required_scope: str = "*"  # Default: admin-only, subclasses should override
+    category: str = "general"  # Tool category for query-based filtering
     
     @abstractmethod
     async def execute(self, ctx: ToolContext, **kwargs) -> ToolResult:

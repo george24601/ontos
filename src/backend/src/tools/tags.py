@@ -17,6 +17,7 @@ class SearchTagsTool(BaseTool):
     """Search for tags by name or namespace."""
     
     name = "search_tags"
+    category = "tags"
     description = "Search for tags by name, namespace, or description. Tags are used to categorize and label any app object."
     parameters = {
         "query": {
@@ -82,6 +83,7 @@ class GetTagTool(BaseTool):
     """Get a single tag by ID or fully qualified name."""
     
     name = "get_tag"
+    category = "tags"
     description = "Get detailed information about a specific tag by its ID or fully qualified name (namespace::tag_name)."
     parameters = {
         "tag_id": {
@@ -153,6 +155,7 @@ class CreateTagTool(BaseTool):
     """Create a new tag."""
     
     name = "create_tag"
+    category = "tags"
     description = (
         "Create a new tag. Tags are organized in namespaces using the format 'namespace/tag_name'. "
         "For example, 'import/healthcare' creates tag 'healthcare' in namespace 'import'. "
@@ -257,6 +260,7 @@ class UpdateTagTool(BaseTool):
     """Update an existing tag."""
     
     name = "update_tag"
+    category = "tags"
     description = "Update an existing tag's name, description, or status."
     parameters = {
         "tag_id": {
@@ -347,6 +351,7 @@ class DeleteTagTool(BaseTool):
     """Delete a tag."""
     
     name = "delete_tag"
+    category = "tags"
     description = "Delete a tag by its ID. Tags that are parents to other tags cannot be deleted until children are removed."
     parameters = {
         "tag_id": {
@@ -401,6 +406,7 @@ class ListEntityTagsTool(BaseTool):
     """List tags assigned to an entity."""
     
     name = "list_entity_tags"
+    category = "tags"
     description = "List all tags assigned to a specific entity (data_product, data_contract, data_domain, team, project, etc.)."
     parameters = {
         "entity_type": {
@@ -468,6 +474,7 @@ class AssignTagToEntityTool(BaseTool):
     """Assign a tag to an entity."""
     
     name = "assign_tag_to_entity"
+    category = "tags"
     description = "Assign a tag to any entity (data_product, data_contract, data_domain, team, project). Can optionally include an assigned value."
     parameters = {
         "entity_type": {
@@ -539,6 +546,7 @@ class RemoveTagFromEntityTool(BaseTool):
     """Remove a tag from an entity."""
     
     name = "remove_tag_from_entity"
+    category = "tags"
     description = "Remove a tag assignment from an entity."
     parameters = {
         "entity_type": {

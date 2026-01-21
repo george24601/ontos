@@ -86,6 +86,21 @@ class ToolName(str, Enum):
     LIST_ENTITY_TAGS = "list_entity_tags"
     ASSIGN_TAG_TO_ENTITY = "assign_tag_to_entity"
     REMOVE_TAG_FROM_ENTITY = "remove_tag_from_entity"
+    
+    # Unity Catalog browsing
+    GET_CURRENT_USER = "get_current_user"
+    LIST_CATALOGS = "list_catalogs"
+    GET_CATALOG_DETAILS = "get_catalog_details"
+    LIST_SCHEMAS = "list_schemas"
+    
+    # Semantic model graph operations
+    FIND_ENTITIES_BY_CONCEPT = "find_entities_by_concept"
+    EXECUTE_SPARQL_QUERY = "execute_sparql_query"
+    GET_CONCEPT_HIERARCHY = "get_concept_hierarchy"
+    GET_CONCEPT_NEIGHBORS = "get_concept_neighbors"
+    
+    # Global search
+    GLOBAL_SEARCH = "global_search"
 
 
 # ============================================================================

@@ -16,6 +16,7 @@ class SearchProjectsTool(BaseTool):
     """Search for projects by name or description."""
     
     name = "search_projects"
+    category = "organization"
     description = "Search for projects by name, title, or description. Returns matching projects with their team counts."
     parameters = {
         "query": {
@@ -86,6 +87,7 @@ class GetProjectTool(BaseTool):
     """Get a single project by ID."""
     
     name = "get_project"
+    category = "organization"
     description = "Get detailed information about a specific project by its ID, including assigned teams."
     parameters = {
         "project_id": {
@@ -149,6 +151,7 @@ class CreateProjectTool(BaseTool):
     """Create a new project."""
     
     name = "create_project"
+    category = "organization"
     description = "Create a new project. Projects organize work and can have multiple teams assigned."
     parameters = {
         "name": {
@@ -237,6 +240,7 @@ class UpdateProjectTool(BaseTool):
     """Update an existing project."""
     
     name = "update_project"
+    category = "organization"
     description = "Update an existing project's name, title, description, or owner team."
     parameters = {
         "project_id": {
@@ -334,6 +338,7 @@ class DeleteProjectTool(BaseTool):
     """Delete a project."""
     
     name = "delete_project"
+    category = "organization"
     description = "Delete a project by its ID. This will also remove all team assignments for this project."
     parameters = {
         "project_id": {

@@ -17,6 +17,7 @@ class SearchDomainsTool(BaseTool):
     """Search for data domains by name or description."""
     
     name = "search_domains"
+    category = "organization"
     description = "Search for data domains by name or description. Returns matching domains with their hierarchy information."
     parameters = {
         "query": {
@@ -85,6 +86,7 @@ class GetDomainTool(BaseTool):
     """Get a single data domain by ID."""
     
     name = "get_domain"
+    category = "organization"
     description = "Get detailed information about a specific data domain by its ID."
     parameters = {
         "domain_id": {
@@ -146,6 +148,7 @@ class CreateDomainTool(BaseTool):
     """Create a new data domain."""
     
     name = "create_domain"
+    category = "organization"
     description = "Create a new data domain. Domains can be organized hierarchically with parent-child relationships."
     parameters = {
         "name": {
@@ -217,6 +220,7 @@ class UpdateDomainTool(BaseTool):
     """Update an existing data domain."""
     
     name = "update_domain"
+    category = "organization"
     description = "Update an existing data domain's name, description, or parent."
     parameters = {
         "domain_id": {
@@ -309,6 +313,7 @@ class DeleteDomainTool(BaseTool):
     """Delete a data domain."""
     
     name = "delete_domain"
+    category = "organization"
     description = "Delete a data domain by its ID. Note: Domains with children may be affected by cascade rules."
     parameters = {
         "domain_id": {

@@ -349,6 +349,13 @@ class LLMSearchManager:
             search_manager=self._search_manager
         )
     
+    def _get_latest_user_message(self, session: ConversationSession) -> str:
+        """Get the latest user message content from a session for query classification."""
+        for msg in reversed(session.messages):
+            if msg.role == MessageRole.USER and msg.content:
+                return msg.content
+        return ""
+    
     # ========================================================================
     # Public API
     # ========================================================================
@@ -520,8 +527,14 @@ class LLMSearchManager:
         max_iterations = 10  # Prevent infinite loops (increased for complex multi-tool queries)
         session_id = session.id  # Save session ID for re-fetching
         
-        # Get tool definitions from registry
-        tool_definitions = self._tool_registry.get_openai_definitions()
+        # Get the latest user message for query classification
+        from src.tools.query_classifier import classify_query
+        user_query = self._get_latest_user_message(session)
+        categories = classify_query(user_query)
+        
+        # Get filtered tool definitions based on query categories
+        tool_definitions = self._tool_registry.get_openai_definitions_filtered(categories)
+        logger.info(f"Using {len(tool_definitions)} tools for categories: {categories}")
         
         for iteration in range(max_iterations):
             # Re-fetch session from cache to ensure we have latest messages

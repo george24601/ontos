@@ -18,6 +18,7 @@ class GetTableSchemaTool(BaseTool):
     """Get the schema (columns and data types) of a table from a data product."""
     
     name = "get_table_schema"
+    category = "unity_catalog"
     description = "Get the schema (columns and data types) of a table from a data product."
     parameters = {
         "table_fqn": {
@@ -86,6 +87,7 @@ class ExecuteAnalyticsQueryTool(BaseTool):
     """Execute a read-only SQL SELECT query against Databricks tables."""
     
     name = "execute_analytics_query"
+    category = "analytics"
     description = "Execute a read-only SQL SELECT query against Databricks tables. Use for aggregations, joins, filtering."
     parameters = {
         "sql": {
@@ -182,6 +184,7 @@ class ExploreCatalogSchemaTool(BaseTool):
     """List all tables and views in a Unity Catalog schema."""
     
     name = "explore_catalog_schema"
+    category = "unity_catalog"
     description = "List all tables and views in a Unity Catalog schema, including their columns and types. Use this to understand what data assets exist in a database/schema and suggest semantic models or data products."
     parameters = {
         "catalog": {

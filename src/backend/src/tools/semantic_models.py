@@ -16,6 +16,7 @@ class SearchGlossaryTermsTool(BaseTool):
     """Search the knowledge graph for business concepts, terms, and definitions."""
     
     name = "search_glossary_terms"
+    category = "semantic"
     description = "Search the knowledge graph for business concepts, terms, and definitions from ontologies and taxonomies."
     parameters = {
         "term": {
@@ -88,6 +89,7 @@ class AddSemanticLinkTool(BaseTool):
     """Link a data product or contract to a business term/concept from the knowledge graph."""
     
     name = "add_semantic_link"
+    category = "semantic"
     description = "Link a data product or contract to a business term/concept from the knowledge graph. Use search_glossary_terms first to find the concept IRI."
     parameters = {
         "entity_type": {
@@ -188,6 +190,7 @@ class ListSemanticLinksTool(BaseTool):
     """List semantic links (business term associations) for a data product or contract."""
     
     name = "list_semantic_links"
+    category = "semantic"
     description = "List semantic links (business term associations) for a data product or contract."
     parameters = {
         "entity_type": {
@@ -257,6 +260,7 @@ class RemoveSemanticLinkTool(BaseTool):
     """Remove a semantic link from a data product or contract."""
     
     name = "remove_semantic_link"
+    category = "semantic"
     description = "Remove a semantic link from a data product or contract. Use list_semantic_links first to find the link ID."
     parameters = {
         "link_id": {
@@ -314,6 +318,7 @@ class FindEntitiesByConceptTool(BaseTool):
     """Find all entities (data products, contracts, etc.) linked to a semantic concept."""
     
     name = "find_entities_by_concept"
+    category = "semantic"
     description = "Given a concept IRI from the knowledge graph, find all data products, contracts, and other entities that are semantically linked to it. Use search_glossary_terms first to find the concept IRI."
     parameters = {
         "concept_iri": {
@@ -377,6 +382,7 @@ class ExecuteSparqlQueryTool(BaseTool):
     """Execute SPARQL queries against the semantic model graph."""
     
     name = "execute_sparql_query"
+    category = "semantic"
     description = "Execute SPARQL queries against the semantic model graph with safety validation. Only SELECT, ASK, DESCRIBE, and CONSTRUCT queries are allowed."
     parameters = {
         "sparql": {
@@ -462,6 +468,7 @@ class GetConceptHierarchyTool(BaseTool):
     """Navigate concept hierarchies to find parent, child, and sibling relationships."""
     
     name = "get_concept_hierarchy"
+    category = "semantic"
     description = "Get hierarchical relationships for a concept including ancestors, descendants, and siblings. Use search_glossary_terms first to find the concept IRI."
     parameters = {
         "concept_iri": {
@@ -543,6 +550,7 @@ class GetConceptNeighborsTool(BaseTool):
     """Discover related concepts through RDF graph relationships."""
     
     name = "get_concept_neighbors"
+    category = "semantic"
     description = "Get neighboring concepts and properties connected to a concept via RDF predicates. Shows incoming and outgoing relationships."
     parameters = {
         "concept_iri": {

@@ -102,6 +102,24 @@ class ToolRegistry:
         """
         return [tool.to_openai_format() for tool in self._tools.values()]
     
+    def get_openai_definitions_filtered(self, categories: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get tool definitions filtered by categories in OpenAI format.
+        
+        Args:
+            categories: List of category names to include
+            
+        Returns:
+            List of tool definitions for tools matching the categories
+        """
+        filtered = [
+            tool.to_openai_format() 
+            for tool in self._tools.values() 
+            if tool.category in categories
+        ]
+        logger.debug(f"Filtered tools: {len(filtered)} of {len(self._tools)} (categories: {categories})")
+        return filtered
+    
     def get_mcp_definitions(self) -> List[Dict[str, Any]]:
         """
         Get all tool definitions in MCP format.
@@ -233,6 +251,12 @@ def create_default_registry() -> ToolRegistry:
         AssignTagToEntityTool,
         RemoveTagFromEntityTool
     )
+    from src.tools.unity_catalog import (
+        GetCurrentUserTool,
+        ListCatalogsTool,
+        GetCatalogDetailsTool,
+        ListSchemasTool
+    )
     
     registry = ToolRegistry()
     
@@ -301,6 +325,12 @@ def create_default_registry() -> ToolRegistry:
     registry.register(ListEntityTagsTool())
     registry.register(AssignTagToEntityTool())
     registry.register(RemoveTagFromEntityTool())
+    
+    # Unity Catalog browsing tools
+    registry.register(GetCurrentUserTool())
+    registry.register(ListCatalogsTool())
+    registry.register(GetCatalogDetailsTool())
+    registry.register(ListSchemasTool())
     
     logger.info(f"Created default registry with {len(registry)} tools")
     return registry
