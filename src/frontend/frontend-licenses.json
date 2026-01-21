@@ -4835,11 +4835,6 @@
     "path": "/Users/lars.george/Documents/dev/dbapp/ucapp/src/frontend/node_modules/typescript",
     "licenseFile": "/Users/lars.george/Documents/dev/dbapp/ucapp/src/frontend/node_modules/typescript/LICENSE.txt"
   },
-  "ucapp@0.1.0": {
-    "licenses": "UNLICENSED",
-    "private": true,
-    "path": "/Users/lars.george/Documents/dev/dbapp/ucapp/src/frontend"
-  },
   "undici-types@6.19.8": {
     "licenses": "MIT",
     "repository": "https://github.com/nodejs/undici",

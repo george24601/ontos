@@ -1,8 +1,8 @@
 {
-  "name": "ucapp-backend-build",
+  "name": "ontos-backend-build",
   "private": true,
-  "version": "0.0.0",
-  "description": "Builds frontend and copies assets into backend static for Databricks Apps.",
+  "version": "0.4.0",
+  "description": "Builds frontend and copies assets into backend static directory.",
   "engines": {
     "node": ">=18"
   },
