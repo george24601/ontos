@@ -465,7 +465,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     };
   }, [onNodeClick]);
 
-  // Run layout only when layout type changes (not on every element change)
+  // Run layout when layout type changes or when elements change
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
@@ -494,7 +494,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         layoutRef.current = null;
       }
     };
-  }, [layout, getLayoutConfig]);
+  }, [layout, getLayoutConfig, graphData.elements.length]);
 
   // Control handlers
   const handleFit = () => {
