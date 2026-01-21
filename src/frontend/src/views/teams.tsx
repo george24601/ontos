@@ -230,7 +230,7 @@ export default function TeamsView() {
       header: t('table.lastUpdated'),
       cell: ({ row }) => {
          const dateValue = row.getValue("updated_at");
-         return dateValue ? <RelativeDate date={dateValue as string | Date | number} /> : 'N/A';
+         return dateValue ? <RelativeDate date={dateValue as string | Date | number} /> : t('common:states.notAvailable');
       },
     },
     {

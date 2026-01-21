@@ -188,7 +188,7 @@ const LinkedAssetsView: React.FC<LinkedAssetsViewProps> = ({ assets }) => {
       cell: ({ row }) => {
         const asset = row.original;
         const domainName = asset.domainId ? getDomainName(asset.domainId) : null;
-        return domainName || "N/A";
+        return domainName || t('common:states.notAssigned');
       },
     },
   ];
@@ -612,7 +612,7 @@ export default function DataDomainDetailsView() {
                 <div className="flex flex-wrap gap-1 mt-1">
                   {domain.owner.map((o, i) => <Badge key={i} variant="outline">{o}</Badge>)}
                 </div>
-              ) : 'N/A'}
+              ) : t('common:states.notAssigned')}
             </InfoItem>
 
             <InfoItem label="Tags" icon={<Tag />}>
@@ -620,15 +620,15 @@ export default function DataDomainDetailsView() {
                 <div className="flex flex-wrap gap-1 mt-1">
                   {domain.tags.map((tag, i) => <TagChip key={i} tag={tag} size="sm" />)}
                 </div>
-              ) : 'N/A'}
+              ) : t('common:states.none')}
             </InfoItem>
            
-            <InfoItem label="Created By" value={domain.created_by || 'N/A'} icon={<UserCircle />} />
+            <InfoItem label="Created By" value={domain.created_by || t('common:states.notAvailable')} icon={<UserCircle />} />
             <InfoItem label="Created At" icon={<CalendarDays />}>
-                {domain.created_at ? <RelativeDate date={domain.created_at} /> : 'N/A'}
+                {domain.created_at ? <RelativeDate date={domain.created_at} /> : t('common:states.notAvailable')}
             </InfoItem>
             <InfoItem label="Last Updated At" icon={<CalendarDays />}>
-                {domain.updated_at ? <RelativeDate date={domain.updated_at} /> : 'N/A'}
+                {domain.updated_at ? <RelativeDate date={domain.updated_at} /> : t('common:states.notAvailable')}
             </InfoItem>
             
             <InfoItem label="Linked Business Concepts" className="col-span-full">

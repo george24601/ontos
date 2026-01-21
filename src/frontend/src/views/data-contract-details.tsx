@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Download, Pencil, Trash2, Loader2, ArrowLeft, FileText, KeyRound, CopyPlus, Plus, Shapes, Columns2, Database, Sparkles } from 'lucide-react'
+import { AlertCircle, Download, Pencil, Trash2, Loader2, ArrowLeft, FileText, KeyRound, CopyPlus, Plus, Shapes, Columns2, Database, Sparkles, Table2, Package } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,17 +32,21 @@ import TeamMemberFormDialog from '@/components/data-contracts/team-member-form-d
 import ServerConfigFormDialog from '@/components/data-contracts/server-config-form-dialog'
 import SLAFormDialog from '@/components/data-contracts/sla-form-dialog'
 import DatasetLookupDialog from '@/components/data-contracts/dataset-lookup-dialog'
+import DatasetInstanceLookupDialog from '@/components/data-contracts/dataset-instance-lookup-dialog'
 import CreateFromContractDialog from '@/components/data-products/create-from-contract-dialog'
 import DqxSchemaSelectDialog from '@/components/data-contracts/dqx-schema-select-dialog'
 import DqxSuggestionsDialog from '@/components/data-contracts/dqx-suggestions-dialog'
 import AuthoritativeDefinitionFormDialog from '@/components/data-contracts/authoritative-definition-form-dialog'
 import ImportTeamMembersDialog from '@/components/data-contracts/import-team-members-dialog'
 import LinkProductToContractDialog from '@/components/data-contracts/link-product-to-contract-dialog'
+import LinkDatasetToContractDialog from '@/components/data-contracts/link-dataset-to-contract-dialog'
 import VersioningRecommendationDialog from '@/components/common/versioning-recommendation-dialog'
 import CustomPropertyFormDialog from '@/components/data-contracts/custom-property-form-dialog'
 import CommitDraftDialog from '@/components/data-contracts/commit-draft-dialog'
 import type { DataProduct } from '@/types/data-product'
 import type { DataProfilingRun } from '@/types/data-contract'
+import type { DatasetListItem } from '@/types/dataset'
+import { DATASET_STATUS_LABELS, DATASET_STATUS_COLORS } from '@/types/dataset'
 
 // Status-based editability constants
 // Only draft/proposed contracts can be edited in place
@@ -109,7 +113,7 @@ const createSchemaPropertyColumns = (
       const logicalType = property.logicalType || (property as any).logical_type
       return (
         <Badge variant="secondary" className="text-xs">
-          {logicalType || 'N/A'}
+          {logicalType || '-'}
         </Badge>
       )
     },
@@ -143,8 +147,8 @@ const createSchemaPropertyColumns = (
   },
 ]
 
-const formatDate = (dateString: string | undefined): string => {
-  if (!dateString) return 'N/A';
+const formatDate = (dateString: string | undefined, fallback: string = 'N/A'): string => {
+  if (!dateString) return fallback;
   try {
     return new Date(dateString).toLocaleString();
   } catch (e) {
@@ -193,6 +197,10 @@ export default function DataContractDetails() {
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [isCreateProductDialogOpen, setIsCreateProductDialogOpen] = useState(false)
 
+  // Linked datasets state
+  const [linkedDatasets, setLinkedDatasets] = useState<DatasetListItem[]>([])
+  const [loadingDatasets, setLoadingDatasets] = useState(false)
+
   // Team import state
   const [isImportTeamMembersOpen, setIsImportTeamMembersOpen] = useState(false)
   const [ownerTeamName, setOwnerTeamName] = useState<string>('')
@@ -200,6 +208,9 @@ export default function DataContractDetails() {
 
   // Link product dialog state
   const [isLinkProductDialogOpen, setIsLinkProductDialogOpen] = useState(false)
+
+  // Link dataset dialog state
+  const [isLinkDatasetDialogOpen, setIsLinkDatasetDialogOpen] = useState(false)
 
   // Commit draft dialog state
   const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false)
@@ -240,6 +251,7 @@ export default function DataContractDetails() {
 
   // Dialog states for CRUD operations
   const [isDatasetLookupOpen, setIsDatasetLookupOpen] = useState(false)
+  const [isDatasetInstanceLookupOpen, setIsDatasetInstanceLookupOpen] = useState(false)
   const [isBasicFormOpen, setIsBasicFormOpen] = useState(false)
   const [isSchemaFormOpen, setIsSchemaFormOpen] = useState(false)
   const [isQualityRuleFormOpen, setIsQualityRuleFormOpen] = useState(false)
@@ -283,6 +295,25 @@ export default function DataContractDetails() {
       setLinkedProducts([])
     } finally {
       setLoadingProducts(false)
+    }
+  }
+
+  const fetchLinkedDatasets = async () => {
+    if (!contractId) return
+    setLoadingDatasets(true)
+    try {
+      const response = await fetch(`/api/datasets/by-contract/${contractId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setLinkedDatasets(Array.isArray(data) ? data : [])
+      } else {
+        setLinkedDatasets([])
+      }
+    } catch (e) {
+      console.warn('Failed to fetch linked datasets:', e)
+      setLinkedDatasets([])
+    } finally {
+      setLoadingDatasets(false)
     }
   }
 
@@ -545,6 +576,7 @@ export default function DataContractDetails() {
     setStaticSegments([{ label: 'Data Contracts', path: '/data-contracts' }])
     fetchDetails()
     fetchLinkedProducts()
+    fetchLinkedDatasets()
     fetchContractAuthDefs()
     fetchProfileRuns()
 
@@ -1251,6 +1283,13 @@ export default function DataContractDetails() {
     }
   }
 
+  // Handler for inferring schema from a Dataset Instance
+  const handleInferFromDatasetInstance = async (instance: { physical_path: string }, dataset: { name: string }) => {
+    // Reuse the same logic as handleInferFromDataset using the instance's physical_path
+    await handleInferFromDataset({ full_name: instance.physical_path })
+    setIsDatasetInstanceLookupOpen(false)
+  }
+
   const handleSubmitForReview = async () => {
     if (!contractId) return;
     try {
@@ -1382,6 +1421,14 @@ export default function DataContractDetails() {
       return linkedProducts.length > 0
     }
     return shouldShowSection('linked-products')
+  }
+
+  // Special case for linked datasets in minimal mode
+  const shouldShowLinkedDatasets = (): boolean => {
+    if (viewMode === 'minimal') {
+      return linkedDatasets.length > 0
+    }
+    return shouldShowSection('linked-datasets')
   }
 
   if (loading) {
@@ -1539,7 +1586,7 @@ export default function DataContractDetails() {
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Status:</Label>
               <div className="flex items-center gap-1.5">
                 <Badge variant={getStatusColor(contract.status)} className="text-xs">
-                  {contract.status || 'N/A'}
+                  {contract.status || t('common:states.notAvailable')}
                 </Badge>
                 {contract.published && (
                   <Badge variant="default" className="bg-green-600 text-xs">Published</Badge>
@@ -1548,7 +1595,7 @@ export default function DataContractDetails() {
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Version:</Label>
-              <Badge variant="outline" className="text-xs">{contract.version || 'N/A'}</Badge>
+              <Badge variant="outline" className="text-xs">{contract.version || t('common:states.notAvailable')}</Badge>
             </div>
             {/* Hide Domain if empty in minimal mode */}
             {(viewMode !== 'minimal' || contract.domainId || contract.domain) && (
@@ -1565,7 +1612,7 @@ export default function DataContractDetails() {
                       {domainName}
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{contract.domain || 'N/A'}</span>
+                    <span className="text-xs text-muted-foreground">{contract.domain || t('common:states.notAssigned')}</span>
                   );
                 })()}
               </div>
@@ -1583,7 +1630,7 @@ export default function DataContractDetails() {
                     {projectName}
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">{(contract as any).project_id || 'N/A'}</span>
+                  <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
                 )}
               </div>
             )}
@@ -1591,7 +1638,7 @@ export default function DataContractDetails() {
             {(viewMode !== 'minimal' || contract.tenant) && (
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground min-w-[4rem]">Tenant:</Label>
-                <span className="text-xs text-muted-foreground truncate">{contract.tenant || 'N/A'}</span>
+                <span className="text-xs text-muted-foreground truncate">{contract.tenant || t('common:states.notAssigned')}</span>
               </div>
             )}
             {/* Hide Owner if empty in minimal mode */}
@@ -1607,7 +1654,7 @@ export default function DataContractDetails() {
                     {ownerTeamName}
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">{contract.owner_team_id || 'N/A'}</span>
+                  <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
                 )}
               </div>
             )}
@@ -1725,6 +1772,10 @@ export default function DataContractDetails() {
                     {isInferringSchema ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Database className="h-4 w-4 mr-1.5" />}
                     {isInferringSchema ? 'Inferring...' : 'Infer from Unity Catalog'}
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => setIsDatasetInstanceLookupOpen(true)} disabled={isInferringSchema}>
+                    <Table2 className="h-4 w-4 mr-1.5" />
+                    Infer from Dataset
+                  </Button>
                   <Button size="sm" onClick={() => { setEditingSchemaIndex(null); setIsSchemaFormOpen(true); }}>
                     <Plus className="h-4 w-4 mr-1.5" />
                     Add Schema
@@ -1779,10 +1830,14 @@ export default function DataContractDetails() {
                   : 'This contract has no schemas defined'}
               </div>
               {canEditInPlace && (
-                <div className="flex gap-3 justify-center">
+                <div className="flex gap-3 justify-center flex-wrap">
                   <Button variant="outline" onClick={() => setIsDatasetLookupOpen(true)} disabled={isInferringSchema}>
                     {isInferringSchema ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
                     {isInferringSchema ? 'Inferring Schema...' : 'Infer from Unity Catalog'}
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsDatasetInstanceLookupOpen(true)} disabled={isInferringSchema}>
+                    <Table2 className="h-4 w-4 mr-2" />
+                    Infer from Dataset
                   </Button>
                   <Button onClick={() => { setEditingSchemaIndex(null); setIsSchemaFormOpen(true); }}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -2208,7 +2263,7 @@ export default function DataContractDetails() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl flex items-center gap-2">
-                <Shapes className="h-5 w-5 text-primary" />
+                <Package className="h-5 w-5 text-primary" />
                 Linked Data Products ({linkedProducts.length})
               </CardTitle>
               <CardDescription>Data Products using this contract for output ports</CardDescription>
@@ -2241,7 +2296,7 @@ export default function DataContractDetails() {
             </div>
           ) : linkedProducts.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-muted-foreground/25 rounded-lg">
-              <Shapes className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
               <div className="text-muted-foreground mb-2">No linked data products yet</div>
               <div className="text-sm text-muted-foreground mb-4">
                 Create a data product that uses this contract to govern an output port
@@ -2296,6 +2351,90 @@ export default function DataContractDetails() {
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Linked Datasets Section */}
+      {shouldShowLinkedDatasets() && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Table2 className="h-5 w-5 text-primary" />
+                  Linked Datasets ({linkedDatasets.length})
+                </CardTitle>
+                <CardDescription>Datasets that implement this contract</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsLinkDatasetDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Link to Existing Dataset
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingDatasets ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : linkedDatasets.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                <Table2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                <div className="text-muted-foreground mb-2">No linked datasets yet</div>
+                <div className="text-sm text-muted-foreground">
+                  Datasets can be linked to this contract from the Dataset details page
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {linkedDatasets.map((dataset) => (
+                  <div
+                    key={dataset.id}
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/datasets/${dataset.id}`)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-base">{dataset.name || 'Unnamed Dataset'}</div>
+                        {dataset.description && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{dataset.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2">
+                          {dataset.version && (
+                            <Badge variant="outline" className="text-xs">
+                              v{dataset.version}
+                            </Badge>
+                          )}
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs ${DATASET_STATUS_COLORS[dataset.status] || ''}`}
+                          >
+                            {DATASET_STATUS_LABELS[dataset.status] || dataset.status}
+                          </Badge>
+                          {dataset.instance_count !== undefined && dataset.instance_count > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {dataset.instance_count} instance{dataset.instance_count !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        {dataset.owner_team_name && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            Owner: {dataset.owner_team_name}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Quality Rules Section */}
@@ -2820,6 +2959,14 @@ export default function DataContractDetails() {
         onSelect={handleInferFromDataset}
       />
 
+      <DatasetInstanceLookupDialog
+        isOpen={isDatasetInstanceLookupOpen}
+        onOpenChange={setIsDatasetInstanceLookupOpen}
+        onSelect={handleInferFromDatasetInstance}
+        title="Infer Schema from Dataset"
+        description="Select a dataset and one of its physical instances to infer the schema"
+      />
+
       {contract && (
         <CreateFromContractDialog
           isOpen={isCreateProductDialogOpen}
@@ -2901,6 +3048,21 @@ export default function DataContractDetails() {
           toast({
             title: 'Contract Linked',
             description: 'Contract successfully linked to product output port.'
+          });
+        }}
+      />
+
+      {/* Link Dataset to Contract Dialog */}
+      <LinkDatasetToContractDialog
+        isOpen={isLinkDatasetDialogOpen}
+        onOpenChange={setIsLinkDatasetDialogOpen}
+        contractId={contractId!}
+        contractName={contract?.name || 'this contract'}
+        onSuccess={() => {
+          fetchLinkedDatasets();
+          toast({
+            title: 'Contract Linked',
+            description: 'Contract successfully linked to dataset.'
           });
         }}
       />

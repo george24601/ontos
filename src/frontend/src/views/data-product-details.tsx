@@ -141,8 +141,8 @@ export default function DataProductDetails() {
   // Combined permission check: can write AND can edit in place (or is personal draft)
   const canModify = canWrite && (canEditInPlace || isPersonalDraft);
 
-  const formatDate = (dateString: string | undefined): string => {
-    if (!dateString) return 'N/A';
+  const formatDate = (dateString: string | undefined, fallback: string = 'N/A'): string => {
+    if (!dateString) return fallback;
     try {
       return new Date(dateString).toLocaleString();
     } catch (e) {
@@ -967,7 +967,7 @@ export default function DataProductDetails() {
     );
   }
 
-  const domainLabel = product.domain ? (getDomainName(product.domain) || product.domain) : 'N/A';
+  const domainLabel = product.domain ? (getDomainName(product.domain) || product.domain) : t('common:states.notAssigned');
 
   return (
     <div className="py-6 space-y-6">
@@ -1107,12 +1107,12 @@ export default function DataProductDetails() {
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Status:</Label>
               <Badge variant={getStatusColor(product.status)} className="text-xs">
-                {product.status || 'N/A'}
+                {product.status || t('common:states.notAvailable')}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Version:</Label>
-              <Badge variant="outline" className="text-xs">{product.version || 'N/A'}</Badge>
+              <Badge variant="outline" className="text-xs">{product.version || t('common:states.notAvailable')}</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Domain:</Label>
@@ -1138,12 +1138,12 @@ export default function DataProductDetails() {
                   {projectName}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">{(product as any).project_id || 'N/A'}</span>
+                <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Tenant:</Label>
-              <span className="text-xs text-muted-foreground truncate">{product.tenant || 'N/A'}</span>
+              <span className="text-xs text-muted-foreground truncate">{product.tenant || t('common:states.notAssigned')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
@@ -1156,7 +1156,7 @@ export default function DataProductDetails() {
                   {ownerTeamName}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">{product.owner_team_id || 'N/A'}</span>
+                <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">

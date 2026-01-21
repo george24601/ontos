@@ -140,7 +140,7 @@ export default function AuditTrail() {
     const rows = logs.map(log => [
       log.timestamp,
       log.username,
-      log.ip_address || 'N/A',
+      log.ip_address || t('common:states.notAvailable'),
       log.feature,
       log.action,
       log.success ? 'Yes' : 'No',

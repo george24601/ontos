@@ -61,6 +61,8 @@ import type { DatasetInstanceStatus } from '@/types/dataset';
 import { RelativeDate } from '@/components/common/relative-date';
 import DatasetFormDialog from '@/components/datasets/dataset-form-dialog';
 import DatasetInstanceFormDialog from '@/components/datasets/dataset-instance-form-dialog';
+import CreateContractFromDatasetDialog from '@/components/datasets/create-contract-from-dataset-dialog';
+import DatasetLookupDialog from '@/components/data-contracts/dataset-lookup-dialog';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
 import { RatingPanel } from '@/components/ratings';
 import TagChip from '@/components/ui/tag-chip';
@@ -69,7 +71,7 @@ import ConceptSelectDialog from '@/components/semantic/concept-select-dialog';
 import LinkedConceptChips from '@/components/semantic/linked-concept-chips';
 import type { EntitySemanticLink } from '@/types/semantic-link';
 import { Label } from '@/components/ui/label';
-import { Plus, Server } from 'lucide-react';
+import { Plus, Server, Database } from 'lucide-react';
 
 export default function DatasetDetails() {
   const { t } = useTranslation(['datasets', 'common']);
@@ -98,6 +100,9 @@ export default function DatasetDetails() {
   const [conceptDialogOpen, setConceptDialogOpen] = useState(false);
   const [openInstanceDialog, setOpenInstanceDialog] = useState(false);
   const [editingInstance, setEditingInstance] = useState<DatasetInstance | null>(null);
+  const [isCreateContractDialogOpen, setIsCreateContractDialogOpen] = useState(false);
+  const [isUCLookupOpen, setIsUCLookupOpen] = useState(false);
+  const [isCreatingFromUC, setIsCreatingFromUC] = useState(false);
 
   // Semantic links state
   const [semanticLinks, setSemanticLinks] = useState<EntitySemanticLink[]>([]);
@@ -414,6 +419,52 @@ export default function DatasetDetails() {
     setOpenInstanceDialog(true);
   };
 
+  // Create instance from Unity Catalog table
+  const handleCreateFromUC = async (table: { full_name: string }) => {
+    if (!datasetId) return;
+    
+    setIsCreatingFromUC(true);
+    try {
+      // Extract display name from full path (last part)
+      const displayName = table.full_name.split('.').pop() || table.full_name;
+      
+      // Create the instance with the UC table path
+      const response = await fetch(`/api/datasets/${datasetId}/instances`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          physical_path: table.full_name,
+          display_name: displayName,
+          role: 'main',
+          environment: 'production',
+          status: 'active',
+          server_type: 'unity_catalog',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || t('details.instances.addError'));
+      }
+
+      toast({
+        title: t('messages.success'),
+        description: t('details.instances.addSuccess'),
+      });
+      
+      setIsUCLookupOpen(false);
+      fetchInstances();
+    } catch (err) {
+      toast({
+        title: t('messages.error'),
+        description: err instanceof Error ? err.message : t('details.instances.addError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreatingFromUC(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-6 space-y-6">
@@ -544,7 +595,7 @@ export default function DatasetDetails() {
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.version')}:</Label>
-              <Badge variant="outline" className="text-xs">{dataset.version || 'N/A'}</Badge>
+              <Badge variant="outline" className="text-xs">{dataset.version || t('common:states.notAvailable')}</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">{t('details.coreMetadata.owner')}:</Label>
@@ -557,7 +608,7 @@ export default function DatasetDetails() {
                   {dataset.owner_team_name}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">{dataset.owner_team_name || t('details.coreMetadata.notAssigned')}</span>
+                <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -571,7 +622,7 @@ export default function DatasetDetails() {
                   {dataset.project_name}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">{dataset.project_name || t('details.coreMetadata.notAssigned')}</span>
+                <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -677,9 +728,16 @@ export default function DatasetDetails() {
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>{t('details.contract.noContract')}</p>
-              <p className="text-sm">
+              <p className="text-sm mb-4">
                 {t('details.contract.noContractHint')}
               </p>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsCreateContractDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Contract
+              </Button>
             </div>
           )}
         </CardContent>
@@ -701,10 +759,25 @@ export default function DatasetDetails() {
                 {t('details.instances.subtitle')}
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={handleAddInstance}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('details.instances.addInstance')}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsUCLookupOpen(true)}
+                disabled={isCreatingFromUC}
+              >
+                {isCreatingFromUC ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Database className="h-4 w-4 mr-2" />
+                )}
+                {t('details.instances.inferFromUC', 'Infer from Unity Catalog')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleAddInstance}>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('details.instances.addInstance')}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -967,6 +1040,44 @@ export default function DatasetDetails() {
             fetchInstances();
             setOpenInstanceDialog(false);
             setEditingInstance(null);
+          }}
+        />
+      )}
+
+      {/* Unity Catalog Lookup Dialog */}
+      <DatasetLookupDialog
+        isOpen={isUCLookupOpen}
+        onOpenChange={setIsUCLookupOpen}
+        onSelect={handleCreateFromUC}
+      />
+
+      {/* Create Contract from Dataset Dialog */}
+      {dataset && (
+        <CreateContractFromDatasetDialog
+          isOpen={isCreateContractDialogOpen}
+          onOpenChange={setIsCreateContractDialogOpen}
+          dataset={{
+            id: dataset.id,
+            name: dataset.name,
+            description: dataset.description,
+            status: dataset.status,
+            version: dataset.version,
+            published: dataset.published,
+            contract_id: dataset.contract_id,
+            contract_name: dataset.contract_name,
+            owner_team_id: dataset.owner_team_id,
+            owner_team_name: dataset.owner_team_name,
+            project_id: dataset.project_id,
+            project_name: dataset.project_name,
+            subscriber_count: dataset.subscriber_count,
+            instance_count: dataset.instance_count,
+          }}
+          onSuccess={(contractId) => {
+            // Refresh dataset to get updated contract link
+            fetchDataset();
+            setIsCreateContractDialogOpen(false);
+            // Navigate to the new contract
+            navigate(`/data-contracts/${contractId}`);
           }}
         />
       )}

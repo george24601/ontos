@@ -271,7 +271,7 @@ export default function DataAssetReviewDetails() {
                         <div><Label>Current Status:</Label> <Badge variant={getRequestStatusColor(request.status)}>{request.status}</Badge></div>
                         <div><Label>Created:</Label> <RelativeDate date={request.created_at} /></div>
                         <div><Label>Last Updated:</Label> <RelativeDate date={request.updated_at} /></div>
-                        <div className="md:col-span-3"><Label>Notes:</Label> <p className="text-xs mt-1 whitespace-pre-wrap">{request.notes || 'N/A'}</p></div>
+                        <div className="md:col-span-3"><Label>Notes:</Label> <p className="text-xs mt-1 whitespace-pre-wrap">{request.notes || t('common:states.none')}</p></div>
                     </CardContent>
                 </Card>
 
