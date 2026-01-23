@@ -56,14 +56,6 @@
       "notAssigned": "未割り当て",
       "addConcept": "追加"
     },
-    "overview": {
-      "title": "データセット概要",
-      "subtitle": "バージョンとインスタンス情報",
-      "version": "バージョン",
-      "physicalInstances": "物理インスタンス",
-      "instanceCount": "{{count}}個のインスタンス",
-      "instanceCount_plural": "{{count}}個のインスタンス"
-    },
     "contract": {
       "title": "データ契約",
       "subtitle": "このデータセットが実装する契約",

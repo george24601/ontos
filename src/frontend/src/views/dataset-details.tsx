@@ -700,37 +700,6 @@ export default function DatasetDetails() {
         </CardContent>
       </Card>
 
-      {/* Dataset Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Table2 className="h-5 w-5" />
-            {t('details.overview.title')}
-          </CardTitle>
-          <CardDescription>
-            {t('details.overview.subtitle')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                {t('details.overview.version')}
-              </label>
-              <p className="text-sm">{dataset.version || '-'}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                {t('details.overview.physicalInstances')}
-              </label>
-              <p className="text-sm">
-                {t('details.overview.instanceCount', { count: dataset.instance_count || 0 })}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Contract Link */}
       <Card>
         <CardHeader>

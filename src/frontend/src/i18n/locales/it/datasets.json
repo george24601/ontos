@@ -56,14 +56,6 @@
       "notAssigned": "Non assegnato",
       "addConcept": "Aggiungi"
     },
-    "overview": {
-      "title": "Panoramica Dataset",
-      "subtitle": "Informazioni su versione e istanze",
-      "version": "Versione",
-      "physicalInstances": "Istanze Fisiche",
-      "instanceCount": "{{count}} istanza",
-      "instanceCount_plural": "{{count}} istanze"
-    },
     "contract": {
       "title": "Contratto Dati",
       "subtitle": "Il contratto che questo dataset implementa",

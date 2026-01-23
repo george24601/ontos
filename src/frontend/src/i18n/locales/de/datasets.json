@@ -56,14 +56,6 @@
       "notAssigned": "Nicht zugewiesen",
       "addConcept": "Hinzufügen"
     },
-    "overview": {
-      "title": "Datensatz-Übersicht",
-      "subtitle": "Versions- und Instanzinformationen",
-      "version": "Version",
-      "physicalInstances": "Physische Instanzen",
-      "instanceCount": "{{count}} Instanz",
-      "instanceCount_plural": "{{count}} Instanzen"
-    },
     "contract": {
       "title": "Datenvertrag",
       "subtitle": "Der Vertrag, den dieser Datensatz implementiert",
