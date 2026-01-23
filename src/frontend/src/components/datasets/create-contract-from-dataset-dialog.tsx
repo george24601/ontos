@@ -205,7 +205,7 @@ const CreateContractFromDatasetDialog: React.FC<CreateContractFromDatasetDialogP
         throw new Error(createResponse.error)
       }
 
-      const contractId = createResponse.id
+      const contractId = createResponse.data?.id
 
       // Link the contract to the dataset if requested
       if (linkToDataset && contractId) {
