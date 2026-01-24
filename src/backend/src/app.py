@@ -105,7 +105,47 @@ async def startup_event():
     settings = get_settings()
     
     initialize_database(settings=settings)
-    initialize_managers(app)  # Handles all manager init including Git/Grant/Delivery
+    initialize_managers(app)  # Handles DB-backed manager init
+    
+    # Initialize Git service for indirect delivery mode
+    try:
+        logger.info("Initializing Git service...")
+        from src.common.git import init_git_service
+        git_service = init_git_service(settings)
+        app.state.git_service = git_service
+        logger.info(f"Git service initialized (status: {git_service.get_status().clone_status.value})")
+    except Exception as e:
+        logger.warning(f"Failed initializing Git service: {e}", exc_info=True)
+        app.state.git_service = None
+
+    # Initialize Grant Manager for direct delivery mode
+    try:
+        logger.info("Initializing Grant Manager...")
+        from src.controller.grant_manager import init_grant_manager
+        from src.common.workspace_client import get_workspace_client
+        ws_client = get_workspace_client(settings=settings)
+        grant_manager = init_grant_manager(ws_client=ws_client, settings=settings)
+        app.state.grant_manager = grant_manager
+        logger.info("Grant Manager initialized")
+    except Exception as e:
+        logger.warning(f"Failed initializing Grant Manager: {e}", exc_info=True)
+        app.state.grant_manager = None
+
+    # Initialize Delivery Service for multi-mode delivery
+    try:
+        logger.info("Initializing Delivery Service...")
+        from src.controller.delivery_service import init_delivery_service
+        delivery_service = init_delivery_service(
+            settings=settings,
+            git_service=getattr(app.state, 'git_service', None),
+            grant_manager=getattr(app.state, 'grant_manager', None),
+            notifications_manager=getattr(app.state, 'notifications_manager', None),
+        )
+        app.state.delivery_service = delivery_service
+        logger.info(f"Delivery Service initialized (active modes: {[m.value for m in delivery_service.get_active_modes()]})")
+    except Exception as e:
+        logger.warning(f"Failed initializing Delivery Service: {e}", exc_info=True)
+        app.state.delivery_service = None
     
     # Demo data is loaded on-demand via POST /api/settings/demo-data/load
     # See: src/backend/src/data/demo_data.sql
