@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ import {
   DATASET_INSTANCE_ROLE_LABELS,
   DATASET_INSTANCE_ENVIRONMENT_LABELS,
 } from '@/types/dataset';
+import { UnifiedAssetType } from '@/types/assets';
 import {
   Tooltip,
   TooltipContent,
@@ -67,6 +69,7 @@ interface FormData {
   contract_id: string;
   contract_server_id: string;
   physical_path: string;
+  asset_type: UnifiedAssetType | '';
   role: DatasetInstanceRole;
   display_name: string;
   environment: DatasetInstanceEnvironment | '';
@@ -81,6 +84,7 @@ export default function DatasetInstanceFormDialog({
   instance,
   onSuccess,
 }: DatasetInstanceFormDialogProps) {
+  const { t } = useTranslation('datasets');
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [contracts, setContracts] = useState<ContractOption[]>([]);
@@ -101,6 +105,7 @@ export default function DatasetInstanceFormDialog({
       contract_id: '',
       contract_server_id: '',
       physical_path: '',
+      asset_type: '',
       role: 'main',
       display_name: '',
       environment: '',
@@ -178,6 +183,7 @@ export default function DatasetInstanceFormDialog({
           contract_id: instance.contract_id || '',
           contract_server_id: instance.contract_server_id || '',
           physical_path: instance.physical_path,
+          asset_type: (instance.asset_type || '') as UnifiedAssetType | '',
           role: (instance.role || 'main') as DatasetInstanceRole,
           display_name: instance.display_name || '',
           environment: (instance.environment || '') as DatasetInstanceEnvironment | '',
@@ -189,6 +195,7 @@ export default function DatasetInstanceFormDialog({
           contract_id: '',
           contract_server_id: '',
           physical_path: '',
+          asset_type: '',
           role: 'main',
           display_name: '',
           environment: '',
@@ -207,6 +214,7 @@ export default function DatasetInstanceFormDialog({
         contract_id: formData.contract_id || undefined,
         contract_server_id: formData.contract_server_id || undefined,
         physical_path: formData.physical_path,
+        asset_type: formData.asset_type || undefined,
         role: formData.role,
         display_name: formData.display_name || undefined,
         environment: formData.environment || undefined,
@@ -353,6 +361,57 @@ export default function DatasetInstanceFormDialog({
             <p className="text-xs text-muted-foreground">
               The full path to the object in the target system. Format depends on the system
               type (e.g., catalog.schema.table for Unity Catalog).
+            </p>
+          </div>
+
+          {/* Asset Type */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="asset_type">Asset Type</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>
+                      The unified asset type identifies the kind of asset across platforms.
+                      This enables platform-agnostic governance policies and search.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <Select
+              value={watch('asset_type') || 'unspecified'}
+              onValueChange={(value) => setValue('asset_type', value === 'unspecified' ? '' : value as UnifiedAssetType)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t('instanceForm.selectAssetType', 'Select asset type')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unspecified">{t('assetTypes.unspecified')}</SelectItem>
+                {/* Unity Catalog Assets */}
+                <SelectItem value={UnifiedAssetType.UC_TABLE}>{t('assetTypes.uc_table')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_VIEW}>{t('assetTypes.uc_view')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_MATERIALIZED_VIEW}>{t('assetTypes.uc_materialized_view')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_STREAMING_TABLE}>{t('assetTypes.uc_streaming_table')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_FUNCTION}>{t('assetTypes.uc_function')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_MODEL}>{t('assetTypes.uc_model')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_VOLUME}>{t('assetTypes.uc_volume')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.UC_METRIC}>{t('assetTypes.uc_metric')}</SelectItem>
+                {/* Snowflake Assets */}
+                <SelectItem value={UnifiedAssetType.SNOWFLAKE_TABLE}>{t('assetTypes.snowflake_table')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.SNOWFLAKE_VIEW}>{t('assetTypes.snowflake_view')}</SelectItem>
+                {/* Kafka Assets */}
+                <SelectItem value={UnifiedAssetType.KAFKA_TOPIC}>{t('assetTypes.kafka_topic')}</SelectItem>
+                {/* PowerBI Assets */}
+                <SelectItem value={UnifiedAssetType.POWERBI_DATASET}>{t('assetTypes.powerbi_dataset')}</SelectItem>
+                <SelectItem value={UnifiedAssetType.POWERBI_DASHBOARD}>{t('assetTypes.powerbi_dashboard')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t('instanceForm.assetTypeHint', 'Platform-agnostic asset type for unified governance')}
             </p>
           </div>
 

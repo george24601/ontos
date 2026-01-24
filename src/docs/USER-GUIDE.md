@@ -29,13 +29,14 @@
 ### Key Capabilities
 
 - **Organizational Structure**: Organize data work using domains, teams, and projects
-- **Datasets**: Register and group existing data assets (tables, views) across systems and environments
+- **Datasets**: Register and group existing data assets (tables, views, metrics, topics) across platforms and environments
 - **Data Contracts**: Define formal specifications for data assets with schema, quality rules, and semantic meaning
 - **Data Products**: Group and manage related Databricks assets as cohesive products
 - **Semantic Models**: Link data assets to business concepts and maintain a knowledge graph
 - **Compliance Automation**: Enforce governance policies using a declarative rules language
 - **Review Workflows**: Manage data steward reviews and approvals for governance
 - **AI Integration (MCP)**: Enable AI assistants to discover and interact with your data governance platform via the Model Context Protocol
+- **Multi-Platform Connectors**: Pluggable architecture for Unity Catalog, Snowflake, Kafka, Power BI, and more
 
 ### Who Should Use This Guide
 
@@ -84,15 +85,17 @@ Understanding these foundational concepts will help you effectively use Ontos.
 
 ### Datasets
 
-**Datasets** are logical groupings of related data assets that represent physical implementations in your data platform.
+**Datasets** are logical groupings of related data assets that represent physical implementations across your data platforms.
 
-- **Logical Grouping**: Combine related tables (main table + dimensions + lookups) into a cohesive unit
-- **Physical Instances**: Each dataset can have multiple physical implementations across different systems (Unity Catalog, Snowflake) and environments (dev, staging, prod)
+- **Logical Grouping**: Combine related assets (main table + dimensions + lookups + metrics) into a cohesive unit
+- **Physical Instances**: Each dataset can have multiple physical implementations across different systems and environments
+- **Multi-Platform Support**: Native connectivity to Unity Catalog, with pluggable connectors for Snowflake, Kafka, Power BI, and more
+- **Unified Asset Types**: All assets use a common type system (`uc_table`, `uc_metric`, `snowflake_view`, `kafka_topic`, etc.)
 - **Contract Linking**: Datasets can implement Data Contracts, ensuring they meet defined specifications
 - **Lifecycle**: Draft → Active → Deprecated → Retired
 - **Marketplace Ready**: Published datasets appear in the data marketplace for discovery
 
-**Key Concept**: A Dataset is the "what exists" (physical reality), while a Data Contract is the "what should exist" (specification).
+**Key Concept**: A Dataset is the "what exists" (physical reality), while a Data Contract is the "what should exist" (specification). Datasets can span multiple platforms while maintaining a single governance view.
 
 ### Data Contracts
 
@@ -130,6 +133,23 @@ Understanding these foundational concepts will help you effectively use Ontos.
 - **Entity Types**: Check catalogs, schemas, tables, views, functions, and app entities
 - **Actions**: Tag non-compliant assets, send notifications, or fail validations
 - **Continuous Monitoring**: Run policies on schedules to track compliance over time
+
+### Connectors (Platform Integrations)
+
+**Connectors** are pluggable components that enable Ontos to discover and manage assets from different data platforms.
+
+- **Unified Interface**: All connectors implement the same asset discovery and metadata API
+- **Platform-Agnostic Governance**: Write policies that work across Unity Catalog, Snowflake, Kafka, etc.
+- **Extensible Architecture**: New connectors can be added without changing core governance logic
+- **Native UC Support**: Unity Catalog connector is fully implemented with support for tables, views, functions, models, volumes, and metrics
+
+**Currently Available:**
+- **Databricks/Unity Catalog**: Full support for all UC object types including AI/BI metrics
+
+**Planned Connectors:**
+- **Snowflake**: Tables, views, streams, stages, functions
+- **Apache Kafka**: Topics, Schema Registry schemas
+- **Microsoft Power BI**: Datasets, semantic models, dashboards, reports
 
 ---
 
@@ -779,15 +799,18 @@ Datasets are the entry point for bringing your existing data assets into Ontos. 
 ### What is a Dataset?
 
 A Dataset is:
-- A **logical container** for related data assets (main table + dimensions + lookups)
-- A **registry** of physical implementations across systems and environments
+- A **logical container** for related data assets (main table + dimensions + lookups + metrics)
+- A **registry** of physical implementations across multiple platforms and environments
 - A **bridge** between raw assets and formal Data Contracts
 - A **discoverable entity** in the data marketplace
+- A **platform-agnostic** abstraction over Unity Catalog, Snowflake, Kafka, Power BI, and other systems
 
 **Key Distinction**:
-- **Dataset** = What physically exists (tables, views in UC/Snowflake)
+- **Dataset** = What physically exists (tables, views, metrics, topics across platforms)
 - **Data Contract** = What should exist (specification, quality rules)
 - **Data Product** = How value is delivered (packaged, documented, monitored)
+
+**Multi-Platform Capability**: Ontos uses a pluggable connector architecture to support assets from multiple platforms. Unity Catalog is fully supported with native connectivity. Connectors for Snowflake, Kafka, and Power BI are planned for future releases.
 
 ### Viewing Datasets
 
@@ -838,6 +861,12 @@ Physical instances represent actual tables/views in your data platform.
    - Full path to the object
    - Format: `catalog.schema.table` for Unity Catalog
    - Format: `DATABASE.SCHEMA.TABLE` for Snowflake
+   - Format: `topic_name` for Kafka topics
+   
+   **Asset Type** (optional but recommended):
+   - Unified type identifier across platforms
+   - Examples: `uc_table`, `uc_view`, `uc_metric`, `snowflake_table`, `kafka_topic`
+   - Enables platform-agnostic compliance policies and search
    
    **Role**:
    - **Main Table**: Primary data in the dataset
@@ -864,10 +893,39 @@ Instance: Customers Master Table
 Role: Main Table
 Environment: Production
 Physical Path: prod_catalog.crm.customers_master
+Asset Type: uc_table
 Contract: Customer Data Contract v1.0.0
 Server: databricks-prod
 Status: Active
 Tags: delta-table, partitioned
+```
+
+#### Multi-Platform Instance Example
+
+```yaml
+Dataset: Customer Master Data
+Description: Core customer information across all systems
+
+Instances:
+  # Unity Catalog (primary)
+  - Physical Path: prod.crm.customers
+    Asset Type: uc_table
+    Role: Main Table
+    Environment: Production
+    Server: databricks-prod
+  
+  # Unity Catalog Metric
+  - Physical Path: prod.crm.customer_count
+    Asset Type: uc_metric
+    Role: Reference
+    Environment: Production
+    
+  # Snowflake replica (when connector available)
+  - Physical Path: ANALYTICS.CRM.CUSTOMERS
+    Asset Type: snowflake_table
+    Role: Main Table
+    Environment: Production
+    Server: snowflake-prod
 ```
 
 ### Grouping Related Tables
@@ -896,14 +954,52 @@ Customer Master Data (Dataset)
 
 ### Multi-System Support
 
-Datasets support multiple data systems:
+Ontos uses a **pluggable connector architecture** that supports multiple data platforms through a unified asset registry. This enables you to manage assets from different systems within the same governance framework.
+
+#### Supported Platforms
+
+| Platform | Connector | Status | Supported Asset Types |
+|----------|-----------|--------|----------------------|
+| **Databricks Unity Catalog** | `databricks` | ✅ Active | Tables, Views, Functions, Models, Volumes, Metrics, Notebooks, Jobs, Pipelines |
+| **Snowflake** | `snowflake` | 🔜 Planned | Tables, Views, Streams, Stages, Functions, Procedures, Tasks |
+| **Apache Kafka** | `kafka` | 🔜 Planned | Topics, Schemas (Schema Registry) |
+| **Microsoft Power BI** | `powerbi` | 🔜 Planned | Datasets, Semantic Models, Dashboards, Reports, Dataflows |
+| **Cloud Storage** | Various | 🔜 Planned | S3 Buckets/Objects, ADLS Containers, GCS Buckets |
+
+#### Physical Path Formats
 
 | System | Physical Path Format | Example |
 |--------|---------------------|---------|
 | Unity Catalog | `catalog.schema.table` | `prod.crm.customers` |
 | Snowflake | `DATABASE.SCHEMA.TABLE` | `ANALYTICS.CRM.CUSTOMERS` |
-| PostgreSQL | `schema.table` | `public.customers` |
-| Custom | Free-form string | `s3://bucket/path/` |
+| Kafka | `topic_name` | `customer-events` |
+| Power BI | `workspace/dataset` | `Analytics/Customer360` |
+| S3 | `s3://bucket/path/` | `s3://data-lake/customers/` |
+
+#### Unified Asset Types
+
+Each dataset instance can specify an **asset type** that identifies the kind of asset across platforms:
+
+**Unity Catalog Assets:**
+- `uc_table` - Managed or external tables
+- `uc_view` - Standard views
+- `uc_materialized_view` - Materialized views
+- `uc_streaming_table` - Streaming tables (DLT/SDP)
+- `uc_function` - User-defined functions
+- `uc_model` - Registered ML models
+- `uc_volume` - Unity Catalog volumes
+- `uc_metric` - AI/BI metrics (first-class support)
+
+**Other Platforms (when connectors are implemented):**
+- `snowflake_table`, `snowflake_view`, `snowflake_stream`
+- `kafka_topic`, `kafka_schema`
+- `powerbi_dataset`, `powerbi_semantic_model`, `powerbi_dashboard`
+
+**Benefits of Unified Asset Types:**
+- Platform-agnostic governance policies
+- Consistent metadata model across systems
+- Simplified search and discovery
+- Future-proof for new platform integrations
 
 Instances can span multiple systems within the same dataset, enabling cross-platform data governance.
 
@@ -1008,7 +1104,7 @@ Enhance discoverability with rich metadata:
 
 ### Dataset Best Practices
 
-1. **Group Logically**: Include all related tables in one dataset
+1. **Group Logically**: Include all related assets in one dataset (tables, views, metrics)
 2. **Name Clearly**: Use descriptive, searchable names
 3. **Document Well**: Add descriptions to dataset and instances
 4. **Tag Consistently**: Use organization-wide tag taxonomy
@@ -1016,6 +1112,8 @@ Enhance discoverability with rich metadata:
 6. **Link Contracts**: Connect to contracts for quality governance
 7. **Track Environments**: Register instances for each SDLC stage
 8. **Keep Updated**: Remove retired instances, update paths when changed
+9. **Specify Asset Types**: Always set the unified asset type for each instance
+10. **Cross-Platform Consistency**: When an asset exists in multiple platforms, create instances for each with the appropriate asset type
 
 ---
 
@@ -1917,10 +2015,20 @@ You can write rules for:
 - `view` - Views
 - `function` - Functions
 - `volume` - Volumes
+- `model` - Registered ML models
+- `metric` - Unity Catalog metrics (AI/BI)
+
+**Cross-Platform Objects** (when connectors available):
+- `topic` - Kafka topics
+- `stream` - Snowflake streams
+- `dashboard` - Power BI dashboards
+- `semantic_model` - Power BI semantic models
 
 **Application Entities**:
 - `data_product` - Data products
 - `data_contract` - Data contracts
+- `dataset` - Datasets
+- `dataset_instance` - Dataset instances (with `asset_type` filtering)
 - `domain` - Domains
 - `glossary_term` - Glossary terms
 - `review` - Review requests
@@ -2135,7 +2243,7 @@ Asset Review is a governance workflow where:
 4. Add assets to review:
    - Click **Add Asset**
    - Enter fully qualified name (e.g., `main.sales.orders`)
-   - Select asset type (table, view, function)
+   - Select asset type (table, view, function, model, volume, metric, dashboard, topic, etc.)
    - Repeat for all assets
 
 5. Click **Submit Request**
@@ -3483,7 +3591,9 @@ Ontos provides comprehensive tools for data governance and management at enterpr
 
 *This user guide covers the stable, non-beta/alpha features of Ontos. Features marked as "alpha" or "beta" in the UI may have incomplete documentation or evolving functionality.*
 
-**Document Version**: 1.1  
+**App Version**: 0.4.6  
 **Last Updated**: January 2026  
 **Target Audience**: Ontos End Users (Data Product Teams, Data Stewards, Data Consumers)
+
+For detailed changes between versions, see the [Release Notes](/user-docs/release-notes).
 

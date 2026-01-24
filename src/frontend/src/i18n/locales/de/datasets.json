@@ -179,7 +179,10 @@
     "createSuccess": "Instanz erfolgreich hinzugefügt",
     "updateSuccess": "Instanz erfolgreich aktualisiert",
     "createError": "Fehler beim Hinzufügen der Instanz",
-    "updateError": "Fehler beim Aktualisieren der Instanz"
+    "updateError": "Fehler beim Aktualisieren der Instanz",
+    "assetType": "Asset-Typ",
+    "selectAssetType": "Asset-Typ auswählen",
+    "assetTypeHint": "Plattformunabhängiger Asset-Typ für einheitliche Governance"
   },
   "status": {
     "draft": "Entwurf",
@@ -197,6 +200,7 @@
     "maintenance": "Wartung"
   },
   "instanceRole": {
+    "undefined": "Undefiniert",
     "main": "Haupt",
     "dimension": "Dimension",
     "lookup": "Lookup",
@@ -266,6 +270,57 @@
       "invalidRequest": "Diese Aktion kann für einen Datensatz mit dem aktuellen Status nicht angefordert werden",
       "submitFailed": "Anfrage konnte nicht eingereicht werden"
     }
+  },
+  "assetTypes": {
+    "unspecified": "Nicht angegeben",
+    "uc_table": "Unity Catalog Tabelle",
+    "uc_view": "Unity Catalog View",
+    "uc_materialized_view": "Unity Catalog Materialisierte View",
+    "uc_streaming_table": "Unity Catalog Streaming-Tabelle",
+    "uc_volume": "Unity Catalog Volume",
+    "uc_volume_file": "Unity Catalog Volume-Datei",
+    "uc_function": "Unity Catalog Funktion",
+    "uc_model": "Unity Catalog Modell",
+    "uc_notebook": "Notebook",
+    "uc_job": "Job",
+    "uc_pipeline": "Deklarative Pipeline (DLT/SDP)",
+    "uc_metric": "Unity Catalog Metrik",
+    "uc_dashboard": "Unity Catalog Dashboard",
+    "uc_external_location": "Unity Catalog Externer Speicherort",
+    "uc_storage_credential": "Unity Catalog Speicher-Berechtigung",
+    "snowflake_table": "Snowflake Tabelle",
+    "snowflake_view": "Snowflake View",
+    "snowflake_materialized_view": "Snowflake Materialisierte View",
+    "snowflake_stream": "Snowflake Stream",
+    "snowflake_stage": "Snowflake Stage",
+    "snowflake_function": "Snowflake Funktion",
+    "snowflake_procedure": "Snowflake Prozedur",
+    "snowflake_task": "Snowflake Task",
+    "kafka_topic": "Kafka Topic",
+    "kafka_schema": "Kafka Schema",
+    "powerbi_dataset": "Power BI Dataset",
+    "powerbi_semantic_model": "Power BI Semantisches Modell",
+    "powerbi_dashboard": "Power BI Dashboard",
+    "powerbi_report": "Power BI Bericht",
+    "powerbi_dataflow": "Power BI Dataflow",
+    "s3_bucket": "S3 Bucket",
+    "s3_object": "S3 Objekt",
+    "adls_container": "ADLS Container",
+    "adls_path": "ADLS Pfad",
+    "gcs_bucket": "GCS Bucket",
+    "gcs_object": "GCS Objekt",
+    "external_api": "Externe API",
+    "external_database": "Externe Datenbank",
+    "generic": "Generisch",
+    "file": "Datei",
+    "database_table": "Datenbank-Tabelle",
+    "database_view": "Datenbank-View",
+    "data_contract": "Datenvertrag",
+    "data_product": "Datenprodukt",
+    "data_domain": "Datendomäne",
+    "mdm_match": "MDM Match",
+    "ontology_concept": "Ontologie-Konzept",
+    "unknown": "Unbekannt"
   }
 }
 

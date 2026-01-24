@@ -17,15 +17,43 @@ export enum ReviewedAssetStatus {
     NEEDS_CLARIFICATION = "needs_clarification",
 }
 
+/**
+ * Asset types for data asset reviews.
+ * 
+ * These are simplified types for the review workflow. For detailed
+ * platform-specific types, see UnifiedAssetType in assets.ts.
+ */
 export enum AssetType {
+    // Unity Catalog / Databricks assets
     TABLE = "table",
     VIEW = "view",
     FUNCTION = "function",
     MODEL = "model",
     VOLUME = "volume",
     NOTEBOOK = "notebook",
+    JOB = "job",
+    PIPELINE = "pipeline",
+    METRIC = "metric", // UC Metrics (AI/BI)
+    
+    // Cross-platform streaming
+    STREAM = "stream",
+    TOPIC = "topic", // Kafka topics
+    
+    // Visualization assets
+    DASHBOARD = "dashboard",
+    REPORT = "report",
+    SEMANTIC_MODEL = "semantic_model", // PowerBI semantic models
+    
+    // Application entities
+    DATA_CONTRACT = "data_contract",
+    DATA_PRODUCT = "data_product",
+    
+    // MDM assets
     MDM_MATCH = "mdm_match",
-    // Add others as needed
+    
+    // Generic/external
+    EXTERNAL = "external",
+    OTHER = "other",
 }
 
 // --- Interfaces --- //
@@ -79,7 +107,7 @@ export type ReviewStatus = ReviewRequestStatus | ReviewedAssetStatus;
 export interface CatalogItem {
   id: string;       // FQN (e.g., catalog.schema.table)
   name: string;     // Display name (e.g., table name)
-  type: 'catalog' | 'schema' | 'table' | 'view' | 'function'; // Extend as needed
+  type: 'catalog' | 'schema' | 'table' | 'view' | 'function' | 'model' | 'volume' | 'metric'; // Extended for multi-asset support
   children?: CatalogItem[];
   hasChildren?: boolean;
 }

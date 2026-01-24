@@ -549,6 +549,7 @@ class DatasetInstanceRepository(CRUDBase[DatasetInstanceDb, Dict[str, Any], Data
         contract_id: Optional[str] = None,
         contract_server_id: Optional[str] = None,
         physical_path: str,
+        asset_type: Optional[str] = None,
         role: str = "main",
         display_name: Optional[str] = None,
         environment: Optional[str] = None,
@@ -563,6 +564,7 @@ class DatasetInstanceRepository(CRUDBase[DatasetInstanceDb, Dict[str, Any], Data
                 contract_id=contract_id,
                 contract_server_id=contract_server_id,
                 physical_path=physical_path,
+                asset_type=asset_type,
                 role=role,
                 display_name=display_name,
                 environment=environment,
@@ -587,6 +589,7 @@ class DatasetInstanceRepository(CRUDBase[DatasetInstanceDb, Dict[str, Any], Data
         contract_id: Optional[str] = None,
         contract_server_id: Optional[str] = None,
         physical_path: Optional[str] = None,
+        asset_type: Optional[str] = None,
         role: Optional[str] = None,
         display_name: Optional[str] = None,
         environment: Optional[str] = None,
@@ -602,6 +605,8 @@ class DatasetInstanceRepository(CRUDBase[DatasetInstanceDb, Dict[str, Any], Data
                 instance.contract_server_id = contract_server_id
             if physical_path is not None:
                 instance.physical_path = physical_path
+            if asset_type is not None:
+                instance.asset_type = asset_type
             if role is not None:
                 instance.role = role
             if display_name is not None:

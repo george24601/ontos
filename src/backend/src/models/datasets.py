@@ -13,6 +13,7 @@ from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field
 
 from src.models.tags import AssignedTag, AssignedTagCreate
+from src.models.assets import UnifiedAssetType
 
 
 # ============================================================================
@@ -137,6 +138,9 @@ class DatasetInstance(BaseModel):
     # Physical location
     physical_path: str = Field(..., description="Physical path in the target system (flexible format)")
     
+    # Asset type (unified across platforms)
+    asset_type: Optional[str] = Field(None, description="Unified asset type (e.g., uc_table, snowflake_view, kafka_topic)")
+    
     # Role and identity within the dataset
     role: str = Field("main", description="Purpose of this instance (main, dimension, lookup, reference, staging)")
     display_name: Optional[str] = Field(None, description="Human-readable display name within the dataset")
@@ -163,6 +167,7 @@ class DatasetInstanceCreate(BaseModel):
     contract_id: Optional[str] = Field(None, description="Contract version this instance implements")
     contract_server_id: Optional[str] = Field(None, description="Server entry ID from the contract")
     physical_path: str = Field(..., description="Physical path in the target system")
+    asset_type: Optional[str] = Field(None, description="Unified asset type (e.g., uc_table, snowflake_view)")
     role: str = Field("main", description="Purpose of this instance (main, dimension, lookup, reference, staging)")
     display_name: Optional[str] = Field(None, description="Human-readable display name within the dataset")
     environment: Optional[str] = Field(None, description="Deployment environment (dev, qa, test, staging, prod)")
@@ -176,6 +181,7 @@ class DatasetInstanceUpdate(BaseModel):
     contract_id: Optional[str] = Field(None, description="Contract version this instance implements")
     contract_server_id: Optional[str] = Field(None, description="Server entry ID from the contract")
     physical_path: Optional[str] = Field(None, description="Physical path in the target system")
+    asset_type: Optional[str] = Field(None, description="Unified asset type (e.g., uc_table, snowflake_view)")
     role: Optional[str] = Field(None, description="Purpose of this instance (main, dimension, lookup, reference, staging)")
     display_name: Optional[str] = Field(None, description="Human-readable display name within the dataset")
     environment: Optional[str] = Field(None, description="Deployment environment (dev, qa, test, staging, prod)")

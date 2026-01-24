@@ -62,6 +62,13 @@ from src.repositories.tags_repository import (
 
 from src.common.search_registry import SEARCHABLE_ASSET_MANAGERS
 
+# Import connector registry and connectors for pluggable asset support
+from src.connectors import get_registry
+from src.connectors.databricks import DatabricksConnector
+from src.connectors.snowflake import SnowflakeConnector
+from src.connectors.kafka import KafkaConnector
+from src.connectors.powerbi import PowerBIConnector
+
 logger = get_logger(__name__)
 
 # Demo data SQL file path
@@ -138,6 +145,27 @@ def initialize_managers(app: FastAPI):
         if not ws_client:
             raise RuntimeError("Failed to initialize Databricks WorkspaceClient (returned None).")
         logger.info("WorkspaceClient initialized successfully.")
+        
+        # --- Initialize Connector Registry ---
+        logger.info("Initializing asset connector registry...")
+        try:
+            registry = get_registry()
+            
+            # Register Databricks/UC connector (primary connector)
+            databricks_connector = DatabricksConnector(workspace_client=ws_client)
+            registry.register_instance("databricks", databricks_connector, set_as_default=True)
+            logger.info("Registered Databricks connector (default)")
+            
+            # Register stub connectors for future platform support
+            registry.register_class("snowflake", SnowflakeConnector)
+            registry.register_class("kafka", KafkaConnector)
+            registry.register_class("powerbi", PowerBIConnector)
+            logger.info("Registered stub connectors: snowflake, kafka, powerbi")
+            
+            logger.info(f"Connector registry initialized with {len(registry.list_registered())} connectors")
+        except Exception as e:
+            logger.warning(f"Failed to initialize connector registry: {e}")
+            # Don't fail startup if connector registry fails
 
         # --- Initialize DB Session --- 
         db_session = session_factory()

@@ -176,6 +176,11 @@ class DatasetInstanceDb(Base):
     # Examples: "catalog.schema.table" (UC), "database.schema.table" (Snowflake), "s3://bucket/path" (S3)
     physical_path = Column(String, nullable=False, index=True)
     
+    # Unified asset type across platforms (e.g., uc_table, snowflake_view, kafka_topic)
+    # This enables platform-agnostic asset handling while preserving type information
+    # See src/models/assets.py UnifiedAssetType enum for valid values
+    asset_type = Column(String, nullable=True, index=True)
+    
     # Instance role (purpose of this table in the dataset)
     # main = primary fact table, dimension = dimension table, lookup = reference/lookup table,
     # reference = external reference data, staging = staging/intermediate table

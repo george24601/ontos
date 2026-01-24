@@ -179,7 +179,10 @@
     "createSuccess": "インスタンスが正常に追加されました",
     "updateSuccess": "インスタンスが正常に更新されました",
     "createError": "インスタンスの追加に失敗しました",
-    "updateError": "インスタンスの更新に失敗しました"
+    "updateError": "インスタンスの更新に失敗しました",
+    "assetType": "アセットタイプ",
+    "selectAssetType": "アセットタイプを選択",
+    "assetTypeHint": "統一ガバナンスのためのプラットフォーム非依存アセットタイプ"
   },
   "status": {
     "draft": "下書き",
@@ -197,6 +200,7 @@
     "maintenance": "メンテナンス"
   },
   "instanceRole": {
+    "undefined": "未定義",
     "main": "メイン",
     "dimension": "ディメンション",
     "lookup": "ルックアップ",
@@ -266,6 +270,57 @@
       "invalidRequest": "現在のステータスのデータセットに対してこのアクションをリクエストできません",
       "submitFailed": "リクエストの送信に失敗しました"
     }
+  },
+  "assetTypes": {
+    "unspecified": "未指定",
+    "uc_table": "Unity Catalog テーブル",
+    "uc_view": "Unity Catalog ビュー",
+    "uc_materialized_view": "Unity Catalog マテリアライズドビュー",
+    "uc_streaming_table": "Unity Catalog ストリーミングテーブル",
+    "uc_volume": "Unity Catalog ボリューム",
+    "uc_volume_file": "Unity Catalog ボリュームファイル",
+    "uc_function": "Unity Catalog 関数",
+    "uc_model": "Unity Catalog モデル",
+    "uc_notebook": "ノートブック",
+    "uc_job": "ジョブ",
+    "uc_pipeline": "宣言型パイプライン (DLT/SDP)",
+    "uc_metric": "Unity Catalog メトリック",
+    "uc_dashboard": "Unity Catalog ダッシュボード",
+    "uc_external_location": "Unity Catalog 外部ロケーション",
+    "uc_storage_credential": "Unity Catalog ストレージ認証情報",
+    "snowflake_table": "Snowflake テーブル",
+    "snowflake_view": "Snowflake ビュー",
+    "snowflake_materialized_view": "Snowflake マテリアライズドビュー",
+    "snowflake_stream": "Snowflake ストリーム",
+    "snowflake_stage": "Snowflake ステージ",
+    "snowflake_function": "Snowflake 関数",
+    "snowflake_procedure": "Snowflake プロシージャ",
+    "snowflake_task": "Snowflake タスク",
+    "kafka_topic": "Kafka トピック",
+    "kafka_schema": "Kafka スキーマ",
+    "powerbi_dataset": "Power BI データセット",
+    "powerbi_semantic_model": "Power BI セマンティックモデル",
+    "powerbi_dashboard": "Power BI ダッシュボード",
+    "powerbi_report": "Power BI レポート",
+    "powerbi_dataflow": "Power BI データフロー",
+    "s3_bucket": "S3 バケット",
+    "s3_object": "S3 オブジェクト",
+    "adls_container": "ADLS コンテナ",
+    "adls_path": "ADLS パス",
+    "gcs_bucket": "GCS バケット",
+    "gcs_object": "GCS オブジェクト",
+    "external_api": "外部 API",
+    "external_database": "外部データベース",
+    "generic": "汎用",
+    "file": "ファイル",
+    "database_table": "データベーステーブル",
+    "database_view": "データベースビュー",
+    "data_contract": "データコントラクト",
+    "data_product": "データプロダクト",
+    "data_domain": "データドメイン",
+    "mdm_match": "MDM マッチ",
+    "ontology_concept": "オントロジーコンセプト",
+    "unknown": "不明"
   }
 }
 

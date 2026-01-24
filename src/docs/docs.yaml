@@ -37,6 +37,12 @@ documents:
     description: Complete guide for configuring automated workflows for validation, approval, and notifications
     category: reference
 
+  release-notes:
+    file: RELEASE_NOTES.md
+    title: Release Notes
+    description: Version history and changelog for Ontos
+    category: reference
+
 # Future document examples (uncomment and modify as needed):
 #
 #  deployment-guide:

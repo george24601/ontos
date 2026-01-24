@@ -15,6 +15,8 @@ from src.common.logging import get_logger
 from src.common.search_interfaces import SearchableAsset, SearchIndexItem
 from src.common.search_registry import searchable_asset
 from src.common.delivery_mixin import DeliveryMixin
+from src.connectors import get_registry, ConnectorRegistry
+from src.connectors.base import ConnectorNotFoundError
 from src.db_models.datasets import (
     DatasetDb,
     DatasetCustomPropertyDb,
@@ -980,6 +982,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
                 contract_id=data.contract_id,
                 contract_server_id=data.contract_server_id,
                 physical_path=data.physical_path,
+                asset_type=data.asset_type,
                 role=data.role or "main",
                 display_name=data.display_name,
                 environment=data.environment,
@@ -1033,6 +1036,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
                 contract_id=data.contract_id,
                 contract_server_id=data.contract_server_id,
                 physical_path=data.physical_path,
+                asset_type=data.asset_type,
                 role=data.role,
                 display_name=data.display_name,
                 environment=data.environment,
@@ -1221,6 +1225,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             server_environment=server_environment,
             server_name=server_name,
             physical_path=db_instance.physical_path,
+            asset_type=getattr(db_instance, 'asset_type', None),
             role=getattr(db_instance, 'role', 'main') or 'main',
             display_name=getattr(db_instance, 'display_name', None),
             environment=getattr(db_instance, 'environment', None),
@@ -1242,18 +1247,53 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
         catalog_name: str,
         schema_name: str,
         object_name: str,
+        connector_type: Optional[str] = "databricks",
     ) -> Dict[str, Any]:
         """
-        Validate that a Unity Catalog asset exists.
-        Returns asset info if found, or error details if not.
+        Validate that an asset exists in the specified platform.
+        
+        Uses the connector registry to get the appropriate connector for the
+        platform. Falls back to direct WorkspaceClient for backward compatibility
+        with Unity Catalog.
+        
+        Args:
+            catalog_name: Catalog/database name
+            schema_name: Schema name
+            object_name: Object/table name
+            connector_type: Platform connector type (default: "databricks")
+        
+        Returns:
+            Dict with exists status and asset details
         """
+        full_name = f"{catalog_name}.{schema_name}.{object_name}"
+        
+        # Try to use the connector registry first
+        try:
+            registry = get_registry()
+            if registry.has_connector(connector_type):
+                connector = registry.get_connector(connector_type)
+                if connector.is_available:
+                    result = connector.validate_asset_exists(full_name)
+                    return {
+                        "exists": result.exists,
+                        "validated": result.validated,
+                        "asset_type": result.asset_type.value if result.asset_type else None,
+                        "message": result.message,
+                        "name": object_name,
+                        "catalog": catalog_name,
+                        "schema": schema_name,
+                    }
+        except ConnectorNotFoundError:
+            logger.debug(f"Connector {connector_type} not found, falling back to direct validation")
+        except Exception as e:
+            logger.debug(f"Connector validation failed, falling back: {e}")
+        
+        # Fallback to direct WorkspaceClient for backward compatibility
         if not self._ws_client:
             logger.warning("WorkspaceClient not available, skipping asset validation")
             return {"exists": True, "validated": False, "message": "Validation skipped - no workspace client"}
         
         try:
-            full_name = f"{catalog_name}.{schema_name}.{object_name}"
-            
             # Try to get the table info
             table_info = self._ws_client.tables.get(full_name)
             
@@ -1266,7 +1306,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
                 "schema": table_info.schema_name,
             }
         except Exception as e:
-            logger.debug(f"Asset {catalog_name}.{schema_name}.{object_name} not found or error: {e}")
+            logger.debug(f"Asset {full_name} not found or error: {e}")
             return {
                 "exists": False,
                 "validated": True,

@@ -16,7 +16,7 @@ export type DatasetStatus = 'draft' | 'active' | 'deprecated' | 'retired';
 // Environment is used at the instance level only
 export type DatasetInstanceEnvironment = 'dev' | 'staging' | 'prod' | 'test' | 'qa' | 'uat';
 
-export type DatasetInstanceRole = 'main' | 'dimension' | 'lookup' | 'reference' | 'staging';
+export type DatasetInstanceRole = 'undefined' | 'main' | 'dimension' | 'lookup' | 'reference' | 'staging';
 
 // =============================================================================
 // Custom Property Types
@@ -84,6 +84,9 @@ export interface DatasetInstance {
 
   // Physical location
   physical_path: string;
+  
+  // Asset type (unified across platforms)
+  asset_type?: string; // UnifiedAssetType value or null
 
   // Role and identity within the dataset
   role: DatasetInstanceRole;
@@ -108,6 +111,7 @@ export interface DatasetInstanceCreate {
   contract_id?: string;
   contract_server_id?: string;
   physical_path: string;
+  asset_type?: string; // UnifiedAssetType value (e.g., 'uc_table', 'snowflake_view')
   role?: DatasetInstanceRole;
   display_name?: string;
   environment?: DatasetInstanceEnvironment;
@@ -120,6 +124,7 @@ export interface DatasetInstanceUpdate {
   contract_id?: string;
   contract_server_id?: string;
   physical_path?: string;
+  asset_type?: string; // UnifiedAssetType value (e.g., 'uc_table', 'snowflake_view')
   role?: DatasetInstanceRole;
   display_name?: string;
   environment?: DatasetInstanceEnvironment;
@@ -147,6 +152,7 @@ export const DATASET_INSTANCE_STATUS_COLORS: Record<DatasetInstanceStatus, strin
 };
 
 export const DATASET_INSTANCE_ROLE_LABELS: Record<DatasetInstanceRole, string> = {
+  undefined: 'Undefined',
   main: 'Main Table',
   dimension: 'Dimension',
   lookup: 'Lookup',
@@ -155,6 +161,7 @@ export const DATASET_INSTANCE_ROLE_LABELS: Record<DatasetInstanceRole, string> =
 };
 
 export const DATASET_INSTANCE_ROLE_COLORS: Record<DatasetInstanceRole, string> = {
+  undefined: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
   main: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   dimension: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   lookup: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300',
@@ -163,6 +170,7 @@ export const DATASET_INSTANCE_ROLE_COLORS: Record<DatasetInstanceRole, string> =
 };
 
 export const DATASET_INSTANCE_ROLE_ICONS: Record<DatasetInstanceRole, string> = {
+  undefined: '?',
   main: '⬤',
   dimension: '◆',
   lookup: '◇',

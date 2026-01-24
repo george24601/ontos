@@ -179,7 +179,10 @@
     "createSuccess": "Instance added successfully",
     "updateSuccess": "Instance updated successfully",
     "createError": "Failed to add instance",
-    "updateError": "Failed to update instance"
+    "updateError": "Failed to update instance",
+    "assetType": "Asset Type",
+    "selectAssetType": "Select asset type",
+    "assetTypeHint": "Platform-agnostic asset type for unified governance"
   },
   "status": {
     "draft": "Draft",
@@ -197,6 +200,7 @@
     "maintenance": "Maintenance"
   },
   "instanceRole": {
+    "undefined": "Undefined",
     "main": "Main",
     "dimension": "Dimension",
     "lookup": "Lookup",
@@ -266,6 +270,57 @@
       "invalidRequest": "Cannot request this action for a dataset with the current status",
       "submitFailed": "Failed to submit request"
     }
+  },
+  "assetTypes": {
+    "unspecified": "Not specified",
+    "uc_table": "Unity Catalog Table",
+    "uc_view": "Unity Catalog View",
+    "uc_materialized_view": "Unity Catalog Materialized View",
+    "uc_streaming_table": "Unity Catalog Streaming Table",
+    "uc_volume": "Unity Catalog Volume",
+    "uc_volume_file": "Unity Catalog Volume File",
+    "uc_function": "Unity Catalog Function",
+    "uc_model": "Unity Catalog Model",
+    "uc_notebook": "Notebook",
+    "uc_job": "Job",
+    "uc_pipeline": "Declarative Pipeline (DLT/SDP)",
+    "uc_metric": "Unity Catalog Metric",
+    "uc_dashboard": "Unity Catalog Dashboard",
+    "uc_external_location": "Unity Catalog External Location",
+    "uc_storage_credential": "Unity Catalog Storage Credential",
+    "snowflake_table": "Snowflake Table",
+    "snowflake_view": "Snowflake View",
+    "snowflake_materialized_view": "Snowflake Materialized View",
+    "snowflake_stream": "Snowflake Stream",
+    "snowflake_stage": "Snowflake Stage",
+    "snowflake_function": "Snowflake Function",
+    "snowflake_procedure": "Snowflake Procedure",
+    "snowflake_task": "Snowflake Task",
+    "kafka_topic": "Kafka Topic",
+    "kafka_schema": "Kafka Schema",
+    "powerbi_dataset": "Power BI Dataset",
+    "powerbi_semantic_model": "Power BI Semantic Model",
+    "powerbi_dashboard": "Power BI Dashboard",
+    "powerbi_report": "Power BI Report",
+    "powerbi_dataflow": "Power BI Dataflow",
+    "s3_bucket": "S3 Bucket",
+    "s3_object": "S3 Object",
+    "adls_container": "ADLS Container",
+    "adls_path": "ADLS Path",
+    "gcs_bucket": "GCS Bucket",
+    "gcs_object": "GCS Object",
+    "external_api": "External API",
+    "external_database": "External Database",
+    "generic": "Generic",
+    "file": "File",
+    "database_table": "Database Table",
+    "database_view": "Database View",
+    "data_contract": "Data Contract",
+    "data_product": "Data Product",
+    "data_domain": "Data Domain",
+    "mdm_match": "MDM Match",
+    "ontology_concept": "Ontology Concept",
+    "unknown": "Unknown"
   }
 }
 

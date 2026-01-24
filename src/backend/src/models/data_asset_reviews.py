@@ -21,16 +21,42 @@ class ReviewedAssetStatus(str, Enum):
     NEEDS_CLARIFICATION = "needs_clarification"
 
 class AssetType(str, Enum):
+    """
+    Asset types for data asset reviews.
+    
+    These are simplified types for the review workflow. For detailed
+    platform-specific types, see src/models/assets.py UnifiedAssetType.
+    """
+    # Unity Catalog / Databricks assets
     TABLE = "table"
     VIEW = "view"
     FUNCTION = "function"
     MODEL = "model"
     VOLUME = "volume"
     NOTEBOOK = "notebook"
-    DATA_CONTRACT = "data_contract"  # For data contract reviews
-    DATA_PRODUCT = "data_product"  # For data product reviews
-    MDM_MATCH = "mdm_match"  # For MDM match candidate reviews
-    # Add others as needed, e.g., DASHBOARD, JOB
+    JOB = "job"
+    PIPELINE = "pipeline"
+    METRIC = "metric"  # UC Metrics (AI/BI)
+    
+    # Cross-platform streaming
+    STREAM = "stream"
+    TOPIC = "topic"  # Kafka topics
+    
+    # Visualization assets
+    DASHBOARD = "dashboard"
+    REPORT = "report"
+    SEMANTIC_MODEL = "semantic_model"  # PowerBI semantic models
+    
+    # Application entities
+    DATA_CONTRACT = "data_contract"
+    DATA_PRODUCT = "data_product"
+    
+    # MDM assets
+    MDM_MATCH = "mdm_match"
+    
+    # Generic/external
+    EXTERNAL = "external"
+    OTHER = "other"
 
 # --- Pydantic Models --- #
 
