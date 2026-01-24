@@ -1047,7 +1047,8 @@ async def update_data_product(
             product_data_dict=product_dict,
             user_email=current_user.email,
             user_groups=user_groups,
-            db=db
+            db=db,
+            background_tasks=background_tasks,
         )
 
         if not updated_product_response:
@@ -1057,6 +1058,9 @@ async def update_data_product(
         success = True
         response_status_code = 200
         logger.info(f"Successfully updated data product with ID: {product_id}")
+        
+        # Delivery is now handled in the manager via DeliveryMixin
+        
         return updated_product_response
 
     except PermissionError as e:

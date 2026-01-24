@@ -49,11 +49,23 @@ from src.repositories.data_contracts_repository import data_contract_repo
 from src.repositories.teams_repository import team_repo
 
 from src.common.logging import get_logger
+from src.common.delivery_mixin import DeliveryMixin
+
 logger = get_logger(__name__)
 
-# Inherit from SearchableAsset
+
+# Inherit from SearchableAsset and DeliveryMixin
 @searchable_asset
-class DataContractsManager(SearchableAsset):
+class DataContractsManager(DeliveryMixin, SearchableAsset):
+    """Manager for Data Contracts.
+    
+    Inherits DeliveryMixin to support automatic delivery of changes
+    to configured delivery modes (Direct, Indirect, Manual).
+    """
+    
+    # DeliveryMixin configuration
+    DELIVERY_ENTITY_TYPE = "DataContract"
+    
     def __init__(self, data_dir: Path, tags_manager=None):
         self._contracts: Dict[str, DataContract] = {}
         self._data_dir = data_dir
@@ -1786,7 +1798,8 @@ class DataContractsManager(SearchableAsset):
         self, 
         db, 
         contract_data,
-        current_user: Optional[str] = None
+        current_user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
     ) -> DataContractDb:
         """
         Create a new contract with all nested relations. Manages transaction.
@@ -1795,6 +1808,7 @@ class DataContractsManager(SearchableAsset):
             db: Database session
             contract_data: Contract data (Pydantic DataContractCreate model or dict)
             current_user: Username of current user
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
             
         Returns:
             Created DataContractDb instance
@@ -1803,6 +1817,7 @@ class DataContractsManager(SearchableAsset):
             ValueError: If validation fails
             Exception: If creation fails
         """
+        from src.controller.delivery_service import DeliveryChangeType
         try:
             # Support both Pydantic models and dicts
             if hasattr(contract_data, 'model_dump'):
@@ -1885,6 +1900,15 @@ class DataContractsManager(SearchableAsset):
 
             db.commit()
             db.refresh(created)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=created,
+                change_type=DeliveryChangeType.CONTRACT_CREATE,
+                user=current_user,
+                background_tasks=background_tasks,
+            )
+            
             return created
             
         except ValueError:
@@ -1900,7 +1924,8 @@ class DataContractsManager(SearchableAsset):
         db,
         contract_id: str,
         contract_data,
-        current_user: Optional[str] = None
+        current_user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
     ) -> DataContractDb:
         """
         Update a contract with all nested relations. Manages transaction.
@@ -1910,6 +1935,7 @@ class DataContractsManager(SearchableAsset):
             contract_id: Contract UUID
             contract_data: Contract update data (Pydantic DataContractUpdate model or dict)
             current_user: Username of current user
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
             
         Returns:
             Updated DataContractDb instance
@@ -1918,6 +1944,7 @@ class DataContractsManager(SearchableAsset):
             ValueError: If validation fails or contract not found
             Exception: If update fails
         """
+        from src.controller.delivery_service import DeliveryChangeType
         try:
             # Support both Pydantic models and dicts
             if hasattr(contract_data, 'model_dump'):
@@ -2072,6 +2099,15 @@ class DataContractsManager(SearchableAsset):
             
             db.commit()
             db.refresh(updated)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=updated,
+                change_type=DeliveryChangeType.CONTRACT_UPDATE,
+                user=current_user,
+                background_tasks=background_tasks,
+            )
+            
             return updated
             
         except ValueError:

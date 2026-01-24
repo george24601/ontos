@@ -372,6 +372,48 @@ async def startup_event_handler(app: FastAPI):
         except Exception as e:
             logger.warning(f"Failed loading default workflows: {e}", exc_info=True)
 
+        # Step 5: Initialize Git service for indirect delivery mode
+        try:
+            logger.info("Initializing Git service...")
+            from src.common.git import init_git_service
+            settings = get_settings()
+            git_service = init_git_service(settings)
+            app.state.git_service = git_service
+            logger.info(f"Git service initialized (status: {git_service.get_status().clone_status.value})")
+        except Exception as e:
+            logger.warning(f"Failed initializing Git service: {e}", exc_info=True)
+            # Don't fail startup if Git service initialization fails
+            git_service = None
+
+        # Step 6: Initialize Grant Manager for direct delivery mode
+        try:
+            logger.info("Initializing Grant Manager...")
+            from src.controller.grant_manager import init_grant_manager
+            settings = get_settings()
+            ws_client = get_workspace_client(settings=settings)
+            grant_manager = init_grant_manager(ws_client=ws_client, settings=settings)
+            app.state.grant_manager = grant_manager
+            logger.info("Grant Manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed initializing Grant Manager: {e}", exc_info=True)
+            grant_manager = None
+
+        # Step 7: Initialize Delivery Service for multi-mode delivery
+        try:
+            logger.info("Initializing Delivery Service...")
+            from src.controller.delivery_service import init_delivery_service
+            settings = get_settings()
+            delivery_service = init_delivery_service(
+                settings=settings,
+                git_service=getattr(app.state, 'git_service', None),
+                grant_manager=getattr(app.state, 'grant_manager', None),
+                notifications_manager=getattr(app.state, 'notifications_manager', None),
+            )
+            app.state.delivery_service = delivery_service
+            logger.info(f"Delivery Service initialized (active modes: {[m.value for m in delivery_service.get_active_modes()]})")
+        except Exception as e:
+            logger.warning(f"Failed initializing Delivery Service: {e}", exc_info=True)
+
         logger.info("Application startup event handler finished successfully.")
     except Exception as e:
         logger.critical(f"CRITICAL ERROR during application startup: {e}", exc_info=True)

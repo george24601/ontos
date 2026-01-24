@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict
 import json
 
 from sqlalchemy.orm import Session # Import Session for type hinting
@@ -286,3 +286,200 @@ class NotificationsManager:
             logger.error(f"Error updating notification {notification_id}: {e}", exc_info=True)
             db.rollback()
             return None
+
+    def create_delivery_notification(
+        self,
+        db: Session,
+        *,
+        change_type: str,
+        entity_type: str,
+        entity_id: str,
+        data: Dict[str, Any],
+        source_user: Optional[str] = None,
+        recipient_role: str = "Admin",
+    ) -> Optional[Notification]:
+        """Create a notification for manual delivery mode.
+        
+        This creates an actionable notification for admins to manually
+        apply governance changes in external systems.
+        
+        Args:
+            db: Database session
+            change_type: Type of change (grant, revoke, etc.)
+            entity_type: Type of entity being changed
+            entity_id: ID of the entity
+            data: Change details
+            source_user: User who triggered the change
+            recipient_role: Role that should receive the notification
+            
+        Returns:
+            Created Notification or None on failure
+        """
+        try:
+            # Build title based on change type
+            title_map = {
+                'grant': f"Grant Access: {entity_type}",
+                'revoke': f"Revoke Access: {entity_type}",
+                'tag_assign': f"Assign Tag: {entity_type}",
+                'tag_remove': f"Remove Tag: {entity_type}",
+                'contract_update': "Update Data Contract",
+                'product_update': "Update Data Product",
+                'dataset_update': "Update Dataset",
+                'role_update': "Update Role Permissions",
+            }
+            title = title_map.get(change_type, f"Action Required: {change_type}")
+            
+            # Build description based on change type
+            description_parts = [f"Manual action required for {entity_type} (ID: {entity_id})."]
+            
+            if change_type == 'grant':
+                principal = data.get('principal', 'Unknown')
+                privileges = data.get('privileges', [])
+                target = data.get('target', entity_id)
+                description_parts.append(f"Grant {', '.join(privileges) if privileges else 'access'} to {principal} on {target}")
+            elif change_type == 'revoke':
+                principal = data.get('principal', 'Unknown')
+                target = data.get('target', entity_id)
+                description_parts.append(f"Revoke access from {principal} on {target}")
+            else:
+                description_parts.append(f"Change type: {change_type}")
+            
+            if source_user:
+                description_parts.append(f"\nRequested by: {source_user}")
+            
+            description = "\n".join(description_parts)
+            
+            # Create the notification
+            notification = Notification(
+                id=str(uuid.uuid4()),
+                type=NotificationType.ACTION_REQUIRED,
+                title=title,
+                description=description,
+                recipient=recipient_role,
+                action_type="delivery_manual",
+                action_payload={
+                    "change_type": change_type,
+                    "entity_type": entity_type,
+                    "entity_id": entity_id,
+                    "data": data,
+                },
+                created_at=datetime.utcnow(),
+                read=False,
+                can_delete=True,
+            )
+            
+            created = self._repo.create(db=db, obj_in=notification)
+            db.commit()
+            return Notification.model_validate(created)
+            
+        except Exception as e:
+            logger.error(f"Error creating delivery notification: {e}", exc_info=True)
+            db.rollback()
+            return None
+
+    def complete_delivery_notification(
+        self,
+        db: Session,
+        notification_id: str,
+        completed_by: str,
+        notes: Optional[str] = None,
+    ) -> Optional[Notification]:
+        """Mark a delivery notification as completed.
+        
+        This updates the notification to indicate the manual action
+        has been performed by an admin.
+        
+        Args:
+            db: Database session
+            notification_id: ID of the notification to complete
+            completed_by: User who completed the action
+            notes: Optional notes about the completion
+            
+        Returns:
+            Updated Notification or None on failure
+        """
+        try:
+            db_obj = self._repo.get(db=db, id=notification_id)
+            if not db_obj:
+                raise NotificationNotFoundError(f"Notification {notification_id} not found")
+            
+            # Update the notification
+            update_data = {
+                'read': True,
+                'updated_at': datetime.utcnow(),
+            }
+            
+            # Update action_payload with completion details
+            existing_payload = {}
+            if db_obj.action_payload:
+                try:
+                    existing_payload = json.loads(db_obj.action_payload) if isinstance(db_obj.action_payload, str) else db_obj.action_payload
+                except json.JSONDecodeError:
+                    existing_payload = {}
+            
+            existing_payload['completed'] = True
+            existing_payload['completed_by'] = completed_by
+            existing_payload['completed_at'] = datetime.utcnow().isoformat()
+            if notes:
+                existing_payload['completion_notes'] = notes
+            
+            update_data['action_payload'] = existing_payload
+            
+            updated = self._repo.update(db=db, db_obj=db_obj, obj_in=update_data)
+            db.commit()
+            
+            logger.info(f"Delivery notification {notification_id} completed by {completed_by}")
+            return Notification.model_validate(updated)
+            
+        except NotificationNotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error completing delivery notification: {e}", exc_info=True)
+            db.rollback()
+            return None
+
+    def get_pending_delivery_notifications(
+        self,
+        db: Session,
+        change_type: Optional[str] = None,
+    ) -> List[Notification]:
+        """Get all pending (unread) delivery notifications.
+        
+        Args:
+            db: Database session
+            change_type: Optional filter by change type
+            
+        Returns:
+            List of pending delivery notifications
+        """
+        try:
+            all_notifications = self._repo.get_multi(db=db, limit=1000)
+            
+            pending = []
+            for db_obj in all_notifications:
+                if db_obj.action_type != "delivery_manual":
+                    continue
+                if db_obj.read:
+                    continue
+                
+                # Parse action_payload to check change_type filter
+                if change_type:
+                    payload = {}
+                    if db_obj.action_payload:
+                        try:
+                            payload = json.loads(db_obj.action_payload) if isinstance(db_obj.action_payload, str) else db_obj.action_payload
+                        except json.JSONDecodeError:
+                            continue
+                    if payload.get('change_type') != change_type:
+                        continue
+                
+                try:
+                    pending.append(Notification.model_validate(db_obj))
+                except Exception:
+                    continue
+            
+            return pending
+            
+        except Exception as e:
+            logger.error(f"Error getting pending delivery notifications: {e}", exc_info=True)
+            return []

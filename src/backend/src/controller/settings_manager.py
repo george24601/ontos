@@ -208,6 +208,40 @@ class SettingsManager:
             # Valid values: 'short' (default), 'long'
             if 'TAG_DISPLAY_FORMAT' in all_settings and all_settings['TAG_DISPLAY_FORMAT'] is not None:
                 logger.info(f"Loaded TAG_DISPLAY_FORMAT from database: {all_settings['TAG_DISPLAY_FORMAT']}")
+            
+            # Delivery mode settings
+            if 'DELIVERY_MODE_DIRECT' in all_settings and all_settings['DELIVERY_MODE_DIRECT'] is not None:
+                self._settings.DELIVERY_MODE_DIRECT = all_settings['DELIVERY_MODE_DIRECT'].lower() == 'true'
+                logger.info(f"Loaded DELIVERY_MODE_DIRECT from database: {self._settings.DELIVERY_MODE_DIRECT}")
+            
+            if 'DELIVERY_MODE_INDIRECT' in all_settings and all_settings['DELIVERY_MODE_INDIRECT'] is not None:
+                self._settings.DELIVERY_MODE_INDIRECT = all_settings['DELIVERY_MODE_INDIRECT'].lower() == 'true'
+                logger.info(f"Loaded DELIVERY_MODE_INDIRECT from database: {self._settings.DELIVERY_MODE_INDIRECT}")
+            
+            if 'DELIVERY_MODE_MANUAL' in all_settings and all_settings['DELIVERY_MODE_MANUAL'] is not None:
+                self._settings.DELIVERY_MODE_MANUAL = all_settings['DELIVERY_MODE_MANUAL'].lower() == 'true'
+                logger.info(f"Loaded DELIVERY_MODE_MANUAL from database: {self._settings.DELIVERY_MODE_MANUAL}")
+            
+            if 'DELIVERY_DIRECT_DRY_RUN' in all_settings and all_settings['DELIVERY_DIRECT_DRY_RUN'] is not None:
+                self._settings.DELIVERY_DIRECT_DRY_RUN = all_settings['DELIVERY_DIRECT_DRY_RUN'].lower() == 'true'
+                logger.info(f"Loaded DELIVERY_DIRECT_DRY_RUN from database: {self._settings.DELIVERY_DIRECT_DRY_RUN}")
+            
+            # Git settings for indirect mode
+            if 'GIT_REPO_URL' in all_settings and all_settings['GIT_REPO_URL'] is not None:
+                self._settings.GIT_REPO_URL = all_settings['GIT_REPO_URL']
+                logger.info("Loaded GIT_REPO_URL from database")
+            
+            if 'GIT_BRANCH' in all_settings and all_settings['GIT_BRANCH'] is not None:
+                self._settings.GIT_BRANCH = all_settings['GIT_BRANCH']
+                logger.info(f"Loaded GIT_BRANCH from database: {all_settings['GIT_BRANCH']}")
+            
+            if 'GIT_USERNAME' in all_settings and all_settings['GIT_USERNAME'] is not None:
+                self._settings.GIT_USERNAME = all_settings['GIT_USERNAME']
+                logger.info("Loaded GIT_USERNAME from database")
+            
+            if 'GIT_PASSWORD' in all_settings and all_settings['GIT_PASSWORD'] is not None:
+                self._settings.GIT_PASSWORD = all_settings['GIT_PASSWORD']
+                logger.info("Loaded GIT_PASSWORD from database (masked)")
                 
         except Exception as e:
             logger.warning(f"Failed to load persisted settings from database: {e}")
@@ -999,6 +1033,15 @@ class SettingsManager:
             'llm_disclaimer_text': self._settings.LLM_DISCLAIMER_TEXT,
             # Tag display settings
             'tag_display_format': tag_display_format,
+            # Delivery mode settings
+            'delivery_mode_direct': self._settings.DELIVERY_MODE_DIRECT,
+            'delivery_mode_indirect': self._settings.DELIVERY_MODE_INDIRECT,
+            'delivery_mode_manual': self._settings.DELIVERY_MODE_MANUAL,
+            'delivery_direct_dry_run': self._settings.DELIVERY_DIRECT_DRY_RUN,
+            # Git settings for indirect mode
+            'git_repo_url': self._settings.GIT_REPO_URL,
+            'git_branch': self._settings.GIT_BRANCH,
+            'git_username': self._settings.GIT_USERNAME,
         }
 
     def update_settings(self, settings: dict) -> Settings:
@@ -1231,6 +1274,68 @@ class SettingsManager:
             else:
                 logger.warning(f"Invalid tag_display_format value: {value}. Must be 'short' or 'long'.")
         
+        # Handle delivery mode settings
+        if 'delivery_mode_direct' in settings:
+            value = settings.get('delivery_mode_direct')
+            app_settings_repo.set(self._db, 'DELIVERY_MODE_DIRECT', str(value).lower() if value is not None else None)
+            self._settings.DELIVERY_MODE_DIRECT = bool(value) if value is not None else self._settings.DELIVERY_MODE_DIRECT
+            logger.info(f"Updated DELIVERY_MODE_DIRECT to: {value}")
+        
+        if 'delivery_mode_indirect' in settings:
+            value = settings.get('delivery_mode_indirect')
+            app_settings_repo.set(self._db, 'DELIVERY_MODE_INDIRECT', str(value).lower() if value is not None else None)
+            self._settings.DELIVERY_MODE_INDIRECT = bool(value) if value is not None else self._settings.DELIVERY_MODE_INDIRECT
+            logger.info(f"Updated DELIVERY_MODE_INDIRECT to: {value}")
+        
+        if 'delivery_mode_manual' in settings:
+            value = settings.get('delivery_mode_manual')
+            app_settings_repo.set(self._db, 'DELIVERY_MODE_MANUAL', str(value).lower() if value is not None else None)
+            self._settings.DELIVERY_MODE_MANUAL = bool(value) if value is not None else self._settings.DELIVERY_MODE_MANUAL
+            logger.info(f"Updated DELIVERY_MODE_MANUAL to: {value}")
+        
+        if 'delivery_direct_dry_run' in settings:
+            value = settings.get('delivery_direct_dry_run')
+            app_settings_repo.set(self._db, 'DELIVERY_DIRECT_DRY_RUN', str(value).lower() if value is not None else None)
+            self._settings.DELIVERY_DIRECT_DRY_RUN = bool(value) if value is not None else self._settings.DELIVERY_DIRECT_DRY_RUN
+            logger.info(f"Updated DELIVERY_DIRECT_DRY_RUN to: {value}")
+        
+        # Handle Git settings for indirect mode
+        if 'git_repo_url' in settings:
+            value = settings.get('git_repo_url') or None
+            app_settings_repo.set(self._db, 'GIT_REPO_URL', value)
+            self._settings.GIT_REPO_URL = value
+            logger.info(f"Updated GIT_REPO_URL")
+        
+        if 'git_branch' in settings:
+            value = settings.get('git_branch') or 'main'
+            app_settings_repo.set(self._db, 'GIT_BRANCH', value)
+            self._settings.GIT_BRANCH = value
+            logger.info(f"Updated GIT_BRANCH to: {value}")
+        
+        if 'git_username' in settings:
+            value = settings.get('git_username') or None
+            app_settings_repo.set(self._db, 'GIT_USERNAME', value)
+            self._settings.GIT_USERNAME = value
+            logger.info(f"Updated GIT_USERNAME")
+        
+        if 'git_password' in settings:
+            value = settings.get('git_password') or None
+            app_settings_repo.set(self._db, 'GIT_PASSWORD', value)
+            self._settings.GIT_PASSWORD = value
+            logger.info(f"Updated GIT_PASSWORD")
+        
+        # Reinitialize Git service if any Git settings were changed
+        git_settings_changed = any(key in settings for key in ['git_repo_url', 'git_branch', 'git_username', 'git_password'])
+        if git_settings_changed:
+            try:
+                from src.common.git import reinitialize_git_service
+                reinitialize_git_service(self._settings)
+                logger.info("Git service reinitialized after settings update")
+            except RuntimeError as e:
+                logger.warning(f"Could not reinitialize Git service: {e}")
+            except Exception as e:
+                logger.error(f"Error reinitializing Git service: {e}", exc_info=True)
+        
         return self._settings
 
     # --- RBAC Methods --- 
@@ -1462,8 +1567,19 @@ class SettingsManager:
             self._db.rollback()
             return None
 
-    def create_app_role(self, role: AppRoleCreate) -> AppRole:
-        """Creates a new application role."""
+    def create_app_role(
+        self,
+        role: AppRoleCreate,
+        user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
+    ) -> AppRole:
+        """Creates a new application role.
+        
+        Args:
+            role: Role creation data
+            user: Username of creator (for delivery tracking)
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
         # Validate name uniqueness
         existing_role = self.get_app_role_by_name(role_name=role.name)
         if existing_role:
@@ -1491,7 +1607,17 @@ class SettingsManager:
             # self._db.commit() # Remove commit from manager method
             # self._db.refresh(role_db) # Refresh is handled in repo
             logger.info(f"Successfully created role '{role.name}' with ID {role_db.id}")
-            return self._map_db_to_api(role_db)
+            result = self._map_db_to_api(role_db)
+            
+            # Queue delivery for active modes
+            self._queue_role_delivery(
+                entity=role_db,
+                change_type_name="ROLE_CREATE",
+                user=user,
+                background_tasks=background_tasks,
+            )
+            
+            return result
         except SQLAlchemyError as e:
             logger.error(f"Database error creating role '{role.name}': {e}", exc_info=True)
             self._db.rollback()
@@ -1515,8 +1641,86 @@ class SettingsManager:
                     f"Allowed levels are: {allowed_str}"
                 )
 
-    def update_app_role(self, role_id: str, role_update: AppRoleUpdate) -> Optional[AppRole]:
-        """Updates an existing application role."""
+    def _queue_role_delivery(
+        self,
+        entity: Any,
+        change_type_name: str,
+        user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
+    ) -> bool:
+        """Queue delivery for role changes.
+        
+        Args:
+            entity: The role DB object
+            change_type_name: Name of change type (ROLE_CREATE, ROLE_UPDATE, ROLE_DELETE)
+            user: User who made the change
+            background_tasks: FastAPI BackgroundTasks for async execution
+            
+        Returns:
+            True if delivery was queued, False otherwise
+        """
+        try:
+            from src.controller.delivery_service import (
+                get_delivery_service,
+                DeliveryPayload,
+                DeliveryChangeType,
+            )
+            
+            delivery_service = get_delivery_service()
+            
+            if not delivery_service or not delivery_service.get_active_modes():
+                logger.debug("No active delivery modes, skipping delivery for AppRole")
+                return False
+            
+            # Map change type name to enum
+            change_type_map = {
+                "ROLE_CREATE": DeliveryChangeType.ROLE_CREATE,
+                "ROLE_UPDATE": DeliveryChangeType.ROLE_UPDATE,
+                "ROLE_DELETE": DeliveryChangeType.ROLE_DELETE,
+            }
+            change_type = change_type_map.get(change_type_name)
+            if not change_type:
+                logger.warning(f"Unknown change type: {change_type_name}")
+                return False
+            
+            entity_id = str(entity.id) if hasattr(entity, 'id') else str(hash(entity))
+            
+            payload = DeliveryPayload(
+                change_type=change_type,
+                entity_type="AppRole",
+                entity_id=entity_id,
+                data={"entity": entity},
+                user=user,
+            )
+            
+            if background_tasks:
+                background_tasks.add_task(delivery_service.deliver, payload)
+                logger.info(f"Queued delivery for AppRole {entity_id}")
+            else:
+                result = delivery_service.deliver(payload)
+                logger.info(f"Delivered AppRole {entity_id}: {result.all_success}")
+                
+            return True
+            
+        except Exception as e:
+            logger.warning(f"Failed to queue delivery for AppRole: {e}")
+            return False
+
+    def update_app_role(
+        self,
+        role_id: str,
+        role_update: AppRoleUpdate,
+        user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
+    ) -> Optional[AppRole]:
+        """Updates an existing application role.
+        
+        Args:
+            role_id: Role ID to update
+            role_update: Update data
+            user: Username of updater (for delivery tracking)
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
         try:
             role_db = self.app_role_repo.get(db=self._db, id=role_id)
             if not role_db:
@@ -1548,7 +1752,17 @@ class SettingsManager:
             
             # Commit handled by request lifecycle
             logger.info(f"Successfully updated role (ID: {role_id})")
-            return self._map_db_to_api(updated_role_db)
+            result = self._map_db_to_api(updated_role_db)
+            
+            # Queue delivery for active modes
+            self._queue_role_delivery(
+                entity=updated_role_db,
+                change_type_name="ROLE_UPDATE",
+                user=user,
+                background_tasks=background_tasks,
+            )
+            
+            return result
         except SQLAlchemyError as e:
             logger.error(f"Database error updating role {role_id}: {e}", exc_info=True)
             self._db.rollback()

@@ -105,7 +105,7 @@ async def startup_event():
     settings = get_settings()
     
     initialize_database(settings=settings)
-    initialize_managers(app)
+    initialize_managers(app)  # Handles all manager init including Git/Grant/Delivery
     
     # Demo data is loaded on-demand via POST /api/settings/demo-data/load
     # See: src/backend/src/data/demo_data.sql

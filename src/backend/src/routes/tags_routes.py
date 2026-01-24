@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, Body, Request
 from sqlalchemy.orm import Session
 
 from src.common.logging import get_logger
@@ -28,6 +28,7 @@ async def create_tag_namespace(
     namespace_in: TagNamespaceCreate,
     request: Request,
     db: DBSessionDep,
+    background_tasks: BackgroundTasks,
     current_user: CurrentUserDep,
     audit_manager: AuditManagerDep,
     audit_user: AuditCurrentUserDep,
@@ -43,9 +44,16 @@ async def create_tag_namespace(
 
     try:
         logger.info(f"User '{current_user.email}' creating tag namespace: {namespace_in.name}")
-        result = manager.create_namespace(db, namespace_in=namespace_in, user_email=current_user.email)
+        # Delivery handled via DeliveryMixin in manager
+        result = manager.create_namespace(
+            db,
+            namespace_in=namespace_in,
+            user_email=current_user.email,
+            background_tasks=background_tasks,
+        )
         success = True
         details["namespace_id"] = str(result.id)
+        
         return result
     except HTTPException as e:
         details["exception"] = {"type": "HTTPException", "status_code": e.status_code, "detail": e.detail}
@@ -90,6 +98,7 @@ async def update_tag_namespace(
     namespace_in: TagNamespaceUpdate,
     request: Request,
     db: DBSessionDep,
+    background_tasks: BackgroundTasks,
     current_user: CurrentUserDep,
     audit_manager: AuditManagerDep,
     audit_user: AuditCurrentUserDep,
@@ -105,10 +114,18 @@ async def update_tag_namespace(
 
     try:
         logger.info(f"User '{current_user.email}' updating tag namespace ID: {namespace_id}")
-        updated_namespace = manager.update_namespace(db, namespace_id=namespace_id, namespace_in=namespace_in, user_email=current_user.email)
+        # Delivery handled via DeliveryMixin in manager
+        updated_namespace = manager.update_namespace(
+            db,
+            namespace_id=namespace_id,
+            namespace_in=namespace_in,
+            user_email=current_user.email,
+            background_tasks=background_tasks,
+        )
         if not updated_namespace:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag namespace not found")
         success = True
+        
         return updated_namespace
     except HTTPException as e:
         details["exception"] = {"type": "HTTPException", "status_code": e.status_code, "detail": e.detail}

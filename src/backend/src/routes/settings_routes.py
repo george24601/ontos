@@ -172,10 +172,16 @@ async def create_role(
     success = False
     details = {"role_name": role_data.name}
     try:
-        created_role = manager.create_app_role(role=role_data)
+        # Delivery handled via _queue_role_delivery in manager
+        created_role = manager.create_app_role(
+            role=role_data,
+            user=current_user.email if current_user else None,
+            background_tasks=background_tasks,
+        )
         success = True
         if created_role and hasattr(created_role, 'id'):
             details["created_role_id"] = str(created_role.id)
+        
         return created_role
     except ValueError as e:
         logger.warning("Validation error creating role '%s': %s", role_data.name, e)
@@ -226,11 +232,18 @@ async def update_role(
     success = False
     details = {"role_id": role_id, "role_name": role_data.name}
     try:
-        updated_role = manager.update_app_role(role_id, role_data)
+        # Delivery handled via _queue_role_delivery in manager
+        updated_role = manager.update_app_role(
+            role_id,
+            role_data,
+            user=current_user.email if current_user else None,
+            background_tasks=background_tasks,
+        )
         if updated_role is None:
             details["exception"] = "Role not found"
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
         success = True
+        
         return updated_role
     except ValueError as e:
         logger.warning("Validation error updating role %s: %s", role_id, e)
@@ -881,3 +894,325 @@ def _field_config_to_dict(field) -> dict:
             result["source"] = field.source
         return result
     return field
+
+
+# --- Git Repository Management ---
+
+@router.get('/settings/git/status')
+async def get_git_status(
+    include_diffs: bool = False,
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """Get the current status of the Git repository.
+    
+    Returns clone status, pending changes count, and optionally file diffs.
+    
+    Args:
+        include_diffs: Whether to include file-level diffs in the response
+    """
+    try:
+        from ..common.git import get_git_service
+        git_service = get_git_service()
+        status = git_service.get_status(include_diffs=include_diffs)
+        return status.to_dict()
+    except RuntimeError as e:
+        # Git service not initialized
+        return {
+            "clone_status": "not_configured",
+            "error_message": str(e)
+        }
+    except Exception as e:
+        logger.error("Error getting Git status", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get Git status: {str(e)}")
+
+
+@router.post('/settings/git/clone', status_code=status.HTTP_200_OK)
+async def clone_git_repository(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """Clone the Git repository to the UC Volume.
+    
+    This is an explicit admin action to initialize the Git repository.
+    The repository will be cloned to {DATABRICKS_VOLUME}/git-export/.
+    """
+    success = False
+    details = {"action": "clone_git_repository"}
+    
+    try:
+        from ..common.git import get_git_service
+        git_service = get_git_service()
+        result = git_service.clone()
+        
+        if result.clone_status.value == "cloned":
+            success = True
+            details["volume_path"] = result.volume_path
+            return result.to_dict()
+        else:
+            details["error"] = result.error_message
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.error_message or "Failed to clone repository"
+            )
+    except RuntimeError as e:
+        details["exception"] = str(e)
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error cloning Git repository", exc_info=True)
+        details["exception"] = str(e)
+        raise HTTPException(status_code=500, detail=f"Failed to clone repository: {str(e)}")
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=SETTINGS_FEATURE_ID,
+            action="GIT_CLONE",
+            success=success,
+            details=details
+        )
+
+
+@router.post('/settings/git/pull', status_code=status.HTTP_200_OK)
+async def pull_git_repository(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """Pull latest changes from the remote Git repository."""
+    success = False
+    details = {"action": "pull_git_repository"}
+    
+    try:
+        from ..common.git import get_git_service
+        git_service = get_git_service()
+        result = git_service.pull()
+        
+        if result.error_message:
+            details["error"] = result.error_message
+            raise HTTPException(status_code=400, detail=result.error_message)
+        
+        success = True
+        return result.to_dict()
+    except RuntimeError as e:
+        details["exception"] = str(e)
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error pulling Git repository", exc_info=True)
+        details["exception"] = str(e)
+        raise HTTPException(status_code=500, detail=f"Failed to pull repository: {str(e)}")
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=SETTINGS_FEATURE_ID,
+            action="GIT_PULL",
+            success=success,
+            details=details
+        )
+
+
+@router.get('/settings/git/diff')
+async def get_git_diff(
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """Get detailed diff of all pending changes in the Git repository."""
+    try:
+        from ..common.git import get_git_service
+        git_service = get_git_service()
+        status = git_service.get_status(include_diffs=True)
+        return {
+            "pending_changes_count": status.pending_changes_count,
+            "changed_files": [
+                {
+                    "path": f.path,
+                    "change_type": f.change_type,
+                    "diff": f.diff
+                }
+                for f in status.changed_files
+            ]
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Error getting Git diff", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get diff: {str(e)}")
+
+
+@router.post('/settings/git/push', status_code=status.HTTP_200_OK)
+async def push_git_repository(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    commit_message: Optional[str] = Body(None, embed=True),
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """Commit and push all pending changes to the remote Git repository.
+    
+    Args:
+        commit_message: Optional commit message. Auto-generated if not provided.
+    """
+    success = False
+    details = {"action": "push_git_repository"}
+    
+    try:
+        from ..common.git import get_git_service
+        git_service = get_git_service()
+        result = git_service.commit_and_push(commit_message)
+        
+        if result.error_message and "No changes to commit" not in result.error_message:
+            details["error"] = result.error_message
+            raise HTTPException(status_code=400, detail=result.error_message)
+        
+        success = True
+        details["commit_message"] = commit_message or "(auto-generated)"
+        return result.to_dict()
+    except RuntimeError as e:
+        details["exception"] = str(e)
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error pushing Git repository", exc_info=True)
+        details["exception"] = str(e)
+        raise HTTPException(status_code=500, detail=f"Failed to push repository: {str(e)}")
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=SETTINGS_FEATURE_ID,
+            action="GIT_PUSH",
+            success=success,
+            details=details
+        )
+
+
+# --- Delivery Mode Management ---
+
+@router.get('/settings/delivery/status')
+async def get_delivery_status(
+    manager: SettingsManager = Depends(get_settings_manager)
+):
+    """Get the current delivery mode configuration and status."""
+    try:
+        from ..controller.delivery_service import get_delivery_service
+        delivery_service = get_delivery_service()
+        active_modes = delivery_service.get_active_modes()
+        return {
+            "modes": {
+                "direct": {
+                    "enabled": manager._settings.DELIVERY_MODE_DIRECT,
+                    "dry_run": manager._settings.DELIVERY_DIRECT_DRY_RUN,
+                },
+                "indirect": {
+                    "enabled": manager._settings.DELIVERY_MODE_INDIRECT,
+                },
+                "manual": {
+                    "enabled": manager._settings.DELIVERY_MODE_MANUAL,
+                },
+            },
+            "active_modes": [m.value for m in active_modes],
+        }
+    except RuntimeError:
+        # Delivery service not initialized
+        return {
+            "modes": {
+                "direct": {"enabled": False, "dry_run": False},
+                "indirect": {"enabled": False},
+                "manual": {"enabled": True},
+            },
+            "active_modes": ["manual"],
+        }
+
+
+@router.get('/settings/delivery/pending')
+async def get_pending_delivery_tasks(
+    db: DBSessionDep,
+    change_type: Optional[str] = None,
+    notifications_manager = Depends(get_notifications_manager)
+):
+    """Get pending manual delivery tasks (notifications)."""
+    try:
+        pending = notifications_manager.get_pending_delivery_notifications(
+            db=db,
+            change_type=change_type
+        )
+        return {
+            "count": len(pending),
+            "tasks": [n.model_dump() for n in pending]
+        }
+    except Exception as e:
+        logger.error("Error getting pending delivery tasks", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post('/settings/delivery/complete/{notification_id}', status_code=status.HTTP_200_OK)
+async def complete_delivery_task(
+    notification_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    notes: Optional[str] = Body(None, embed=True),
+    notifications_manager = Depends(get_notifications_manager)
+):
+    """Mark a manual delivery task as completed.
+    
+    Args:
+        notification_id: ID of the delivery notification to complete
+        notes: Optional notes about the completion
+    """
+    success = False
+    details = {"notification_id": notification_id}
+    
+    try:
+        from ..controller.notifications_manager import NotificationNotFoundError
+        
+        result = notifications_manager.complete_delivery_notification(
+            db=db,
+            notification_id=notification_id,
+            completed_by=current_user.username,
+            notes=notes,
+        )
+        
+        if result is None:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        
+        success = True
+        details["completed_by"] = current_user.username
+        return result.model_dump()
+        
+    except NotificationNotFoundError:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error completing delivery task", exc_info=True)
+        details["exception"] = str(e)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=SETTINGS_FEATURE_ID,
+            action="DELIVERY_COMPLETE",
+            success=success,
+            details=details
+        )

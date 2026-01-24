@@ -17,6 +17,7 @@ import TagsSettings from '@/components/settings/tags-settings';
 import JobsSettings from '@/components/settings/jobs-settings';
 import SearchConfigEditor from '@/components/settings/search-config-editor';
 import MCPTokensSettings from '@/components/settings/mcp-tokens-settings';
+import GitSettings from '@/components/settings/git-settings';
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +47,11 @@ interface AppSettings {
   gitRepoUrl: string;
   gitBranch: string;
   gitToken: string;
+  // Delivery mode settings
+  deliveryModeDirect: boolean;
+  deliveryModeIndirect: boolean;
+  deliveryModeManual: boolean;
+  deliveryDirectDryRun: boolean;
 }
 
 export default function Settings() {
@@ -60,7 +66,7 @@ export default function Settings() {
   
   // Determine the active tab from URL param or default to 'general'
   // Note: Workflows tab moved to Compliance view
-  const validTabs = ['general', 'databricks', 'git', 'jobs', 'roles', 'tags', 'semantic-models', 'search', 'mcp-tokens'];
+  const validTabs = ['general', 'databricks', 'git', 'delivery', 'jobs', 'roles', 'tags', 'semantic-models', 'search', 'mcp-tokens'];
   const activeTab = urlTab && validTabs.includes(urlTab) ? urlTab : 'general';
   
   // Tab display names for breadcrumbs
@@ -68,6 +74,7 @@ export default function Settings() {
     'general': t('settings:tabs.general', 'General'),
     'databricks': t('settings:tabs.databricks', 'Databricks'),
     'git': t('settings:tabs.git', 'Git'),
+    'delivery': t('settings:tabs.delivery', 'Delivery'),
     'jobs': t('settings:tabs.jobs', 'Jobs'),
     'roles': t('settings:tabs.roles', 'Roles'),
     'tags': t('settings:tabs.tags', 'Tags'),
@@ -104,7 +111,12 @@ export default function Settings() {
     databricksWarehouseId: '',
     gitRepoUrl: '',
     gitBranch: '',
-    gitToken: ''
+    gitToken: '',
+    // Delivery mode settings
+    deliveryModeDirect: false,
+    deliveryModeIndirect: false,
+    deliveryModeManual: true,
+    deliveryDirectDryRun: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -141,6 +153,14 @@ export default function Settings() {
             llmEndpoint: data.llm_endpoint || '',
             llmSystemPrompt: data.llm_system_prompt || '',
             llmDisclaimerText: data.llm_disclaimer_text || '',
+            // Delivery mode settings
+            deliveryModeDirect: data.delivery_mode_direct || false,
+            deliveryModeIndirect: data.delivery_mode_indirect || false,
+            deliveryModeManual: data.delivery_mode_manual ?? true,
+            deliveryDirectDryRun: data.delivery_direct_dry_run || false,
+            // Git settings
+            gitRepoUrl: data.git_repo_url || '',
+            gitBranch: data.git_branch || 'main',
           }));
         }
       } catch (error) {
@@ -168,6 +188,16 @@ export default function Settings() {
           llm_endpoint: settings.llmEndpoint,
           llm_system_prompt: settings.llmSystemPrompt,
           llm_disclaimer_text: settings.llmDisclaimerText,
+          // Delivery mode settings
+          delivery_mode_direct: settings.deliveryModeDirect,
+          delivery_mode_indirect: settings.deliveryModeIndirect,
+          delivery_mode_manual: settings.deliveryModeManual,
+          delivery_direct_dry_run: settings.deliveryDirectDryRun,
+          // Git settings
+          git_repo_url: settings.gitRepoUrl,
+          git_branch: settings.gitBranch,
+          git_username: '', // Placeholder - handled separately for security
+          git_password: settings.gitToken, // Token is used as password
         }),
       });
       if (response.ok) {
@@ -190,6 +220,27 @@ export default function Settings() {
   const handleLlmEnabledChange = (checked: boolean) => {
     if (!settings) return;
     setSettings({ ...settings, llmEnabled: checked });
+  };
+
+  // Delivery mode handlers
+  const handleDeliveryModeDirectChange = (checked: boolean) => {
+    if (!settings) return;
+    setSettings({ ...settings, deliveryModeDirect: checked });
+  };
+
+  const handleDeliveryModeIndirectChange = (checked: boolean) => {
+    if (!settings) return;
+    setSettings({ ...settings, deliveryModeIndirect: checked });
+  };
+
+  const handleDeliveryModeManualChange = (checked: boolean) => {
+    if (!settings) return;
+    setSettings({ ...settings, deliveryModeManual: checked });
+  };
+
+  const handleDeliveryDirectDryRunChange = (checked: boolean) => {
+    if (!settings) return;
+    setSettings({ ...settings, deliveryDirectDryRun: checked });
   };
   
   // Show loading while permissions are being fetched
@@ -259,6 +310,7 @@ export default function Settings() {
           <TabsTrigger value="general">{t('settings:tabs.general')}</TabsTrigger>
           <TabsTrigger value="databricks">{t('settings:tabs.databricks')}</TabsTrigger>
           <TabsTrigger value="git">{t('settings:tabs.git')}</TabsTrigger>
+          <TabsTrigger value="delivery">{t('settings:tabs.delivery', 'Delivery')}</TabsTrigger>
           <TabsTrigger value="jobs">{t('settings:tabs.jobs')}</TabsTrigger>
           <TabsTrigger value="roles">{t('settings:tabs.roles')}</TabsTrigger>
           <TabsTrigger value="tags">{t('settings:tabs.tags')}</TabsTrigger>
@@ -522,44 +574,116 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="git">
+          <GitSettings />
+        </TabsContent>
+
+        <TabsContent value="delivery">
           <Card>
             <CardHeader>
-              <CardTitle>{t('settings:git.title')}</CardTitle>
-              <CardDescription>{t('settings:git.description')}</CardDescription>
+              <CardTitle>{t('settings:delivery.title', 'Delivery Modes')}</CardTitle>
+              <CardDescription>
+                {t('settings:delivery.description', 'Configure how governance changes are propagated to external systems. Multiple modes can be active simultaneously.')}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="repo">{t('settings:git.labels.repoUrl')}</Label>
-                <Input
-                  id="repo"
-                  name="gitRepoUrl"
-                  value={settings.gitRepoUrl}
-                  onChange={handleChange}
-                  placeholder={t('settings:git.placeholders.repoUrl')}
-                />
+            <CardContent className="space-y-6">
+              {/* Direct Mode */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="delivery-direct" className="text-base font-medium">
+                      {t('settings:delivery.direct.label', 'Direct Mode')}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings:delivery.direct.description', 'Apply changes directly to Unity Catalog via SDK (GRANTs, tag assignments).')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="delivery-direct"
+                    checked={settings.deliveryModeDirect}
+                    onCheckedChange={handleDeliveryModeDirectChange}
+                    disabled={!hasWriteAccess || isLoading}
+                  />
+                </div>
+                
+                {settings.deliveryModeDirect && (
+                  <div className="ml-6 flex items-center space-x-2">
+                    <Switch
+                      id="delivery-direct-dry-run"
+                      checked={settings.deliveryDirectDryRun}
+                      onCheckedChange={handleDeliveryDirectDryRunChange}
+                      disabled={!hasWriteAccess || isLoading}
+                    />
+                    <Label htmlFor="delivery-direct-dry-run" className="text-sm">
+                      {t('settings:delivery.direct.dryRun', 'Dry-run mode (log changes without applying)')}
+                    </Label>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="branch">{t('settings:git.labels.branch')}</Label>
-                <Input
-                  id="branch"
-                  name="gitBranch"
-                  value={settings.gitBranch}
-                  onChange={handleChange}
-                  placeholder={t('settings:git.placeholders.branch')}
-                />
+
+              <Separator />
+
+              {/* Indirect Mode */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="delivery-indirect" className="text-base font-medium">
+                      {t('settings:delivery.indirect.label', 'Indirect Mode')}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings:delivery.indirect.description', 'Persist changes as YAML files in a Git repository for CI/CD integration.')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="delivery-indirect"
+                    checked={settings.deliveryModeIndirect}
+                    onCheckedChange={handleDeliveryModeIndirectChange}
+                    disabled={!hasWriteAccess || isLoading}
+                  />
+                </div>
+                
+                {settings.deliveryModeIndirect && (
+                  <div className="ml-6 p-4 bg-muted/50 rounded-lg space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings:delivery.indirect.gitInfo', 'Configure Git repository in the Git tab. Changes will be exported to the configured UC Volume under /git-export/.')}
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="git-token">{t('settings:git.labels.token')}</Label>
-                <Input
-                  id="git-token"
-                  name="gitToken"
-                  type="password"
-                  value={settings.gitToken}
-                  onChange={handleChange}
-                  placeholder={t('settings:git.placeholders.token')}
-                />
+
+              <Separator />
+
+              {/* Manual Mode */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="delivery-manual" className="text-base font-medium">
+                      {t('settings:delivery.manual.label', 'Manual Mode')}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings:delivery.manual.description', 'Generate notifications for admins to apply changes manually in external systems.')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="delivery-manual"
+                    checked={settings.deliveryModeManual}
+                    onCheckedChange={handleDeliveryModeManualChange}
+                    disabled={!hasWriteAccess || isLoading}
+                  />
+                </div>
               </div>
             </CardContent>
+            {hasWriteAccess && (
+              <CardFooter>
+                <Button onClick={handleSaveGeneralSettings} disabled={isSaving}>
+                  {isSaving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {t('settings:delivery.saveButton', 'Save Delivery Settings')}
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         </TabsContent>
 

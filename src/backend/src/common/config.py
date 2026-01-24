@@ -145,6 +145,13 @@ class Settings(BaseSettings):
     sandbox_allowed_schemas: List[str] = Field(default_factory=lambda: ['sandbox'], validation_alias=AliasChoices('SANDBOX_ALLOWED_SCHEMAS', 'sandbox_allowed_schemas'))
     sandbox_enforce_allowlist: bool = Field(True, validation_alias=AliasChoices('SANDBOX_ENFORCE_ALLOWLIST', 'sandbox_enforce_allowlist'))
 
+    # Delivery Mode settings
+    # Controls how governance changes (GRANTs, tag assignments, etc.) are propagated
+    DELIVERY_MODE_DIRECT: bool = Field(False, env='DELIVERY_MODE_DIRECT')  # Apply changes directly to Unity Catalog via SDK
+    DELIVERY_MODE_INDIRECT: bool = Field(False, env='DELIVERY_MODE_INDIRECT')  # Persist changes as YAML in Git repo
+    DELIVERY_MODE_MANUAL: bool = Field(True, env='DELIVERY_MODE_MANUAL')  # Generate notifications for manual action
+    DELIVERY_DIRECT_DRY_RUN: bool = Field(False, env='DELIVERY_DIRECT_DRY_RUN')  # Dry-run mode for direct delivery
+
     # Replace nested Config class with model_config dictionary
     model_config = SettingsConfigDict(
         env_file=str(DOTENV_FILE), 

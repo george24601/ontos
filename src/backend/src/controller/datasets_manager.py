@@ -14,6 +14,7 @@ from databricks.sdk import WorkspaceClient
 from src.common.logging import get_logger
 from src.common.search_interfaces import SearchableAsset, SearchIndexItem
 from src.common.search_registry import searchable_asset
+from src.common.delivery_mixin import DeliveryMixin
 from src.db_models.datasets import (
     DatasetDb,
     DatasetCustomPropertyDb,
@@ -47,13 +48,19 @@ logger = get_logger(__name__)
 
 
 @searchable_asset
-class DatasetsManager(SearchableAsset):
+class DatasetsManager(DeliveryMixin, SearchableAsset):
     """
     Manager for Dataset business logic.
     
     Handles CRUD operations, contract assignment, subscriptions,
     and provides search indexing.
+    
+    Inherits DeliveryMixin to support automatic delivery of changes
+    to configured delivery modes (Direct, Indirect, Manual).
     """
+    
+    # DeliveryMixin configuration
+    DELIVERY_ENTITY_TYPE = "Dataset"
 
     def __init__(
         self,
@@ -166,8 +173,17 @@ class DatasetsManager(SearchableAsset):
         self,
         data: DatasetCreate,
         created_by: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
     ) -> Dataset:
-        """Create a new dataset (logical grouping - physical assets added as instances)."""
+        """Create a new dataset (logical grouping - physical assets added as instances).
+        
+        Args:
+            data: Dataset creation data
+            created_by: Username of creator
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         try:
             # Generate ID
             dataset_id = str(uuid4())
@@ -215,7 +231,17 @@ class DatasetsManager(SearchableAsset):
             self._db.refresh(db_dataset)
             
             logger.info(f"Created dataset {dataset_id}: {data.name}")
-            return self._to_api_model(db_dataset)
+            result = self._to_api_model(db_dataset)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=db_dataset,
+                change_type=DeliveryChangeType.DATASET_CREATE,
+                user=created_by,
+                background_tasks=background_tasks,
+            )
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error creating dataset: {e}", exc_info=True)
@@ -227,8 +253,18 @@ class DatasetsManager(SearchableAsset):
         dataset_id: str,
         data: DatasetUpdate,
         updated_by: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
     ) -> Optional[Dataset]:
-        """Update an existing dataset (logical fields only)."""
+        """Update an existing dataset (logical fields only).
+        
+        Args:
+            dataset_id: Dataset ID to update
+            data: Update data
+            updated_by: Username of updater
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         try:
             db_dataset = dataset_repo.get_with_all(db=self._db, id=dataset_id)
             if not db_dataset:
@@ -281,7 +317,17 @@ class DatasetsManager(SearchableAsset):
             self._db.refresh(db_dataset)
             
             logger.info(f"Updated dataset {dataset_id}")
-            return self._to_api_model(db_dataset)
+            result = self._to_api_model(db_dataset)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=db_dataset,
+                change_type=DeliveryChangeType.DATASET_UPDATE,
+                user=updated_by,
+                background_tasks=background_tasks,
+            )
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error updating dataset {dataset_id}: {e}", exc_info=True)

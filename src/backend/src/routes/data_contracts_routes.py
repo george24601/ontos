@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, List
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, Depends, Request, Body, Query
+from fastapi import APIRouter, File, HTTPException, UploadFile, Depends, Request, Body, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from src.controller.data_contracts_manager import DataContractsManager
@@ -797,6 +797,7 @@ async def handle_status_change_response(
 async def create_contract(
     request: Request,
     db: DBSessionDep,
+    background_tasks: BackgroundTasks,
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
     contract_data: DataContractCreate = Body(...),
@@ -830,11 +831,12 @@ async def create_contract(
                     detail="You must be a member of the project to create a contract in it"
                 )
         
-        # Business logic now in manager
+        # Business logic now in manager (delivery handled via DeliveryMixin)
         created = manager.create_contract_with_relations(
             db=db,
             contract_data=contract_data,
-            current_user=current_user.username if current_user else None
+            current_user=current_user.username if current_user else None,
+            background_tasks=background_tasks,
         )
         
         success = True
@@ -873,6 +875,7 @@ async def update_contract(
     contract_id: str,
     request: Request,
     db: DBSessionDep,
+    background_tasks: BackgroundTasks,
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
     contract_data: DataContractUpdate = Body(...),
@@ -953,12 +956,13 @@ async def update_contract(
                         )
                         # Continue with update - admin override in effect
 
-        # Business logic now in manager
+        # Business logic now in manager (delivery handled via DeliveryMixin)
         updated = manager.update_contract_with_relations(
             db=db,
             contract_id=contract_id,
             contract_data=contract_data,
-            current_user=current_user.username if current_user else None
+            current_user=current_user.username if current_user else None,
+            background_tasks=background_tasks,
         )
 
         success = True

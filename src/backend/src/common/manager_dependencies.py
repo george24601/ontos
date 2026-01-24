@@ -24,6 +24,7 @@ from src.controller.jobs_manager import JobsManager
 from src.controller.workspace_manager import WorkspaceManager
 from src.controller.change_log_manager import ChangeLogManager
 from src.controller.datasets_manager import DatasetsManager
+from src.controller.delivery_service import DeliveryService
 
 # Import other dependencies needed by these providers
 from src.common.database import get_db
@@ -179,6 +180,14 @@ def get_datasets_manager(request: Request) -> DatasetsManager:
     return manager
 
 # Add getters for Compliance, Estate, MDM, Security, Entitlements, Catalog Commander managers when they are added
+
+def get_delivery_service(request: Request) -> DeliveryService:
+    """Get the DeliveryService for multi-mode delivery of governance changes."""
+    service = getattr(request.app.state, "delivery_service", None)
+    if not service:
+        logger.warning("DeliveryService not found in application state - delivery features disabled")
+        return None
+    return service
 
 # --- Add other manager getters if needed --- #
 # Example:

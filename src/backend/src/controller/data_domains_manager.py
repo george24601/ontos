@@ -18,12 +18,24 @@ from src.controller.tags_manager import TagsManager
 from src.common.search_interfaces import SearchableAsset, SearchIndexItem
 from src.common.search_registry import searchable_asset
 from src.common.database import get_session_factory
+from src.common.delivery_mixin import DeliveryMixin
+from typing import Any
 
 from src.common.logging import get_logger
 logger = get_logger(__name__)
 
+
 @searchable_asset
-class DataDomainManager(SearchableAsset):
+class DataDomainManager(DeliveryMixin, SearchableAsset):
+    """Manager for Data Domains.
+    
+    Inherits DeliveryMixin to support automatic delivery of changes
+    to configured delivery modes (Direct, Indirect, Manual).
+    """
+    
+    # DeliveryMixin configuration
+    DELIVERY_ENTITY_TYPE = "DataDomain"
+    
     def __init__(self, repository: DataDomainRepository, tags_manager: Optional[TagsManager] = None):
         self.repository = repository
         self.tags_manager = tags_manager or TagsManager()
@@ -71,8 +83,23 @@ class DataDomainManager(SearchableAsset):
             children_info=children_info_data
         )
 
-    def create_domain(self, db: Session, domain_in: DataDomainCreate, current_user_id: str) -> DataDomainRead:
-        """Creates a new data domain."""
+    def create_domain(
+        self,
+        db: Session,
+        domain_in: DataDomainCreate,
+        current_user_id: str,
+        background_tasks: Optional[Any] = None,
+    ) -> DataDomainRead:
+        """Creates a new data domain.
+        
+        Args:
+            db: Database session
+            domain_in: Domain creation data
+            current_user_id: Username of creator
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         logger.debug(f"Attempting to create data domain: {domain_in.name}")
         
         if domain_in.parent_id:
@@ -128,7 +155,17 @@ class DataDomainManager(SearchableAsset):
             # For simplicity here, assume children relationship can be counted via len().
             # db.refresh(db_domain, with_for_update=None, attribute_names=['children']) # This reloads ALL children objects.
 
-            return self._convert_db_to_read_model(db_domain, db)
+            result = self._convert_db_to_read_model(db_domain, db)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=db_domain,
+                change_type=DeliveryChangeType.DOMAIN_CREATE,
+                user=current_user_id,
+                background_tasks=background_tasks,
+            )
+            
+            return result
         except IntegrityError as e:
             db.rollback()
             logger.warning(f"Integrity error creating data domain '{domain_in.name}': {e}")
@@ -161,8 +198,25 @@ class DataDomainManager(SearchableAsset):
         db_domains = self.repository.get_multi_with_details(db, skip=skip, limit=limit) # Assume repo method loads details
         return [self._convert_db_to_read_model(domain, db) for domain in db_domains]
 
-    def update_domain(self, db: Session, domain_id: UUID, domain_in: DataDomainUpdate, current_user_id: str) -> Optional[DataDomainRead]:
-        """Updates an existing data domain."""
+    def update_domain(
+        self,
+        db: Session,
+        domain_id: UUID,
+        domain_in: DataDomainUpdate,
+        current_user_id: str,
+        background_tasks: Optional[Any] = None,
+    ) -> Optional[DataDomainRead]:
+        """Updates an existing data domain.
+        
+        Args:
+            db: Database session
+            domain_id: Domain ID to update
+            domain_in: Update data
+            current_user_id: Username of updater
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         logger.debug(f"Attempting to update data domain with id: {domain_id}")
         db_domain = self.repository.get(db, domain_id) # Get the raw domain first
         if not db_domain:
@@ -204,7 +258,17 @@ class DataDomainManager(SearchableAsset):
             except Exception as log_error:
                 logger.warning(f"Failed to log change for domain update: {log_error}")
             
-            return self._convert_db_to_read_model(updated_db_domain, db)
+            result = self._convert_db_to_read_model(updated_db_domain, db)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=updated_db_domain,
+                change_type=DeliveryChangeType.DOMAIN_UPDATE,
+                user=current_user_id,
+                background_tasks=background_tasks,
+            )
+            
+            return result
         except IntegrityError as e:
              db.rollback()
              logger.warning(f"Integrity error updating data domain {domain_id}: {e}")

@@ -37,10 +37,11 @@ DATA_DOMAINS_FEATURE_ID = "data-domains" # Use a consistent ID
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(PermissionChecker(DATA_DOMAINS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))]
 )
-def create_data_domain(
+async def create_data_domain(
     request: Request,
     domain_in: DataDomainCreate,
     db: DBSessionDep,
+    background_tasks: BackgroundTasks,
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
     manager: DataDomainManager = Depends(get_data_domain_manager)
@@ -54,10 +55,17 @@ def create_data_domain(
 
     logger.info(f"User '{current_user.email}' attempting to create data domain: {domain_in.name}")
     try:
-        created_domain = manager.create_domain(db=db, domain_in=domain_in, current_user_id=current_user.email)
+        # Delivery handled via DeliveryMixin in manager
+        created_domain = manager.create_domain(
+            db=db,
+            domain_in=domain_in,
+            current_user_id=current_user.email,
+            background_tasks=background_tasks,
+        )
         db.commit()
         success = True
         created_domain_id = str(created_domain.id)
+        
         return created_domain
     except ConflictError as e:
         db.rollback()
@@ -125,11 +133,12 @@ def get_data_domain(
     response_model=DataDomainRead,
     dependencies=[Depends(PermissionChecker(DATA_DOMAINS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))]
 )
-def update_data_domain(
+async def update_data_domain(
     domain_id: UUID,
     request: Request,
     domain_in: DataDomainUpdate,
     db: DBSessionDep,
+    background_tasks: BackgroundTasks,
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
     manager: DataDomainManager = Depends(get_data_domain_manager)
@@ -142,14 +151,17 @@ def update_data_domain(
 
     logger.info(f"User '{current_user.email}' attempting to update data domain: {domain_id}")
     try:
+        # Delivery handled via DeliveryMixin in manager
         updated_domain = manager.update_domain(
             db=db,
             domain_id=domain_id,
             domain_in=domain_in,
-            current_user_id=current_user.email
+            current_user_id=current_user.email,
+            background_tasks=background_tasks,
         )
         db.commit()
         success = True
+        
         return updated_domain
     except NotFoundError as e:
         db.rollback()

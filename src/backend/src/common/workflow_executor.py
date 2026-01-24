@@ -414,6 +414,90 @@ class FailStepHandler(StepHandler):
         return StepResult(passed=False, message=message)
 
 
+class DeliveryStepHandler(StepHandler):
+    """Handler for delivery steps - triggers change delivery via DeliveryService.
+    
+    Config options:
+        change_type: Type of change (grant, revoke, tag_assign, etc.)
+        modes: Optional list of delivery modes (direct, indirect, manual)
+                If not specified, uses configured defaults
+    """
+
+    def execute(self, context: StepContext) -> StepResult:
+        from src.controller.delivery_service import (
+            get_delivery_service, 
+            DeliveryPayload, 
+            DeliveryChangeType,
+            DeliveryMode,
+        )
+        
+        change_type_str = self._config.get('change_type', 'grant')
+        modes_str = self._config.get('modes', [])  # Empty = use defaults
+        
+        try:
+            # Parse change type
+            try:
+                change_type = DeliveryChangeType(change_type_str)
+            except ValueError:
+                change_type = DeliveryChangeType.GRANT  # Default
+            
+            # Parse modes if specified
+            modes = None
+            if modes_str:
+                modes = []
+                for m in modes_str:
+                    try:
+                        modes.append(DeliveryMode(m))
+                    except ValueError:
+                        logger.warning(f"Unknown delivery mode: {m}")
+            
+            # Build payload from context
+            payload = DeliveryPayload(
+                change_type=change_type,
+                entity_type=context.entity_type,
+                entity_id=context.entity_id,
+                data={
+                    'entity': context.entity,
+                    **self._config.get('data', {}),
+                },
+                user=context.user_email,
+            )
+            
+            # Get delivery service and execute
+            try:
+                delivery_service = get_delivery_service()
+            except RuntimeError:
+                return StepResult(
+                    passed=False,
+                    error="Delivery service not initialized"
+                )
+            
+            results = delivery_service.deliver(payload, modes=modes)
+            
+            if results.all_success:
+                return StepResult(
+                    passed=True,
+                    message=f"Delivered via {len(results.results)} mode(s)",
+                    data=results.to_dict()
+                )
+            elif results.any_success:
+                return StepResult(
+                    passed=True,
+                    message=f"Partially delivered ({len([r for r in results.results if r.success])}/{len(results.results)} modes succeeded)",
+                    data=results.to_dict()
+                )
+            else:
+                return StepResult(
+                    passed=False,
+                    error="; ".join(results.errors) if results.errors else "All delivery modes failed",
+                    data=results.to_dict()
+                )
+                
+        except Exception as e:
+            logger.exception(f"Delivery step failed: {e}")
+            return StepResult(passed=False, error=str(e))
+
+
 class PolicyCheckStepHandler(StepHandler):
     """Handler for policy check steps - evaluates existing compliance policy by UUID."""
 
@@ -492,6 +576,7 @@ class WorkflowExecutor:
         'pass': PassStepHandler,
         'fail': FailStepHandler,
         'policy_check': PolicyCheckStepHandler,
+        'delivery': DeliveryStepHandler,
     }
 
     def __init__(self, db: Session):

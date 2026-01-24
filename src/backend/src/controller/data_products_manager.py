@@ -55,12 +55,21 @@ from src.models.tags import AssignedTagCreate
 from src.common.logging import get_logger
 from src.common.database import get_session_factory
 from src.common import genie_client
+from src.common.delivery_mixin import DeliveryMixin
 
 logger = get_logger(__name__)
 
 
 @searchable_asset
-class DataProductsManager(SearchableAsset):
+class DataProductsManager(DeliveryMixin, SearchableAsset):
+    """Manager for ODPS v1.0.0 Data Products.
+    
+    Inherits DeliveryMixin to support automatic delivery of changes
+    to configured delivery modes (Direct, Indirect, Manual).
+    """
+    
+    # DeliveryMixin configuration
+    DELIVERY_ENTITY_TYPE = "DataProduct"
     def __init__(
         self,
         db: Session,
@@ -95,13 +104,23 @@ class DataProductsManager(SearchableAsset):
         """Get all ODPS v1.0.0 status values."""
         return [s.value for s in DataProductStatus]
 
-    def create_product(self, product_data: Dict[str, Any], db: Optional[Session] = None) -> DataProductApi:
+    def create_product(
+        self,
+        product_data: Dict[str, Any],
+        db: Optional[Session] = None,
+        user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
+    ) -> DataProductApi:
         """Creates a new ODPS v1.0.0 data product via the repository.
         
         Args:
             product_data: Dictionary containing product data
-            db: Optional database session to use. If not provided, uses self._db (for backward compatibility)
+            db: Optional database session to use. If not provided, uses self._db
+            user: Optional user who created the product (for delivery tracking)
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
         """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         logger.debug(f"Manager creating ODPS product from data: {product_data}")
         # Use provided session or fall back to instance session
         db_session = db if db is not None else self._db
@@ -136,8 +155,18 @@ class DataProductsManager(SearchableAsset):
                 except Exception as e:
                     logger.error(f"Failed to assign tags to product {created_db_obj.id}: {e}")
 
-            # Load and return with tags
-            return self._load_product_with_tags(created_db_obj)
+            # Load product with tags
+            result = self._load_product_with_tags(created_db_obj)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=created_db_obj,
+                change_type=DeliveryChangeType.PRODUCT_CREATE,
+                user=user,
+                background_tasks=background_tasks,
+            )
+            
+            return result
 
         except SQLAlchemyError as e:
             logger.error(f"Database error creating ODPS product: {e}")
@@ -198,14 +227,25 @@ class DataProductsManager(SearchableAsset):
             logger.error(f"Unexpected error listing products: {e}")
             raise
 
-    def update_product(self, product_id: str, product_data_dict: Dict[str, Any], db: Optional[Session] = None) -> Optional[DataProductApi]:
+    def update_product(
+        self,
+        product_id: str,
+        product_data_dict: Dict[str, Any],
+        db: Optional[Session] = None,
+        user: Optional[str] = None,
+        background_tasks: Optional[Any] = None,
+    ) -> Optional[DataProductApi]:
         """Update an existing ODPS v1.0.0 data product.
         
         Args:
             product_id: ID of product to update
             product_data_dict: Updated product data
             db: Optional database session. If not provided, uses self._db
+            user: Optional user who updated the product (for delivery tracking)
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
         """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         logger.debug(f"Manager updating ODPS product {product_id}")
         logger.debug(f"Update payload keys: {product_data_dict.keys()}")
         logger.debug(f"owner_team_id in payload: {product_data_dict.get('owner_team_id')}")
@@ -246,8 +286,18 @@ class DataProductsManager(SearchableAsset):
                     db_session.rollback()
                     raise
 
-            # Load and return with tags
-            return self._load_product_with_tags(updated_db_obj)
+            # Load product with tags
+            result = self._load_product_with_tags(updated_db_obj)
+            
+            # Queue delivery for active modes
+            self._queue_delivery(
+                entity=updated_db_obj,
+                change_type=DeliveryChangeType.PRODUCT_UPDATE,
+                user=user,
+                background_tasks=background_tasks,
+            )
+            
+            return result
 
         except SQLAlchemyError as e:
             logger.error(f"Database error updating ODPS product {product_id}: {e}")
@@ -264,7 +314,8 @@ class DataProductsManager(SearchableAsset):
         product_data_dict: Dict[str, Any],
         user_email: str,
         user_groups: List[str],
-        db: Optional[Session] = None
+        db: Optional[Session] = None,
+        background_tasks: Optional[Any] = None,
     ) -> Optional[DataProductApi]:
         """
         Update a data product with project membership authorization check.
@@ -278,6 +329,7 @@ class DataProductsManager(SearchableAsset):
             user_email: Email of user making the update
             user_groups: List of groups the user belongs to
             db: Optional database session. If not provided, uses self._db
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
 
         Returns:
             Updated product if successful, None if not found
@@ -321,7 +373,13 @@ class DataProductsManager(SearchableAsset):
                     )
 
             # Perform update (validation happens inside update_product)
-            return self.update_product(product_id, product_data_dict, db=db_session)
+            return self.update_product(
+                product_id,
+                product_data_dict,
+                db=db_session,
+                user=user_email,
+                background_tasks=background_tasks,
+            )
         
         except PermissionError:
             # Don't rollback for permission errors as no data was modified

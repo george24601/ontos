@@ -6,7 +6,7 @@ FastAPI endpoints for Dataset CRUD operations, subscriptions, and queries.
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request, status
 
 from src.common.dependencies import (
     DBSessionDep,
@@ -216,7 +216,7 @@ async def get_dataset(
 async def create_dataset(
     request: Request,
     db: DBSessionDep,
-
+    background_tasks: BackgroundTasks,
     current_user: CurrentUserDep,
     dataset_data: DatasetCreate = Body(...),
     _: bool = Depends(PermissionChecker(FEATURE_ID, FeatureAccessLevel.READ_WRITE)),
@@ -232,10 +232,13 @@ async def create_dataset(
     manager = get_datasets_manager(request)
     
     try:
+        # Delivery handled via DeliveryMixin in manager
         dataset = manager.create_dataset(
             data=dataset_data,
             created_by=current_user.username,
+            background_tasks=background_tasks,
         )
+        
         return dataset
     except ValueError as e:
         raise HTTPException(
@@ -255,7 +258,7 @@ async def update_dataset(
     dataset_id: str,
     request: Request,
     db: DBSessionDep,
-
+    background_tasks: BackgroundTasks,
     current_user: CurrentUserDep,
     dataset_data: DatasetUpdate = Body(...),
     _: bool = Depends(PermissionChecker(FEATURE_ID, FeatureAccessLevel.READ_WRITE)),
@@ -270,10 +273,12 @@ async def update_dataset(
     manager = get_datasets_manager(request)
     
     try:
+        # Delivery handled via DeliveryMixin in manager
         dataset = manager.update_dataset(
             dataset_id=dataset_id,
             data=dataset_data,
             updated_by=current_user.username,
+            background_tasks=background_tasks,
         )
         
         if not dataset:

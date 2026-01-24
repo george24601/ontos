@@ -21,11 +21,23 @@ from src.db_models.tags import TagDb, TagNamespaceDb # For type hints
 from src.common.search_interfaces import SearchableAsset, SearchIndexItem
 from src.common.search_registry import searchable_asset
 from src.common.database import get_session_factory
+from src.common.delivery_mixin import DeliveryMixin
+from typing import Any
 
 logger = get_logger(__name__)
 
+
 @searchable_asset
-class TagsManager(SearchableAsset):
+class TagsManager(DeliveryMixin, SearchableAsset):
+    """Manager for Tags and Tag Namespaces.
+    
+    Inherits DeliveryMixin to support automatic delivery of changes
+    to configured delivery modes (Direct, Indirect, Manual).
+    """
+    
+    # DeliveryMixin configuration
+    DELIVERY_ENTITY_TYPE = "TagNamespace"
+    
     def __init__(
         self,
         namespace_repo: TagNamespaceRepository = tag_namespace_repo,
@@ -39,7 +51,24 @@ class TagsManager(SearchableAsset):
         self._entity_assoc_repo = entity_assoc_repo
 
     # --- Namespace Methods ---
-    def create_namespace(self, db: Session, *, namespace_in: TagNamespaceCreate, user_email: Optional[str]) -> TagNamespace:
+    def create_namespace(
+        self,
+        db: Session,
+        *,
+        namespace_in: TagNamespaceCreate,
+        user_email: Optional[str],
+        background_tasks: Optional[Any] = None,
+    ) -> TagNamespace:
+        """Create a new tag namespace.
+        
+        Args:
+            db: Database session
+            namespace_in: Namespace creation data
+            user_email: User creating the namespace
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         existing_namespace = self._namespace_repo.get_by_name(db, name=namespace_in.name)
         if existing_namespace:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, 
@@ -47,7 +76,18 @@ class TagsManager(SearchableAsset):
         db_namespace = self._namespace_repo.create(db, obj_in=namespace_in, user_email=user_email)
         db.commit()
         db.refresh(db_namespace)
-        return TagNamespace.from_orm(db_namespace)
+        
+        result = TagNamespace.from_orm(db_namespace)
+        
+        # Queue delivery for active modes
+        self._queue_delivery(
+            entity=db_namespace,
+            change_type=DeliveryChangeType.TAG_CREATE,
+            user=user_email,
+            background_tasks=background_tasks,
+        )
+        
+        return result
 
     def get_namespace(self, db: Session, *, namespace_id: UUID) -> Optional[TagNamespace]:
         db_namespace = self._namespace_repo.get(db, id=namespace_id)
@@ -61,7 +101,26 @@ class TagsManager(SearchableAsset):
         db_namespaces = self._namespace_repo.get_multi(db, skip=skip, limit=limit)
         return [TagNamespace.from_orm(ns) for ns in db_namespaces]
 
-    def update_namespace(self, db: Session, *, namespace_id: UUID, namespace_in: TagNamespaceUpdate, user_email: Optional[str]) -> Optional[TagNamespace]:
+    def update_namespace(
+        self,
+        db: Session,
+        *,
+        namespace_id: UUID,
+        namespace_in: TagNamespaceUpdate,
+        user_email: Optional[str],
+        background_tasks: Optional[Any] = None,
+    ) -> Optional[TagNamespace]:
+        """Update an existing tag namespace.
+        
+        Args:
+            db: Database session
+            namespace_id: Namespace ID to update
+            namespace_in: Update data
+            user_email: User updating the namespace
+            background_tasks: Optional FastAPI BackgroundTasks for async delivery
+        """
+        from src.controller.delivery_service import DeliveryChangeType
+        
         db_namespace = self._namespace_repo.get(db, id=namespace_id)
         if not db_namespace:
             return None
@@ -74,7 +133,18 @@ class TagsManager(SearchableAsset):
         updated_db_namespace = self._namespace_repo.update(db, db_obj=db_namespace, obj_in=namespace_in, user_email=user_email)
         db.commit()
         db.refresh(updated_db_namespace)
-        return TagNamespace.from_orm(updated_db_namespace)
+        
+        result = TagNamespace.from_orm(updated_db_namespace)
+        
+        # Queue delivery for active modes
+        self._queue_delivery(
+            entity=updated_db_namespace,
+            change_type=DeliveryChangeType.TAG_UPDATE,
+            user=user_email,
+            background_tasks=background_tasks,
+        )
+        
+        return result
 
     def delete_namespace(self, db: Session, *, namespace_id: UUID) -> bool:
         # Ensure it's not the default namespace
