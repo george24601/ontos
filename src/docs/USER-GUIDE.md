@@ -17,7 +17,8 @@
 13. [Asset Review Workflow](#asset-review-workflow)
 14. [User Roles and Permissions](#user-roles-and-permissions)
 15. [MCP Integration (AI Assistants)](#mcp-integration-ai-assistants)
-16. [Best Practices](#best-practices)
+16. [Delivery Modes](#delivery-modes)
+17. [Best Practices](#best-practices)
 
 ---
 
@@ -2887,6 +2888,335 @@ curl https://your-ontos-instance/api/mcp/health
   "version": "1.0.0"
 }
 ```
+
+---
+
+## Delivery Modes
+
+Delivery Modes control how Ontos persists and propagates changes to external systems when entities (Data Products, Data Contracts, Datasets, Domains, Roles, Tags) are created or updated.
+
+### What are Delivery Modes?
+
+When you create or update an entity in Ontos, the change can be **delivered** to external systems in different ways:
+
+- **Direct Mode**: Automatically apply changes to Unity Catalog (e.g., GRANTs, permissions)
+- **Indirect Mode**: Export changes as YAML files to a Git repository for GitOps/CI-CD workflows
+- **Manual Mode**: Generate actionable notifications for administrators to apply changes manually
+
+Multiple modes can be active simultaneously. For example, you might use Direct mode for immediate access grants while also persisting all changes to Git for version history and audit trails.
+
+### Delivery Modes Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          DELIVERY MODES                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Entity Change (Create/Update)                                             │
+│         │                                                                   │
+│         ▼                                                                   │
+│   ┌─────────────────┐                                                       │
+│   │ Delivery Service│                                                       │
+│   └────────┬────────┘                                                       │
+│            │                                                                │
+│   ┌────────┼────────────────────────────┐                                   │
+│   │        │                            │                                   │
+│   ▼        ▼                            ▼                                   │
+│ ┌──────┐ ┌──────────┐              ┌────────┐                               │
+│ │Direct│ │ Indirect │              │ Manual │                               │
+│ │ Mode │ │   Mode   │              │  Mode  │                               │
+│ └──┬───┘ └────┬─────┘              └───┬────┘                               │
+│    │          │                        │                                    │
+│    ▼          ▼                        ▼                                    │
+│ UC GRANTs   YAML to Git         Notification                               │
+│ Applied     Repository          for Admin                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Direct Mode
+
+**Purpose**: Automatically apply changes directly to connected systems using the service principal.
+
+**Use Cases**:
+- Grant access permissions immediately when a Data Product is published
+- Update Unity Catalog tags when metadata changes
+- Apply security policies to new datasets
+
+**How It Works**:
+1. Entity is created or updated in Ontos
+2. Delivery Service detects active Direct mode
+3. Grant Manager applies the appropriate changes to Unity Catalog
+4. Changes take effect immediately
+
+**Configuration**:
+1. Navigate to **Settings → Delivery**
+2. Enable **Direct Mode**
+3. Optionally enable **Dry Run** to test without applying changes
+
+**Dry Run Mode**: When enabled, Direct mode will log what changes *would* be applied without actually executing them. Useful for testing and validation.
+
+**Example Scenario**:
+```text
+User creates a Data Product with output port:
+  → Direct Mode triggers
+  → Grant Manager applies SELECT permission to the output table
+  → Data consumers can immediately query the table
+```
+
+### Indirect Mode
+
+**Purpose**: Export entity changes as YAML files to a Git repository for GitOps workflows, CI/CD pipelines, and version-controlled configuration management.
+
+**Use Cases**:
+- Maintain version history of all governance configurations
+- Trigger CI/CD pipelines when configurations change
+- Enable infrastructure-as-code patterns for data governance
+- Audit trail through Git commit history
+- Multi-environment promotion (dev → staging → prod)
+
+**How It Works**:
+1. Entity is created or updated in Ontos
+2. Delivery Service detects active Indirect mode
+3. Entity is serialized to YAML using File Models
+4. YAML file is written to the local Git repository
+5. Administrator reviews and pushes changes to remote
+
+#### Git Repository Setup
+
+Before using Indirect mode, configure the Git repository:
+
+1. Navigate to **Settings → Git**
+2. Fill in repository details:
+   - **Repository URL**: HTTPS URL (e.g., `https://github.com/org/ontos-state.git`)
+   - **Branch**: Target branch (e.g., `main`)
+   - **Username**: Git username (or leave empty for PAT-only auth)
+   - **Token**: Personal Access Token with repository write permissions
+
+3. Click **Save Settings**
+4. Click **Clone Repository** to clone the repo to the configured volume
+
+**Creating a GitHub PAT**:
+1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Set a descriptive name and expiration
+4. Select scopes: `repo` (full repository access)
+5. Generate and copy the token
+
+#### YAML File Structure
+
+Entities are exported in a Kubernetes-style resource format:
+
+```yaml
+apiVersion: ontos/v1
+kind: DataProduct
+metadata:
+  name: customer-360-view
+  id: "abc123-def456"
+  createdAt: "2026-01-15T10:30:00Z"
+  updatedAt: "2026-01-24T14:45:00Z"
+spec:
+  title: Customer 360 View
+  version: "2.1.0"
+  status: active
+  ownerTeam: analytics-team
+  domain: Customer
+  description: Comprehensive customer profile...
+  inputPorts:
+    - name: crm-data-input
+      sourceType: data-product
+      sourceId: customer-master-data
+  outputPorts:
+    - name: customer_360_enriched
+      type: table
+      location: main.analytics.customer_360_v2
+      dataContractId: customer-data-contract-v1
+```
+
+#### Supported Entity Types
+
+The following entities are exported to YAML:
+
+| Entity Type | File Path Pattern | Example |
+|-------------|-------------------|---------|
+| Data Product | `data-products/{id}.yaml` | `data-products/abc123.yaml` |
+| Data Contract | `data-contracts/{id}.yaml` | `data-contracts/def456.yaml` |
+| Dataset | `datasets/{id}.yaml` | `datasets/ghi789.yaml` |
+| Data Domain | `data-domains/{id}.yaml` | `data-domains/jkl012.yaml` |
+| App Role | `roles/{id}.yaml` | `roles/mno345.yaml` |
+| Tag Namespace | `tags/{id}.yaml` | `tags/pqr678.yaml` |
+
+#### Git Operations
+
+**Status**: View the current repository state
+1. Navigate to **Settings → Git**
+2. The status panel shows:
+   - Clone status (Not Cloned, Cloned, Error)
+   - Current branch
+   - Last sync time
+   - Pending changes count
+
+**Pull**: Fetch latest changes from remote
+1. Click **Pull** to update local repository
+2. Useful before making changes to ensure you have the latest state
+
+**Diff**: Review pending changes
+1. Click **View Diff** to see uncommitted changes
+2. Review added, modified, and deleted files
+3. Verify changes before committing
+
+**Push**: Commit and push changes to remote
+1. Click **Push Changes**
+2. Enter a commit message describing the changes
+3. Click **Commit & Push**
+4. Changes are pushed to the configured remote branch
+
+**Workflow Example**:
+```text
+1. Create Data Product in Ontos UI
+   ↓
+2. YAML file written: data-products/abc123.yaml
+   ↓
+3. Navigate to Settings → Git → View Diff
+   ↓
+4. Review changes, click Push Changes
+   ↓
+5. Enter commit message: "Add customer-360-view data product"
+   ↓
+6. Changes pushed to Git remote
+   ↓
+7. CI/CD pipeline triggered (optional, external)
+```
+
+### Manual Mode
+
+**Purpose**: Generate actionable notifications for administrators when changes require human intervention in external systems.
+
+**Use Cases**:
+- Changes that cannot be automated (legacy systems, external tools)
+- High-risk changes requiring human approval and execution
+- Organizations with strict change control processes
+- Environments where automated access is restricted
+
+**How It Works**:
+1. Entity is created or updated in Ontos
+2. Delivery Service detects active Manual mode
+3. A notification is created with:
+   - Change details (entity type, ID, what changed)
+   - Instructions for manual action
+   - Link to the entity
+4. Administrator receives notification
+5. Administrator performs manual action in external system
+6. Administrator marks notification as completed
+
+**Configuration**:
+1. Navigate to **Settings → Delivery**
+2. Enable **Manual Mode**
+
+**Notification Example**:
+```text
+Title: Manual Delivery Required: Data Product Updated
+Type: delivery
+Entity: DataProduct (customer-360-view)
+Change: PRODUCT_UPDATE
+User: alice@company.com
+
+Action Required:
+Apply the following changes in Unity Catalog:
+- Update tags on table main.analytics.customer_360_v2
+- Verify access permissions match contract requirements
+
+[Mark Complete] [View Entity]
+```
+
+### Configuring Delivery Modes
+
+Navigate to **Settings → Delivery** to configure delivery modes.
+
+#### Delivery Settings Panel
+
+| Setting | Description |
+|---------|-------------|
+| **Direct Mode** | Enable automatic application of changes to Unity Catalog |
+| **Direct Dry Run** | Test direct mode without applying changes |
+| **Indirect Mode** | Enable YAML export to Git repository |
+| **Manual Mode** | Enable notification-based manual delivery |
+
+#### Recommended Configurations
+
+**Development Environment**:
+```text
+Direct Mode: ✓ (enabled)
+Direct Dry Run: ✓ (enabled for testing)
+Indirect Mode: ✓ (enabled for tracking)
+Manual Mode: ✗ (disabled)
+```
+
+**Staging Environment**:
+```text
+Direct Mode: ✓ (enabled)
+Direct Dry Run: ✗ (disabled)
+Indirect Mode: ✓ (enabled for CI/CD triggers)
+Manual Mode: ✗ (disabled)
+```
+
+**Production Environment (GitOps)**:
+```text
+Direct Mode: ✗ (disabled - changes flow through GitOps)
+Indirect Mode: ✓ (enabled - source of truth)
+Manual Mode: ✓ (enabled - for exceptions)
+```
+
+**Production Environment (Direct)**:
+```text
+Direct Mode: ✓ (enabled)
+Indirect Mode: ✓ (enabled - for audit trail)
+Manual Mode: ✗ (disabled)
+```
+
+### Error Handling
+
+Delivery operations use a "best effort" approach:
+- Delivery failures do not block the primary operation (create/update)
+- Errors are logged but do not prevent the user from saving changes
+- Failed deliveries can be retried manually
+
+**Checking for Issues**:
+1. View backend logs for delivery errors
+2. Check Git status for uncommitted changes
+3. Review notification history for failed manual deliveries
+
+**Common Issues**:
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Git clone fails | Invalid credentials | Verify PAT has `repo` scope |
+| Push rejected | Remote has newer commits | Pull before pushing |
+| YAML not generated | Entity type not supported | Check supported entity types |
+| Direct mode no effect | Dry run enabled | Disable dry run for real changes |
+
+### Best Practices
+
+#### GitOps Workflow
+
+1. **Single Source of Truth**: Use Git as the authoritative source for configurations
+2. **Pull Requests**: Require PR reviews for production changes
+3. **Branch Strategy**: Use feature branches for development
+4. **Automated Testing**: Run validation in CI before merge
+5. **Automated Deployment**: Deploy from Git to target environments
+
+#### Security Considerations
+
+1. **PAT Scope**: Grant minimal required permissions (only `repo`)
+2. **Token Rotation**: Rotate Git tokens regularly (every 90 days)
+3. **Audit Trail**: Use meaningful commit messages
+4. **Access Control**: Limit who can push to production branches
+
+#### Multi-Mode Strategy
+
+1. **Redundancy**: Enable both Direct and Indirect for critical changes
+2. **Verification**: Use Indirect mode's Git history to verify Direct mode applied correctly
+3. **Fallback**: Manual mode as backup when automation fails
 
 ---
 
