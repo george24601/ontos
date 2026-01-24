@@ -1497,6 +1497,7 @@ export default function DataContractDetails() {
               <Button size="sm" variant="destructive" onClick={handleReject}>Reject</Button>
             </>
           )}
+          <Button variant="outline" onClick={() => setIsRequestDialogOpen(true)} size="sm"><KeyRound className="mr-2 h-4 w-4" /> Request...</Button>
           <CommentSidebar
             entityType="data_contract"
             entityId={contractId!}
@@ -1504,7 +1505,6 @@ export default function DataContractDetails() {
             onToggle={() => setIsCommentSidebarOpen(!isCommentSidebarOpen)}
             className="h-8"
           />
-          <Button variant="outline" onClick={() => setIsRequestDialogOpen(true)} size="sm"><KeyRound className="mr-2 h-4 w-4" /> Request...</Button>
           {/* Personal draft actions */}
           {isPersonalDraft && (
             <>

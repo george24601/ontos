@@ -64,6 +64,7 @@ import CreateContractFromDatasetDialog from '@/components/datasets/create-contra
 import DatasetLookupDialog from '@/components/data-contracts/dataset-lookup-dialog';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
 import { RatingPanel } from '@/components/ratings';
+import AccessGrantsPanel from '@/components/access/access-grants-panel';
 import TagChip from '@/components/ui/tag-chip';
 import { CommentSidebar } from '@/components/comments';
 import ConceptSelectDialog from '@/components/semantic/concept-select-dialog';
@@ -556,6 +557,11 @@ export default function DatasetDetails() {
           {t('details.backToList')}
         </Button>
         <div className="flex items-center gap-2">
+          {/* Request Action Button - first after Back to List */}
+          <Button variant="outline" size="sm" onClick={() => setIsRequestDialogOpen(true)}>
+            <KeyRound className="mr-2 h-4 w-4" />
+            {t('request.button', 'Request...')}
+          </Button>
           <CommentSidebar
             entityType="dataset"
             entityId={datasetId!}
@@ -584,11 +590,6 @@ export default function DatasetDetails() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {/* Request Action Button */}
-          <Button variant="outline" size="sm" onClick={() => setIsRequestDialogOpen(true)}>
-            <KeyRound className="mr-2 h-4 w-4" />
-            {t('request.button', 'Request...')}
-          </Button>
           <Button variant="outline" onClick={() => setOpenEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-2" />
             {t('details.edit')}
@@ -994,6 +995,16 @@ export default function DatasetDetails() {
           )}
         </CardContent>
       </Card>
+
+      {/* Access Grants Panel */}
+      {datasetId && (
+        <AccessGrantsPanel
+          entityType="dataset"
+          entityId={datasetId}
+          canManage={canDirectStatusChange}
+          showPendingRequests={canDirectStatusChange}
+        />
+      )}
 
       {/* Metadata Panel - Rich texts, links, documents */}
       {datasetId && (

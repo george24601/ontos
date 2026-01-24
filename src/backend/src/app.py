@@ -23,6 +23,7 @@ from fastapi import HTTPException, status
 
 from src.common.middleware import ErrorHandlingMiddleware, LoggingMiddleware
 from src.routes import (
+    access_grants_routes,
     catalog_commander_routes,
     compliance_routes,
     comments_routes,
@@ -45,7 +46,6 @@ from src.routes import (
     security_features_routes,
     self_service_routes,
     settings_routes,
-    access_requests_routes,
     semantic_models_routes,
     semantic_links_routes,
     user_routes,
@@ -180,7 +180,7 @@ openapi_tags = [
     {"name": "Security Features", "description": "Advanced security features"},
     {"name": "Entitlements", "description": "Manage entitlements and personas"},
     {"name": "Entitlements Sync", "description": "Sync entitlements from external sources"},
-    {"name": "Access Requests", "description": "Handle access requests"},
+    {"name": "Access Grants", "description": "Manage time-limited access grants"},
     
     # System - Utilities, configuration, auxiliary services
     {"name": "Metadata", "description": "Manage metadata attachments"},
@@ -265,7 +265,7 @@ catalog_commander_routes.register_routes(app)
 security_features_routes.register_routes(app)
 entitlements_routes.register_routes(app)
 entitlements_sync_routes.register_routes(app)
-access_requests_routes.register_routes(app)
+access_grants_routes.register_routes(app)
 
 # System - Utilities, configuration, auxiliary services
 metadata_routes.register_routes(app)

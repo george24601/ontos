@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { useNotificationsStore } from '@/stores/notifications-store';
 import { Loader2, AlertCircle, FileText, Eye, Rocket, RefreshCw, XCircle } from 'lucide-react';
+import AccessRequestFields from '@/components/access/access-request-fields';
 
 type RequestType = 'access' | 'review' | 'publish' | 'status_change';
 
@@ -64,6 +65,7 @@ export default function RequestDatasetActionDialog({
   const [targetStatus, setTargetStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -73,6 +75,7 @@ export default function RequestDatasetActionDialog({
       setJustification('');
       setTargetStatus('');
       setError(null);
+      setSelectedDuration(30);
     }
   }, [isOpen]);
 
@@ -84,7 +87,7 @@ export default function RequestDatasetActionDialog({
           title: 'Request Access to Dataset',
           description: 'Request permission to view and use this dataset.',
           enabled: true,
-          endpoint: '/api/access-requests',
+          endpoint: '/api/access-grants/request',
         };
       case 'review':
         return {
@@ -178,8 +181,10 @@ export default function RequestDatasetActionDialog({
       if (requestType === 'access') {
         payload = {
           entity_type: 'dataset',
-          entity_ids: [datasetId],
-          message: message.trim(),
+          entity_id: datasetId,
+          reason: message.trim(),
+          requested_permission_level: 'READ',
+          requested_duration_days: selectedDuration,
         };
       } else if (requestType === 'review') {
         payload = {
@@ -355,19 +360,16 @@ export default function RequestDatasetActionDialog({
             </div>
           )}
 
-          {/* Access Request Message */}
+          {/* Access Request Fields - using shared component */}
           {requestType === 'access' && (
-            <div className="space-y-2">
-              <Label htmlFor="access-message">Reason for Access *</Label>
-              <Textarea
-                id="access-message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Explain why you need access to this dataset..."
-                className="min-h-[100px] resize-none"
-                disabled={submitting}
-              />
-            </div>
+            <AccessRequestFields
+              entityType="dataset"
+              message={message}
+              onMessageChange={setMessage}
+              selectedDuration={selectedDuration}
+              onDurationChange={setSelectedDuration}
+              disabled={submitting}
+            />
           )}
 
           {/* Review Request Message */}

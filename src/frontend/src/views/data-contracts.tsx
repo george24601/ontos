@@ -183,12 +183,18 @@ export default function DataContracts() {
   const handleBulkRequestAccess = async (selectedIds: string[]) => {
     if (selectedIds.length === 0) return;
     try {
-      const res = await fetch('/api/access-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity_type: 'data_contract', entity_ids: selectedIds })
-      });
-      if (!res.ok) throw new Error('Failed to submit access requests');
+      // Submit individual requests for each entity (Access Grants API requires single entity_id)
+      const results = await Promise.all(
+        selectedIds.map(id =>
+          fetch('/api/access-grants/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity_type: 'data_contract', entity_id: id, permission_level: 'READ' })
+          })
+        )
+      );
+      const failed = results.filter(r => !r.ok);
+      if (failed.length > 0) throw new Error('Failed to submit access requests');
       toast({ title: 'Request Sent', description: 'Access request submitted. You will be notified.' });
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to submit', variant: 'destructive' });

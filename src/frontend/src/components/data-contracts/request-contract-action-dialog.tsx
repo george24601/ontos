@@ -11,6 +11,7 @@ import { useApi } from '@/hooks/use-api';
 import { useNotificationsStore } from '@/stores/notifications-store';
 import { Loader2, AlertCircle, FileText, Eye, Database, ShieldCheck, Info, RefreshCw } from 'lucide-react';
 import type { DeploymentPolicy } from '@/types/deployment-policy';
+import AccessRequestFields from '@/components/access/access-request-fields';
 import {
   getAllowedTransitions,
   getStatusConfig,
@@ -51,6 +52,7 @@ export default function RequestContractActionDialog({
   const [targetStatus, setTargetStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
   
   // Deployment policy state
   const [deploymentPolicy, setDeploymentPolicy] = useState<DeploymentPolicy | null>(null);
@@ -65,7 +67,7 @@ export default function RequestContractActionDialog({
           title: 'Request Access to Contract',
           description: 'Request permission to view and use this data contract.',
           enabled: true,
-          endpoint: '/api/access-requests',
+          endpoint: '/api/access-grants/request',
         };
       case 'review':
         return {
@@ -160,11 +162,13 @@ export default function RequestContractActionDialog({
       let payload: any;
       
       if (requestType === 'access') {
-        // Use existing access request endpoint
+        // Use access grants endpoint
         payload = {
           entity_type: 'data_contract',
-          entity_ids: [contractId],
-          message: message.trim(),
+          entity_id: contractId,
+          reason: message.trim(),
+          requested_permission_level: 'READ',
+          requested_duration_days: selectedDuration,
         };
       } else if (requestType === 'review') {
         payload = {
@@ -352,24 +356,16 @@ export default function RequestContractActionDialog({
             </div>
           </div>
 
-          {/* Dynamic Form Fields */}
+          {/* Dynamic Form Fields - Access Request using shared component */}
           {requestType === 'access' && (
-            <div className="space-y-2">
-              <Label htmlFor="access-reason" className="text-sm font-medium">
-                Reason for Access Request *
-              </Label>
-              <Textarea
-                id="access-reason"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Please explain why you need access to this contract..."
-                className="min-h-[100px] resize-none"
-                disabled={submitting}
-              />
-              <div className="text-xs text-muted-foreground">
-                Minimum 10 characters required.
-              </div>
-            </div>
+            <AccessRequestFields
+              entityType="data_contract"
+              message={message}
+              onMessageChange={setMessage}
+              selectedDuration={selectedDuration}
+              onDurationChange={setSelectedDuration}
+              disabled={submitting}
+            />
           )}
 
           {requestType === 'review' && (

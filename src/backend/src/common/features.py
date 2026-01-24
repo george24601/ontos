@@ -92,6 +92,10 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
         'name': 'Entitlements Sync',
         'allowed_levels': ADMIN_ONLY_LEVELS # Admin manages sync jobs
     },
+    'access-grants': {
+        'name': 'Access Grants',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS # Users request, admins grant
+    },
     'data-asset-reviews': {
         'name': 'Data Asset Review',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS # Stewards review, admins manage

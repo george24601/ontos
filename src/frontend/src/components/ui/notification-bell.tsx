@@ -7,7 +7,7 @@ import { Badge } from './badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 import { ScrollArea } from './scroll-area';
 import ConfirmRoleRequestDialog from '@/components/settings/confirm-role-request-dialog';
-import ConfirmAccessRequestDialog from '@/components/access/confirm-access-request-dialog';
+import HandleAccessGrantDialog from '@/components/access/handle-access-grant-dialog';
 import HandleStewardReviewDialog from '@/components/data-contracts/handle-steward-review-dialog';
 import HandlePublishRequestDialog from '@/components/data-contracts/handle-publish-request-dialog';
 import HandleDeployRequestDialog from '@/components/data-contracts/handle-deploy-request-dialog';
@@ -26,14 +26,14 @@ export default function NotificationBell() {
 
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [selectedNotificationPayload, setSelectedNotificationPayload] = useState<Record<string, any> | null>(null);
-  const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
-  const [selectedAccessPayload, setSelectedAccessPayload] = useState<Record<string, any> | null>(null);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [selectedReviewPayload, setSelectedReviewPayload] = useState<Record<string, any> | null>(null);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
   const [selectedPublishPayload, setSelectedPublishPayload] = useState<Record<string, any> | null>(null);
   const [isDeployDialogOpen, setIsDeployDialogOpen] = useState(false);
   const [selectedDeployPayload, setSelectedDeployPayload] = useState<Record<string, any> | null>(null);
+  const [isAccessGrantDialogOpen, setIsAccessGrantDialogOpen] = useState(false);
+  const [selectedAccessGrantPayload, setSelectedAccessGrantPayload] = useState<Record<string, any> | null>(null);
 
   // Removed useEffect that was causing duplicate fetches - notifications are fetched when dropdown opens
 
@@ -51,15 +51,6 @@ export default function NotificationBell() {
       setIsConfirmDialogOpen(true);
     } else {
       console.error("Cannot open confirmation dialog: payload is missing.");
-    }
-  };
-
-  const handleOpenAccessDialog = (payload: Record<string, any> | undefined | null) => {
-    if (payload) {
-      setSelectedAccessPayload(payload);
-      setIsAccessDialogOpen(true);
-    } else {
-      console.error("Cannot open access request dialog: payload is missing.");
     }
   };
 
@@ -90,18 +81,27 @@ export default function NotificationBell() {
     }
   };
 
+  const handleOpenAccessGrantDialog = (payload: Record<string, any> | undefined | null) => {
+    if (payload) {
+      setSelectedAccessGrantPayload(payload);
+      setIsAccessGrantDialogOpen(true);
+    } else {
+      console.error("Cannot open access grant dialog: payload is missing.");
+    }
+  };
+
   const handleDecisionMade = () => {
     fetchNotifications();
     setSelectedNotificationPayload(null);
     setIsConfirmDialogOpen(false);
-    setSelectedAccessPayload(null);
-    setIsAccessDialogOpen(false);
     setSelectedReviewPayload(null);
     setIsReviewDialogOpen(false);
     setSelectedPublishPayload(null);
     setIsPublishDialogOpen(false);
     setSelectedDeployPayload(null);
     setIsDeployDialogOpen(false);
+    setSelectedAccessGrantPayload(null);
+    setIsAccessGrantDialogOpen(false);
   };
 
   const getIcon = (type: NotificationType) => {
@@ -221,18 +221,18 @@ export default function NotificationBell() {
                       {notification.read ? "View Details" : "Approve/Deny"}
                     </Button>
                   )}
-                  {notification.action_type === 'handle_access_request' && notification.action_payload && (
+                  {notification.action_type === 'handle_access_grant_request' && notification.action_payload && (
                     <Button
                       variant={notification.read ? "outline" : "default"}
                       size="sm"
                       className="mt-2 h-7 px-2 text-xs gap-1"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenAccessDialog(notification.action_payload);
+                        handleOpenAccessGrantDialog(notification.action_payload);
                       }}
                     >
                       <CheckSquare className="h-3.5 w-3.5" />
-                      {notification.read ? "View Details" : "Handle Request"}
+                      {notification.read ? "View Details" : "Handle Access Grant"}
                     </Button>
                   )}
                   {notification.action_type === 'handle_steward_review' && notification.action_payload && (
@@ -331,16 +331,6 @@ export default function NotificationBell() {
         onDecisionMade={handleDecisionMade}
       />
     )}
-    {isAccessDialogOpen && selectedAccessPayload && (
-      <ConfirmAccessRequestDialog
-        isOpen={isAccessDialogOpen}
-        onOpenChange={setIsAccessDialogOpen}
-        requesterEmail={selectedAccessPayload?.requester_email ?? 'Unknown User'}
-        entityType={(selectedAccessPayload?.entity_type ?? 'data_product') as 'data_product' | 'data_contract'}
-        entityId={selectedAccessPayload?.entity_id ?? 'Unknown ID'}
-        onDecisionMade={handleDecisionMade}
-      />
-    )}
     {selectedReviewPayload && (
       <HandleStewardReviewDialog
         isOpen={isReviewDialogOpen}
@@ -370,6 +360,25 @@ export default function NotificationBell() {
         requesterEmail={selectedDeployPayload.requester_email ?? 'Unknown User'}
         catalog={selectedDeployPayload.catalog}
         schema={selectedDeployPayload.schema}
+        onDecisionMade={handleDecisionMade}
+      />
+    )}
+    {selectedAccessGrantPayload && (
+      <HandleAccessGrantDialog
+        isOpen={isAccessGrantDialogOpen}
+        onOpenChange={setIsAccessGrantDialogOpen}
+        request={{
+          id: selectedAccessGrantPayload.request_id ?? '',
+          requester_email: selectedAccessGrantPayload.requester_email ?? 'Unknown User',
+          entity_type: selectedAccessGrantPayload.entity_type ?? 'unknown',
+          entity_id: selectedAccessGrantPayload.entity_id ?? '',
+          entity_name: selectedAccessGrantPayload.entity_name,
+          requested_duration_days: selectedAccessGrantPayload.requested_duration_days ?? 30,
+          permission_level: selectedAccessGrantPayload.permission_level ?? 'READ',
+          reason: selectedAccessGrantPayload.reason,
+          status: 'pending',
+          created_at: selectedAccessGrantPayload.created_at ?? new Date().toISOString(),
+        }}
         onDecisionMade={handleDecisionMade}
       />
     )}

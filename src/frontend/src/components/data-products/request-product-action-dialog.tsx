@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { useNotificationsStore } from '@/stores/notifications-store';
 import { Loader2, AlertCircle, FileText, Eye, Rocket, RefreshCw } from 'lucide-react';
+import AccessRequestFields from '@/components/access/access-request-fields';
 
 type RequestType = 'access' | 'review' | 'publish' | 'status_change';
 
@@ -82,6 +83,7 @@ export default function RequestProductActionDialog({
   const [targetStatus, setTargetStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -91,6 +93,7 @@ export default function RequestProductActionDialog({
       setJustification('');
       setTargetStatus('');
       setError(null);
+      setSelectedDuration(30);
     }
   }, [isOpen]);
 
@@ -102,7 +105,7 @@ export default function RequestProductActionDialog({
           title: 'Request Access to Product',
           description: 'Request permission to view and use this data product.',
           enabled: true,
-          endpoint: '/api/access-requests',
+          endpoint: '/api/access-grants/request',
         };
       case 'review':
         return {
@@ -191,8 +194,10 @@ export default function RequestProductActionDialog({
       if (requestType === 'access') {
         payload = {
           entity_type: 'data_product',
-          entity_ids: [productId],
-          message: message.trim(),
+          entity_id: productId,
+          reason: message.trim(),
+          requested_permission_level: 'READ',
+          requested_duration_days: selectedDuration,
         };
       } else if (requestType === 'review') {
         payload = {
@@ -360,19 +365,16 @@ export default function RequestProductActionDialog({
             </div>
           )}
 
-          {/* Access Request Message */}
+          {/* Access Request Fields - using shared component */}
           {requestType === 'access' && (
-            <div className="space-y-2">
-              <Label htmlFor="access-message">Reason for Access *</Label>
-              <Textarea
-                id="access-message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Explain why you need access to this data product..."
-                className="min-h-[100px] resize-none"
-                disabled={submitting}
-              />
-            </div>
+            <AccessRequestFields
+              entityType="data_product"
+              message={message}
+              onMessageChange={setMessage}
+              selectedDuration={selectedDuration}
+              onDurationChange={setSelectedDuration}
+              disabled={submitting}
+            />
           )}
 
           {/* Review Request Message */}

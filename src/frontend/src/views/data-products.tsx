@@ -304,12 +304,18 @@ export default function DataProducts() {
       if (selectedIds.length === 0) return;
       try {
           toast({ title: t('access.submitting'), description: t('access.requestingAccess', { count: selectedIds.length }) });
-          const res = await fetch('/api/access-requests', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ entity_type: 'data_product', entity_ids: selectedIds })
-          });
-          if (!res.ok) throw new Error(t('access.requestError'));
+          // Submit individual requests for each entity (Access Grants API requires single entity_id)
+          const results = await Promise.all(
+            selectedIds.map(id =>
+              fetch('/api/access-grants/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entity_type: 'data_product', entity_id: id, permission_level: 'READ' })
+              })
+            )
+          );
+          const failed = results.filter(r => !r.ok);
+          if (failed.length > 0) throw new Error(t('access.requestError'));
           toast({ title: t('access.requestSent'), description: t('access.requestSubmitted') });
           refreshNotifications();
       } catch (e: any) {

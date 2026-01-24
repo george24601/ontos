@@ -30,6 +30,7 @@ import type { EntitySemanticLink } from '@/types/semantic-link';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
 import { CommentSidebar } from '@/components/comments';
 import { RatingPanel } from '@/components/ratings';
+import AccessGrantsPanel from '@/components/access/access-grants-panel';
 import { useDomains } from '@/hooks/use-domains';
 import RequestProductActionDialog from '@/components/data-products/request-product-action-dialog';
 import CommitDraftDialog from '@/components/data-products/commit-draft-dialog';
@@ -1570,6 +1571,16 @@ export default function DataProductDetails() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Access Grants Panel */}
+      {productId && (
+        <AccessGrantsPanel
+          entityType="data_product"
+          entityId={productId}
+          canManage={canModify}
+          showPendingRequests={canModify}
+        />
       )}
 
       {/* Metadata Panel */}
