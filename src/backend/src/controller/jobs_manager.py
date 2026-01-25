@@ -1129,7 +1129,32 @@ class JobsManager:
         logger.info("Job state polling thread stopped")
 
     def _create_job_failure_notification(self, job_name: str, workflow_id: str, run_id: int, db: Session):
-        """Create a notification for job failure."""
+        """Create a notification for job failure using workflow triggers."""
+        try:
+            from src.common.workflow_triggers import get_trigger_registry
+            
+            trigger_registry = get_trigger_registry(db)
+            entity_data = {
+                "workflow_id": workflow_id,
+                "job_name": job_name,
+                "run_id": run_id,
+                "error_type": "job_failure",
+            }
+            
+            executions = trigger_registry.on_job_failure(
+                entity_id=str(run_id),
+                entity_name=job_name,
+                entity_data=entity_data,
+                blocking=False,  # Don't block on notifications
+            )
+            
+            if executions:
+                logger.info(f"Triggered {len(executions)} workflow(s) for job failure (run {run_id})")
+                return
+        except Exception as workflow_err:
+            logger.error(f"Failed to trigger workflow for job failure: {workflow_err}", exc_info=True)
+
+        # Fallback to direct notification if no workflow configured
         if not self._notifications_manager:
             return
 
@@ -1147,12 +1172,12 @@ class JobsManager:
                     "run_id": run_id,
                     "error_type": "job_failure"
                 },
-                target_roles=["Admin"],  # Notify admins
+                target_roles=["Admin"],
                 created_at=datetime.utcnow()
             )
 
             self._notifications_manager.create_notification(notification, db=db)
-            logger.info(f"Created failure notification for workflow '{workflow_id}' run {run_id}")
+            logger.info(f"No workflow configured; sent direct failure notification for run {run_id}")
 
         except Exception as e:
             logger.error(f"Failed to create failure notification for workflow '{workflow_id}': {e}")

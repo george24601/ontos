@@ -285,5 +285,56 @@
     "light": "ライト",
     "dark": "ダーク",
     "system": "システム"
+  },
+  "workflows": {
+    "triggerTypes": {
+      "on_create": "作成時",
+      "on_update": "更新時",
+      "on_delete": "削除時",
+      "on_status_change": "ステータス変更時",
+      "scheduled": "スケジュール",
+      "manual": "手動",
+      "before_create": "作成前",
+      "before_update": "更新前",
+      "on_request_review": "レビュー依頼",
+      "on_request_access": "アクセス依頼",
+      "on_request_publish": "公開依頼",
+      "on_request_status_change": "ステータス変更依頼",
+      "on_job_success": "ジョブ成功",
+      "on_job_failure": "ジョブ失敗",
+      "on_subscribe": "購読",
+      "on_unsubscribe": "購読解除",
+      "on_expiring": "期限切れ間近",
+      "on_revoke": "アクセス取り消し"
+    },
+    "entityTypes": {
+      "catalog": "カタログ",
+      "schema": "スキーマ",
+      "table": "テーブル",
+      "view": "ビュー",
+      "data_contract": "契約",
+      "data_product": "製品",
+      "dataset": "データセット",
+      "domain": "ドメイン",
+      "project": "プロジェクト",
+      "access_grant": "アクセス許可",
+      "role": "ロール",
+      "data_asset_review": "アセットレビュー",
+      "job": "ジョブ",
+      "subscription": "購読"
+    },
+    "stepTypes": {
+      "validation": "検証",
+      "approval": "承認",
+      "notification": "通知",
+      "assign_tag": "タグ割り当て",
+      "remove_tag": "タグ削除",
+      "conditional": "条件分岐",
+      "script": "スクリプト",
+      "pass": "成功",
+      "fail": "失敗",
+      "policy_check": "ポリシーチェック",
+      "delivery": "配信"
+    }
   }
 }

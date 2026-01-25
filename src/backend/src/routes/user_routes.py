@@ -285,21 +285,51 @@ async def request_role_access(
         logger.error(f"Error checking for duplicate requests: {e}", exc_info=True)
         # Don't fail the request if duplicate check fails, just log it
 
-    # Generate placeholder values for required fields
-    placeholder_id = str(uuid.uuid4()) # Generate a unique placeholder ID
+    user_message = request_body.message.strip() if request_body.message else None
+
+    # --- Trigger workflow for role access request --- #
+    try:
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+        
+        trigger_registry = get_trigger_registry(db)
+        entity_data = {
+            "role_id": role_id,
+            "role_name": role_name,
+            "requester_email": requester_email,
+            "requester_message": user_message,
+            "approver_role_names": approver_role_names,
+        }
+        
+        executions = trigger_registry.on_request_access(
+            entity_type=EntityType.ROLE,
+            entity_id=role_id,
+            entity_name=role_name,
+            entity_data=entity_data,
+            user_email=requester_email,
+            blocking=True,  # Wait for workflow to complete/pause
+        )
+        
+        if executions:
+            logger.info(f"Triggered {len(executions)} workflow(s) for role access request")
+            db.commit()
+            return {"message": "Role access request submitted successfully. Workflow triggered for approval."}
+    except Exception as workflow_err:
+        logger.error(f"Failed to trigger workflow for role access request: {workflow_err}", exc_info=True)
+
+    # Fallback to direct notification if no workflow configured
+    placeholder_id = str(uuid.uuid4())
     now = datetime.utcnow()
 
     try:
-        # 1. Create notification for the requester
-        user_message = request_body.message.strip() if request_body.message else None
         approver_list = ", ".join(approver_role_names)
         user_desc = f"Your request to access the role '{role_name}' has been submitted for review by: {approver_list}."
         if user_message:
             user_desc += f"\n\nYour message: {user_message}"
 
         user_notification = Notification(
-            id=placeholder_id, # Provide placeholder
-            created_at=now, # Provide placeholder
+            id=placeholder_id,
+            created_at=now,
             type=NotificationType.INFO,
             title="Role Access Request Submitted",
             subtitle=f"Role: {role_name}",
@@ -307,43 +337,40 @@ async def request_role_access(
             recipient=requester_email,
             can_delete=True
         )
-        # Pass db session to the manager
         notifications_manager.create_notification(db=db, notification=user_notification)
-        logger.info(f"Created notification for requester '{requester_email}'")
+        logger.info(f"No workflow configured; sent direct notification to requester '{requester_email}'")
 
-        # 2. Create notification for each approver role
         approver_desc = f"User '{requester_email}' has requested access to the role '{role_name}'."
         if user_message:
             approver_desc += f"\n\nRequester's message: {user_message}"
 
         for approver_role_name in approver_role_names:
             approver_notification = Notification(
-                id=str(uuid.uuid4()), # Generate unique ID for each notification
-                created_at=now, # Provide placeholder
+                id=str(uuid.uuid4()),
+                created_at=now,
                 type=NotificationType.ACTION_REQUIRED,
                 title="Role Access Request Received",
                 subtitle=f"User: {requester_email}",
                 description=approver_desc,
-                recipient=approver_role_name,  # Send to the approver role name
+                recipient=approver_role_name,
                 can_delete=False,
                 action_type="handle_role_request",
                 action_payload={
                     "requester_email": requester_email,
                     "role_id": role_id,
                     "role_name": role_name,
-                    "requester_message": user_message  # Include the requester's message
+                    "requester_message": user_message
                 }
             )
-            # Pass db session to the manager
             notifications_manager.create_notification(db=db, notification=approver_notification)
             logger.info(f"Created notification for approver role '{approver_role_name}'")
 
-        db.commit() # Commit the transaction after all notifications are added
+        db.commit()
         return {"message": "Role access request submitted successfully."} 
 
     except Exception as e:
         logger.error(f"Error creating notifications for role request (Role: {role_id}, User: {requester_email}): {e}", exc_info=True)
-        db.rollback() # Rollback the transaction on error
+        db.rollback()
         raise HTTPException(status_code=500, detail="Failed to process role access request due to an internal error.")
 
 

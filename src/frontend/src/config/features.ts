@@ -18,6 +18,7 @@ import {
     ScrollText, // Added icon for Audit Trail
     Table2, // Icon for Datasets (matching marketplace)
     Package, // Icon for Data Products (matching marketplace)
+    GitBranch, // Icon for Process Workflows
     type LucideIcon, // Import LucideIcon type
   } from 'lucide-react';
   
@@ -127,6 +128,16 @@ import {
       icon: CheckCircle,
       group: 'Operations',
       maturity: 'beta',
+      showInLanding: true,
+    },
+    {
+      id: 'process-workflows',
+      name: 'Workflows',
+      path: '/workflows',
+      description: 'Configure automated workflows for validation, approval, and notifications.',
+      icon: GitBranch,
+      group: 'Operations',
+      maturity: 'ga',
       showInLanding: true,
     },
     {

@@ -283,5 +283,56 @@
     "light": "Hell",
     "dark": "Dunkel",
     "system": "System"
+  },
+  "workflows": {
+    "triggerTypes": {
+      "on_create": "Bei Erstellung",
+      "on_update": "Bei Aktualisierung",
+      "on_delete": "Bei Löschung",
+      "on_status_change": "Bei Statusänderung",
+      "scheduled": "Geplant",
+      "manual": "Manuell",
+      "before_create": "Vor Erstellung",
+      "before_update": "Vor Aktualisierung",
+      "on_request_review": "Prüfungsanfrage",
+      "on_request_access": "Zugriffsanfrage",
+      "on_request_publish": "Veröffentlichungsanfrage",
+      "on_request_status_change": "Statusänderungsanfrage",
+      "on_job_success": "Job erfolgreich",
+      "on_job_failure": "Job fehlgeschlagen",
+      "on_subscribe": "Abonnement",
+      "on_unsubscribe": "Abmeldung",
+      "on_expiring": "Läuft ab",
+      "on_revoke": "Zugriff widerrufen"
+    },
+    "entityTypes": {
+      "catalog": "Katalog",
+      "schema": "Schema",
+      "table": "Tabelle",
+      "view": "Ansicht",
+      "data_contract": "Vertrag",
+      "data_product": "Produkt",
+      "dataset": "Datensatz",
+      "domain": "Domäne",
+      "project": "Projekt",
+      "access_grant": "Zugriffsberechtigung",
+      "role": "Rolle",
+      "data_asset_review": "Asset-Prüfung",
+      "job": "Job",
+      "subscription": "Abonnement"
+    },
+    "stepTypes": {
+      "validation": "Validierung",
+      "approval": "Genehmigung",
+      "notification": "Benachrichtigung",
+      "assign_tag": "Tag zuweisen",
+      "remove_tag": "Tag entfernen",
+      "conditional": "Bedingt",
+      "script": "Skript",
+      "pass": "Erfolgreich",
+      "fail": "Fehlgeschlagen",
+      "policy_check": "Richtlinienprüfung",
+      "delivery": "Auslieferung"
+    }
   }
 }

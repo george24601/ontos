@@ -285,5 +285,56 @@
     "light": "Chiaro",
     "dark": "Scuro",
     "system": "Sistema"
+  },
+  "workflows": {
+    "triggerTypes": {
+      "on_create": "Alla creazione",
+      "on_update": "All'aggiornamento",
+      "on_delete": "All'eliminazione",
+      "on_status_change": "Al cambio stato",
+      "scheduled": "Pianificato",
+      "manual": "Manuale",
+      "before_create": "Prima della creazione",
+      "before_update": "Prima dell'aggiornamento",
+      "on_request_review": "Richiesta revisione",
+      "on_request_access": "Richiesta accesso",
+      "on_request_publish": "Richiesta pubblicazione",
+      "on_request_status_change": "Richiesta cambio stato",
+      "on_job_success": "Job riuscito",
+      "on_job_failure": "Job fallito",
+      "on_subscribe": "Iscrizione",
+      "on_unsubscribe": "Annullamento iscrizione",
+      "on_expiring": "In scadenza",
+      "on_revoke": "Accesso revocato"
+    },
+    "entityTypes": {
+      "catalog": "Catalogo",
+      "schema": "Schema",
+      "table": "Tabella",
+      "view": "Vista",
+      "data_contract": "Contratto",
+      "data_product": "Prodotto",
+      "dataset": "Dataset",
+      "domain": "Dominio",
+      "project": "Progetto",
+      "access_grant": "Permesso di accesso",
+      "role": "Ruolo",
+      "data_asset_review": "Revisione asset",
+      "job": "Job",
+      "subscription": "Abbonamento"
+    },
+    "stepTypes": {
+      "validation": "Validazione",
+      "approval": "Approvazione",
+      "notification": "Notifica",
+      "assign_tag": "Assegna tag",
+      "remove_tag": "Rimuovi tag",
+      "conditional": "Condizionale",
+      "script": "Script",
+      "pass": "Successo",
+      "fail": "Fallimento",
+      "policy_check": "Verifica policy",
+      "delivery": "Consegna"
+    }
   }
 }

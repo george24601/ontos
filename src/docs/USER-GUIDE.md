@@ -14,11 +14,12 @@
 10. [Building Data Products](#building-data-products)
 11. [Semantic Models](#semantic-models)
 12. [Compliance Checks](#compliance-checks)
-13. [Asset Review Workflow](#asset-review-workflow)
-14. [User Roles and Permissions](#user-roles-and-permissions)
-15. [MCP Integration (AI Assistants)](#mcp-integration-ai-assistants)
-16. [Delivery Modes](#delivery-modes)
-17. [Best Practices](#best-practices)
+13. [Process Workflows](#process-workflows)
+14. [Asset Review Workflow](#asset-review-workflow)
+15. [User Roles and Permissions](#user-roles-and-permissions)
+16. [MCP Integration (AI Assistants)](#mcp-integration-ai-assistants)
+17. [Delivery Modes](#delivery-modes)
+18. [Best Practices](#best-practices)
 
 ---
 
@@ -2215,6 +2216,304 @@ Click on a run to see:
 5. **Notify Sparingly**: Avoid alert fatigue; only notify on critical violations
 6. **Test First**: Run with limits to validate rules before full deployment
 7. **Document Examples**: Help users understand what passes and fails
+
+---
+
+## Process Workflows
+
+Process Workflows enable automated, configurable multi-step processes that trigger on entity lifecycle events. They replace hardcoded business logic with flexible, user-editable flows that can be customized per organization.
+
+### What are Process Workflows?
+
+Process Workflows are:
+- **Trigger-based**: Automatically fire when entities are created, updated, or when specific events occur
+- **Multi-step**: Chain together validation, approval, notification, and other actions
+- **Configurable**: Edit, duplicate, or create new workflows through the UI
+- **Extensible**: Support custom scripts and compliance policy checks
+
+### Use Cases
+
+| Use Case | Description |
+|----------|-------------|
+| **Pre-creation validation** | Block table creation if naming conventions fail |
+| **Approval workflows** | Require Data Steward approval before publishing products |
+| **Access request handling** | Route access requests through configurable approval chains |
+| **Automated tagging** | Auto-assign owner tags to new assets |
+| **Notifications** | Alert subscribers when datasets change |
+| **Compliance enforcement** | Run policy checks before creating assets |
+
+### Workflow Components
+
+#### Triggers
+
+Triggers determine when a workflow fires. Available trigger types:
+
+| Trigger Type | Description | Example Use Case |
+|--------------|-------------|------------------|
+| **On Create** | Fires when an entity is created | Validate naming conventions |
+| **On Update** | Fires when an entity is updated | Notify subscribers of changes |
+| **On Delete** | Fires when an entity is deleted | Archive audit trail |
+| **On Status Change** | Fires when status transitions | Approve publish to production |
+| **Scheduled** | Fires on a cron schedule | Daily compliance scans |
+| **Manual** | Triggered by user action | On-demand data quality check |
+| **Before Create** | Fires before entity creation (blocking) | Enforce naming policies |
+| **Before Update** | Fires before entity update (blocking) | Validate schema changes |
+| **Review Request** | Fires when review is requested | Route to Data Steward |
+| **Access Request** | Fires when access is requested | Approval workflow for grants |
+| **Publish Request** | Fires when publish is requested | Contract publish approval |
+| **Status Change Request** | Fires when status change is requested | Deprecation approval |
+| **Job Success** | Fires when a background job succeeds | Success notifications |
+| **Job Failure** | Fires when a background job fails | Alert administrators |
+| **Subscription** | Fires when user subscribes | Welcome notifications |
+| **Unsubscription** | Fires when user unsubscribes | Feedback collection |
+| **Expiring** | Fires when access is about to expire | Renewal reminders |
+| **Access Revoked** | Fires when access is revoked | Revocation notifications |
+
+#### Entity Types
+
+Workflows can target specific entity types:
+
+| Entity Type | Description |
+|-------------|-------------|
+| **Catalog** | Unity Catalog catalogs |
+| **Schema** | Database schemas |
+| **Table** | Tables (including Delta tables) |
+| **View** | Database views |
+| **Data Contract** | Data contract definitions |
+| **Data Product** | Data product packages |
+| **Dataset** | Dataset registrations |
+| **Domain** | Data domains |
+| **Project** | Team projects |
+| **Access Grant** | Access grant records |
+| **Role** | Application roles |
+| **Asset Review** | Data asset review requests |
+| **Job** | Background jobs |
+| **Subscription** | Dataset subscriptions |
+
+#### Workflow Steps
+
+Steps are the building blocks of workflows:
+
+| Step Type | Description | Configuration |
+|-----------|-------------|---------------|
+| **Validation** | Evaluate a compliance rule | Rule DSL expression |
+| **Approval** | Request human approval | Approvers, timeout, require all |
+| **Notification** | Send a notification | Recipients, template, message |
+| **Assign Tag** | Add or update a tag | Key, value or value source |
+| **Remove Tag** | Remove a tag | Key to remove |
+| **Conditional** | Branch based on condition | Condition expression |
+| **Script** | Execute custom logic | Script code |
+| **Policy Check** | Run a compliance policy | Policy ID reference |
+| **Delivery** | Trigger delivery service | Delivery mode configuration |
+| **Pass** | End workflow successfully | Optional message |
+| **Fail** | End workflow with failure | Error message |
+
+### Viewing Workflows
+
+Navigate to **Compliance → Workflows** to see all configured workflows:
+
+- Workflow name and description
+- Trigger type and entity types
+- Number of steps
+- Active/Inactive status
+- Default badge (for built-in workflows)
+
+### Creating a Workflow
+
+1. Navigate to **Compliance → Workflows**
+2. Click **Create Workflow**
+3. Fill in basic information:
+   - **Name**: Descriptive name
+   - **Description**: What the workflow does
+   - **Trigger Type**: When to fire
+   - **Entity Types**: Which entities to target
+   - **Active**: Enable/disable
+
+4. Add workflow steps using the visual designer:
+   - Drag and connect steps
+   - Configure each step's settings
+   - Define on_pass and on_fail transitions
+
+5. Click **Save**
+
+### Visual Workflow Designer
+
+The workflow designer provides a visual canvas for building workflows:
+
+- **Trigger Node**: Starting point showing trigger configuration
+- **Step Nodes**: Colored by type (validation, approval, notification, etc.)
+- **Connections**: Lines showing flow between steps
+- **Properties Panel**: Configure selected node settings
+
+#### Designer Tips
+
+- Click a node to select and edit its properties
+- Connect nodes by dragging from output to input handles
+- Use the minimap for navigation in complex workflows
+- Auto-layout organizes nodes automatically
+
+### Default Workflows
+
+Ontos includes pre-configured default workflows that cover common governance patterns. These can be edited or duplicated but not deleted.
+
+#### Validation Workflows
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| **Naming Convention Validation** | On Create (catalog, schema, table) | Validates lowercase_snake_case naming |
+| **Table Pre-Creation Validation** | Before Create (table) | Checks naming and reserved words |
+| **Data Contract Schema Validation** | On Create (data_contract) | Ensures schema is defined |
+| **Pre-Creation Compliance** | Before Create (catalog, schema, table) | Runs policy checks before creation (disabled by default) |
+
+#### Approval Workflows
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| **Data Product Publish Approval** | On Status Change (data_product) | Requires domain owner approval for publishing |
+| **Dataset Review Request** | Review Request (dataset) | Data Steward approval for datasets |
+| **Data Contract Review Request** | Review Request (data_contract) | Data Steward approval for contracts |
+| **Data Product Review Request** | Review Request (data_product) | Domain owner approval for products |
+| **Data Contract Publish Request** | Publish Request (data_contract) | Contract approver authorization |
+| **Access Grant Request** | Access Request (access_grant) | Admin approval for access |
+| **Status Change Request** | Status Change Request (dataset, data_product) | Admin approval for status changes |
+| **Role Access Request** | Access Request (role) | Admin approval for role assignments |
+
+#### Notification Workflows
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| **Dataset Update Notification** | On Update (dataset) | Notifies subscribers of changes |
+| **PII Detection and Classification** | On Create (table) | Detects and tags PII columns (disabled by default) |
+| **Job Failure Notification** | Job Failure (job) | Alerts administrators |
+| **Job Success Notification** | Job Success (job) | Notifies requester (disabled by default) |
+| **Subscription Welcome** | Subscription (dataset) | Welcome message to subscribers (disabled by default) |
+| **Access Expiring Warning** | Expiring (access_grant) | Warns users before access expires |
+| **Access Revoked Notification** | Access Revoked (access_grant) | Notifies users of revocation |
+
+### Editing a Default Workflow
+
+Default workflows can be customized:
+
+1. Navigate to **Compliance → Workflows**
+2. Click on a default workflow
+3. Click **Edit**
+4. Modify steps, add new steps, or change configuration
+5. Click **Save**
+
+**Tip**: Use **Duplicate** to create a copy before making major changes.
+
+### Duplicating a Workflow
+
+Create a copy of any workflow:
+
+1. Click the actions menu (⋮) on a workflow row
+2. Select **Duplicate**
+3. Enter a new name
+4. Click **Duplicate**
+5. Edit the copy as needed
+
+### Workflow Execution
+
+#### How Workflows Run
+
+1. **Trigger Event**: An entity event matches a workflow's trigger
+2. **Scope Check**: Workflow scope is evaluated (all, project, catalog, domain)
+3. **Step Execution**: Steps run in sequence following on_pass/on_fail paths
+4. **Result**: Workflow ends at a Pass or Fail terminal step
+
+#### Blocking vs Non-Blocking
+
+- **Blocking Workflows** (before_create, before_update): Prevent the action if workflow fails
+- **Non-Blocking Workflows**: Run asynchronously; failures don't prevent the triggering action
+
+#### Approval Pausing
+
+Approval steps pause workflow execution:
+
+1. Workflow reaches approval step
+2. Notification sent to approvers
+3. Workflow status becomes "Paused"
+4. Approver makes decision via notification
+5. Workflow resumes with on_pass or on_fail path
+
+### Workflow Best Practices
+
+#### Design Principles
+
+1. **Keep It Simple**: Start with minimal steps; add complexity as needed
+2. **Clear Naming**: Use descriptive names for workflows and steps
+3. **Handle Failures**: Always define on_fail paths for important steps
+4. **Notify Users**: Include notification steps for visibility
+5. **Test First**: Disable new workflows and test before enabling
+
+#### Common Patterns
+
+**Validation → Auto-Fix → Notify Pattern**:
+```yaml
+Steps:
+  1. Validate condition
+     on_pass → success
+     on_fail → auto-fix
+
+  2. Auto-fix (assign_tag)
+     on_pass → success
+     on_fail → notify
+
+  3. Notify (on failure)
+     on_pass → fail
+
+  4. Success (pass)
+  5. Fail (fail)
+```
+
+**Request → Approve → Notify Pattern**:
+```yaml
+Steps:
+  1. Notify requester (confirmation)
+     on_pass → request-approval
+
+  2. Request approval
+     on_pass → notify-approved
+     on_fail → notify-rejected
+
+  3. Notify approved
+     on_pass → success
+
+  4. Notify rejected
+     on_pass → fail
+
+  5. Success (pass)
+  6. Fail (fail)
+```
+
+#### Performance Considerations
+
+- Avoid complex workflows on high-frequency triggers (on_update)
+- Use scopes to limit workflow execution to relevant entities
+- Disable unnecessary default workflows
+- Monitor workflow execution times in logs
+
+### Troubleshooting Workflows
+
+#### Workflow Not Firing
+
+1. Check workflow is **Active**
+2. Verify trigger type matches the event
+3. Check entity types include the affected entity
+4. Verify scope includes the entity (project, catalog, domain)
+
+#### Step Failing Unexpectedly
+
+1. Check step configuration for typos
+2. Verify validation rule syntax
+3. Check approver roles/groups exist
+4. Review backend logs for detailed errors
+
+#### Approval Not Received
+
+1. Verify approver role/group is configured correctly
+2. Check notifications are not filtered/blocked
+3. Ensure approvers have notification access
 
 ---
 

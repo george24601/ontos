@@ -1,32 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
   Scale, 
   MoreHorizontal, 
-  GitBranch,
-  Shield,
-  Bell,
-  Tag,
-  Code,
-  CheckCircle,
-  Clock,
-  Loader2,
-  Pencil,
-  Copy,
-  Trash2,
-  ClipboardCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -41,12 +27,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useApi } from '@/hooks/use-api';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import { DataTable } from '@/components/ui/data-table';
-import type { 
-  ProcessWorkflow, 
-  WorkflowListResponse,
-  TriggerType,
-  EntityType,
-} from '@/types/process-workflow';
 
 interface CompliancePolicy {
   id: string; // UUID
@@ -74,49 +54,6 @@ interface ComplianceApiResponse {
   stats: ComplianceStats;
 }
 
-// Helper to get trigger display
-const getTriggerDisplay = (trigger: { type: TriggerType; entity_types: EntityType[] }) => {
-  const typeLabels: Record<TriggerType, string> = {
-    on_create: 'On Create',
-    on_update: 'On Update',
-    on_delete: 'On Delete',
-    on_status_change: 'On Status Change',
-    scheduled: 'Scheduled',
-    manual: 'Manual',
-    before_create: 'Before Create',
-    before_update: 'Before Update',
-  };
-  
-  const entityLabels: Record<EntityType, string> = {
-    catalog: 'Catalog',
-    schema: 'Schema',
-    table: 'Table',
-    view: 'View',
-    data_contract: 'Contract',
-    data_product: 'Product',
-    dataset: 'Dataset',
-    domain: 'Domain',
-    project: 'Project',
-  };
-  
-  const entities = trigger.entity_types.map(e => entityLabels[e] || e).join(', ');
-  return `${typeLabels[trigger.type] || trigger.type}${entities ? ` (${entities})` : ''}`;
-};
-
-// Helper to get step type icon
-const getStepTypeIcon = (stepType: string) => {
-  switch (stepType) {
-    case 'validation': return <Shield className="h-4 w-4" />;
-    case 'approval': return <CheckCircle className="h-4 w-4" />;
-    case 'notification': return <Bell className="h-4 w-4" />;
-    case 'assign_tag': return <Tag className="h-4 w-4" />;
-    case 'conditional': return <GitBranch className="h-4 w-4" />;
-    case 'script': return <Code className="h-4 w-4" />;
-    case 'policy_check': return <ClipboardCheck className="h-4 w-4" />;
-    default: return <GitBranch className="h-4 w-4" />;
-  }
-};
-
 export default function Compliance() {
   const { t } = useTranslation(['compliance', 'common']);
   const { toast } = useToast();
@@ -133,14 +70,6 @@ export default function Compliance() {
   const [selectedPolicy, setSelectedPolicy] = useState<CompliancePolicy | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [componentError, setComponentError] = useState<string | null>(null);
-  
-  // Workflow state
-  const [workflows, setWorkflows] = useState<ProcessWorkflow[]>([]);
-  const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(true);
-  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
-  const [duplicatingWorkflow, setDuplicatingWorkflow] = useState<ProcessWorkflow | null>(null);
-  const [duplicateName, setDuplicateName] = useState('');
-  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const loadPolicies = useCallback(async () => {
     setComponentError(null);
@@ -173,29 +102,10 @@ export default function Compliance() {
       setPolicies([]);
       setStats({ overall_compliance: 0, active_policies: 0, critical_issues: 0 });
     }
-  }, [apiGet, toast]);
-
-  const loadWorkflows = useCallback(async () => {
-    setIsLoadingWorkflows(true);
-    try {
-      const response = await apiGet<WorkflowListResponse>('/api/workflows');
-      if (response.data) {
-        setWorkflows(response.data.workflows || []);
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load workflows',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingWorkflows(false);
-    }
-  }, [apiGet, toast]);
+  }, [apiGet, toast, t]);
 
   useEffect(() => {
     loadPolicies();
-    loadWorkflows();
     setStaticSegments([]);
     setDynamicTitle(t('compliance:title'));
 
@@ -203,7 +113,7 @@ export default function Compliance() {
         setStaticSegments([]);
         setDynamicTitle(null);
     };
-  }, [loadPolicies, loadWorkflows, setStaticSegments, setDynamicTitle]);
+  }, [loadPolicies, setStaticSegments, setDynamicTitle, t]);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -317,110 +227,6 @@ export default function Compliance() {
     return variants[severity as keyof typeof variants] || 'bg-gray-100 text-gray-800';
   };
 
-  // Workflow handlers
-  const handleToggleWorkflowActive = async (workflow: ProcessWorkflow) => {
-    try {
-      const response = await apiPost<ProcessWorkflow>(
-        `/api/workflows/${workflow.id}/toggle-active?is_active=${!workflow.is_active}`,
-        {}
-      );
-      if (response.data) {
-        setWorkflows(prev => 
-          prev.map(w => w.id === workflow.id ? response.data! : w)
-        );
-        toast({
-          title: 'Success',
-          description: `Workflow ${response.data.is_active ? 'enabled' : 'disabled'}`,
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update workflow status',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDuplicateWorkflow = async () => {
-    if (!duplicatingWorkflow || !duplicateName.trim()) return;
-    
-    setIsDuplicating(true);
-    try {
-      const response = await apiPost<ProcessWorkflow>(
-        `/api/workflows/${duplicatingWorkflow.id}/duplicate?new_name=${encodeURIComponent(duplicateName)}`,
-        {}
-      );
-      if (response.data) {
-        setWorkflows(prev => [...prev, response.data!]);
-        toast({
-          title: 'Success',
-          description: 'Workflow duplicated successfully',
-        });
-        setDuplicateDialogOpen(false);
-        setDuplicatingWorkflow(null);
-        setDuplicateName('');
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to duplicate workflow',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDuplicating(false);
-    }
-  };
-
-  const handleDeleteWorkflow = async (workflow: ProcessWorkflow) => {
-    if (workflow.is_default) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'Default workflows cannot be deleted. Disable them instead.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    try {
-      await apiDeleteApi(`/api/workflows/${workflow.id}`);
-      setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
-      toast({
-        title: 'Success',
-        description: 'Workflow deleted',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete workflow',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEditWorkflow = (workflow: ProcessWorkflow) => {
-    navigate(`/compliance/workflows/${workflow.id}`);
-  };
-
-  const handleLoadDefaultWorkflows = async () => {
-    try {
-      const response = await apiPost<{ message: string }>('/api/workflows/load-defaults', {});
-      if (response.data) {
-        toast({
-          title: 'Success',
-          description: response.data.message,
-        });
-        loadWorkflows();
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load default workflows',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const columns: ColumnDef<CompliancePolicy>[] = [
     {
       accessorKey: "name",
@@ -492,101 +298,6 @@ export default function Compliance() {
           </DropdownMenu>
         );
       },
-    },
-  ];
-
-  const workflowColumns: ColumnDef<ProcessWorkflow>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Name',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <GitBranch className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{row.original.name}</span>
-          {row.original.is_default && (
-            <Badge variant="secondary" className="text-xs">Default</Badge>
-          )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'trigger',
-      header: 'Trigger',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {getTriggerDisplay(row.original.trigger)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'steps',
-      header: 'Steps',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          {row.original.steps.slice(0, 4).map((step, i) => (
-            <span key={i} className="text-muted-foreground" title={step.step_type}>
-              {getStepTypeIcon(step.step_type)}
-            </span>
-          ))}
-          {row.original.steps.length > 4 && (
-            <span className="text-xs text-muted-foreground">
-              +{row.original.steps.length - 4}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'is_active',
-      header: 'Status',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={row.original.is_active}
-            onCheckedChange={() => handleToggleWorkflowActive(row.original)}
-          />
-          <span className={row.original.is_active ? 'text-green-600' : 'text-muted-foreground'}>
-            {row.original.is_active ? 'Active' : 'Inactive'}
-          </span>
-        </div>
-      ),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleEditWorkflow(row.original)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {
-              setDuplicatingWorkflow(row.original);
-              setDuplicateName(`${row.original.name} (Copy)`);
-              setDuplicateDialogOpen(true);
-            }}>
-              <Copy className="h-4 w-4 mr-2" />
-              Duplicate
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => handleDeleteWorkflow(row.original)}
-              disabled={row.original.is_default}
-              className="text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
     },
   ];
 
@@ -667,84 +378,6 @@ export default function Compliance() {
             onRowClick={(row) => navigate(`/compliance/policies/${row.original.id}`)}
           />
 
-          {/* Workflows Section */}
-          <Separator className="my-8" />
-          
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <GitBranch className="h-5 w-5" />
-                    Process Workflows
-                  </CardTitle>
-                  <CardDescription>
-                    Configure automated workflows for validation, approval, and notifications. 
-                    Use policy_check steps to reference compliance policies above.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={handleLoadDefaultWorkflows}>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Load Defaults
-                  </Button>
-                  <Button onClick={() => navigate('/compliance/workflows/new')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Workflow
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingWorkflows ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : workflows.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <GitBranch className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                  <p>No workflows configured yet.</p>
-                  <p className="text-sm">Click "Load Defaults" to get started with default workflows.</p>
-                </div>
-              ) : (
-                <DataTable 
-                  columns={workflowColumns} 
-                  data={workflows}
-                  searchColumn="name"
-                  storageKey="compliance-workflows-sort"
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Duplicate Workflow Dialog */}
-          <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Duplicate Workflow</DialogTitle>
-                <DialogDescription>
-                  Create a copy of "{duplicatingWorkflow?.name}" with a new name.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <Input
-                  placeholder="New workflow name"
-                  value={duplicateName}
-                  onChange={(e) => setDuplicateName(e.target.value)}
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDuplicateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleDuplicateWorkflow} disabled={isDuplicating || !duplicateName.trim()}>
-                  {isDuplicating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Duplicate
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent>
               <DialogHeader>
@@ -771,7 +404,7 @@ export default function Compliance() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">{t('common:labels.category')}</Label>
-                  <Select defaultValue={selectedPolicy?.category}>
+                  <Select name="category" defaultValue={selectedPolicy?.category}>
                     <SelectTrigger>
                       <SelectValue placeholder={t('common:placeholders.selectCategory')} />
                     </SelectTrigger>
@@ -785,7 +418,7 @@ export default function Compliance() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="severity">{t('common:labels.severity')}</Label>
-                  <Select defaultValue={selectedPolicy?.severity}>
+                  <Select name="severity" defaultValue={selectedPolicy?.severity}>
                     <SelectTrigger>
                       <SelectValue placeholder={t('common:placeholders.selectSeverity')} />
                     </SelectTrigger>
@@ -835,4 +468,4 @@ export default function Compliance() {
       )}
     </div>
   );
-} 
+}

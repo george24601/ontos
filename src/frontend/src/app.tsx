@@ -44,6 +44,7 @@ import TeamsView from './views/teams';
 import ProjectsView from './views/projects';
 import AuditTrail from './views/audit-trail';
 import WorkflowDesignerView from './views/workflow-designer';
+import Workflows from './views/workflows';
 
 export default function App() {
   const fetchUserInfo = useUserStore((state: any) => state.fetchUserInfo);
@@ -91,10 +92,12 @@ export default function App() {
               <Route path="/compliance" element={<Compliance />} />
               <Route path="/compliance/policies/:policyId" element={<CompliancePolicyDetails />} />
               <Route path="/compliance/runs/:runId" element={<ComplianceRunDetails />} />
+              <Route path="/workflows" element={<Workflows />} />
+              <Route path="/workflows/new" element={<WorkflowDesignerView />} />
+              <Route path="/workflows/:workflowId" element={<WorkflowDesignerView />} />
               <Route path="/catalog-commander" element={<CatalogCommander />} />
               <Route path="/create-uc" element={<CreateUcObject />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/compliance/workflows/:workflowId" element={<WorkflowDesignerView />} />
               <Route path="/settings/:tab" element={<Settings />} />
               <Route path="/teams" element={<TeamsView />} />
               <Route path="/projects" element={<ProjectsView />} />

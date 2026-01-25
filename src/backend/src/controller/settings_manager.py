@@ -58,6 +58,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         'projects': FeatureAccessLevel.READ_ONLY,
         'business-glossary': FeatureAccessLevel.ADMIN,
         'compliance': FeatureAccessLevel.ADMIN,
+        'process-workflows': FeatureAccessLevel.READ_ONLY,  # View workflows, Admin manages
         'estate-manager': FeatureAccessLevel.ADMIN,
         'master-data': FeatureAccessLevel.ADMIN,
         'security-features': FeatureAccessLevel.ADMIN,
@@ -75,6 +76,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         'projects': FeatureAccessLevel.READ_ONLY,
         'business-glossary': FeatureAccessLevel.READ_WRITE,
         'compliance': FeatureAccessLevel.READ_ONLY,
+        'process-workflows': FeatureAccessLevel.READ_ONLY,  # View workflows, Admin manages
         'data-asset-reviews': FeatureAccessLevel.READ_WRITE,
         'catalog-commander': FeatureAccessLevel.READ_ONLY,
         'comments': FeatureAccessLevel.READ_WRITE,  # All users can comment
@@ -86,6 +88,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         'teams': FeatureAccessLevel.READ_ONLY,
         'projects': FeatureAccessLevel.READ_ONLY,
         'business-glossary': FeatureAccessLevel.READ_ONLY,
+        'process-workflows': FeatureAccessLevel.READ_ONLY,  # View workflows, Admin manages
         'catalog-commander': FeatureAccessLevel.READ_ONLY,
         'comments': FeatureAccessLevel.READ_WRITE,  # All users can comment
     },
@@ -96,6 +99,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         'teams': FeatureAccessLevel.READ_WRITE,
         'projects': FeatureAccessLevel.READ_WRITE,
         'business-glossary': FeatureAccessLevel.READ_ONLY,
+        'process-workflows': FeatureAccessLevel.READ_ONLY,  # View workflows, Admin manages
         'catalog-commander': FeatureAccessLevel.READ_ONLY,
         'comments': FeatureAccessLevel.READ_WRITE,  # All users can comment
     },
@@ -104,6 +108,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         'entitlements': FeatureAccessLevel.ADMIN,
         'entitlements-sync': FeatureAccessLevel.ADMIN,
         'compliance': FeatureAccessLevel.READ_WRITE,
+        'process-workflows': FeatureAccessLevel.READ_ONLY,  # View workflows, Admin manages
         'data-asset-reviews': FeatureAccessLevel.READ_ONLY,
         'comments': FeatureAccessLevel.READ_WRITE,  # All users can comment
     },

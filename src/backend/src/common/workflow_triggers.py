@@ -351,6 +351,413 @@ class TriggerRegistry:
         
         return all_passed, executions
 
+    # =========================================================================
+    # Request Triggers
+    # =========================================================================
+
+    def on_request_review(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        scope_type: Optional[str] = None,
+        scope_id: Optional[str] = None,
+        *,
+        blocking: bool = True,
+    ) -> List[WorkflowExecution]:
+        """Fire when a review is requested for an entity.
+        
+        Used for datasets, data contracts, and data products when a user
+        requests a steward or domain owner review.
+        
+        Args:
+            entity_type: Type of entity (dataset, data_contract, data_product)
+            entity_id: ID of the entity
+            entity_name: Name of the entity
+            entity_data: Entity data including request details (message, requester, etc.)
+            user_email: User requesting the review
+            scope_type: Scope type (project, catalog, domain)
+            scope_id: Scope ID
+            blocking: Execute synchronously
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_REQUEST_REVIEW,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        logger.info(f"on_request_review fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_request_access(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        scope_type: Optional[str] = None,
+        scope_id: Optional[str] = None,
+        *,
+        blocking: bool = True,
+    ) -> List[WorkflowExecution]:
+        """Fire when access is requested for an entity.
+        
+        Used for access grants, project access, and role access requests.
+        
+        Args:
+            entity_type: Type of entity (access_grant, project, etc.)
+            entity_id: ID of the entity or request
+            entity_name: Name of the entity
+            entity_data: Request details (duration, permission level, justification, etc.)
+            user_email: User requesting access
+            scope_type: Scope type
+            scope_id: Scope ID
+            blocking: Execute synchronously
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_REQUEST_ACCESS,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        logger.info(f"on_request_access fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_request_publish(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        scope_type: Optional[str] = None,
+        scope_id: Optional[str] = None,
+        *,
+        blocking: bool = True,
+    ) -> List[WorkflowExecution]:
+        """Fire when publish or deployment is requested.
+        
+        Used for data contracts when requesting to publish to marketplace
+        or deploy to a catalog.
+        
+        Args:
+            entity_type: Type of entity (data_contract)
+            entity_id: ID of the entity
+            entity_name: Name of the entity
+            entity_data: Request details (target catalog, justification, etc.)
+            user_email: User requesting publish
+            scope_type: Scope type
+            scope_id: Scope ID
+            blocking: Execute synchronously
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_REQUEST_PUBLISH,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        logger.info(f"on_request_publish fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_request_status_change(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        from_status: str,
+        to_status: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        scope_type: Optional[str] = None,
+        scope_id: Optional[str] = None,
+        *,
+        blocking: bool = True,
+    ) -> List[WorkflowExecution]:
+        """Fire when a status change is requested (but not yet applied).
+        
+        Used when users request a status transition that requires approval,
+        e.g., draft -> published for datasets or contracts.
+        
+        Args:
+            entity_type: Type of entity
+            entity_id: ID of the entity
+            from_status: Current status
+            to_status: Requested target status
+            entity_name: Name of the entity
+            entity_data: Request details (justification, etc.)
+            user_email: User requesting the change
+            scope_type: Scope type
+            scope_id: Scope ID
+            blocking: Execute synchronously
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_REQUEST_STATUS_CHANGE,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+            from_status=from_status,
+            to_status=to_status,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        logger.info(
+            f"on_request_status_change fired for {entity_type.value} '{entity_id}': "
+            f"'{from_status}' -> '{to_status}' by {user_email}"
+        )
+        return self.fire_trigger(event, blocking=blocking)
+
+    # =========================================================================
+    # Job Lifecycle Triggers
+    # =========================================================================
+
+    def on_job_success(
+        self,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when a background job completes successfully.
+        
+        Args:
+            entity_id: Job run ID
+            entity_name: Job name
+            entity_data: Job details (workflow_id, run_id, duration, etc.)
+            user_email: User who triggered the job
+            blocking: Execute synchronously (default False for async)
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_JOB_SUCCESS,
+            entity_type=EntityType.JOB,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_job_success fired for job '{entity_name}' (run {entity_id})")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_job_failure(
+        self,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when a background job fails.
+        
+        Args:
+            entity_id: Job run ID
+            entity_name: Job name
+            entity_data: Job details (workflow_id, run_id, error_message, etc.)
+            user_email: User who triggered the job
+            blocking: Execute synchronously (default False for async)
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_JOB_FAILURE,
+            entity_type=EntityType.JOB,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_job_failure fired for job '{entity_name}' (run {entity_id})")
+        return self.fire_trigger(event, blocking=blocking)
+
+    # =========================================================================
+    # Subscription Triggers
+    # =========================================================================
+
+    def on_subscribe(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when a user subscribes to an entity.
+        
+        Args:
+            entity_type: Type of entity (dataset, data_product)
+            entity_id: ID of the entity
+            entity_name: Name of the entity
+            entity_data: Subscription details (subscriber_email, reason, etc.)
+            user_email: User subscribing
+            blocking: Execute synchronously (default False for async)
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_SUBSCRIBE,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_subscribe fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_unsubscribe(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when a user unsubscribes from an entity.
+        
+        Args:
+            entity_type: Type of entity (dataset, data_product)
+            entity_id: ID of the entity
+            entity_name: Name of the entity
+            entity_data: Subscription details
+            user_email: User unsubscribing
+            blocking: Execute synchronously (default False for async)
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_UNSUBSCRIBE,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_unsubscribe fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    # =========================================================================
+    # Access Lifecycle Triggers
+    # =========================================================================
+
+    def on_expiring(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when an entity is about to expire.
+        
+        Used for access grants, subscriptions, or any time-limited resources.
+        Typically triggered by a scheduled job checking for expiring items.
+        
+        Args:
+            entity_type: Type of entity (access_grant, etc.)
+            entity_id: ID of the entity
+            entity_name: Name or description of the entity
+            entity_data: Details including expiration date, days remaining, etc.
+            user_email: User affected by expiration
+            blocking: Execute synchronously (default False for async)
+            
+        Returns:
+            List of workflow executions
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_EXPIRING,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_expiring fired for {entity_type.value} '{entity_id}'")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_revoke(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        revoked_by: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when access or a resource is revoked.
+        
+        Used for access grants when an admin revokes access before expiration.
+        
+        Args:
+            entity_type: Type of entity (access_grant, etc.)
+            entity_id: ID of the entity
+            entity_name: Name or description of the entity
+            entity_data: Details about the revocation (reason, etc.)
+            user_email: User whose access was revoked
+            revoked_by: User who performed the revocation
+            blocking: Execute synchronously (default False for async)
+            
+        Returns:
+            List of workflow executions
+        """
+        if entity_data is None:
+            entity_data = {}
+        entity_data['revoked_by'] = revoked_by
+        
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_REVOKE,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_revoke fired for {entity_type.value} '{entity_id}' (revoked by {revoked_by})")
+        return self.fire_trigger(event, blocking=blocking)
+
 
 def get_trigger_registry(db: Session) -> TriggerRegistry:
     """Get a trigger registry instance.

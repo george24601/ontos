@@ -14,7 +14,21 @@ export type TriggerType =
   | 'scheduled'
   | 'manual'
   | 'before_create'   // Pre-creation validation (inline/blocking)
-  | 'before_update';  // Pre-update validation (inline/blocking)
+  | 'before_update'   // Pre-update validation (inline/blocking)
+  // Request triggers
+  | 'on_request_review'
+  | 'on_request_access'
+  | 'on_request_publish'
+  | 'on_request_status_change'
+  // Job lifecycle triggers
+  | 'on_job_success'
+  | 'on_job_failure'
+  // Subscription triggers
+  | 'on_subscribe'
+  | 'on_unsubscribe'
+  // Access lifecycle triggers
+  | 'on_expiring'
+  | 'on_revoke';
 
 export type EntityType =
   | 'catalog'
@@ -25,7 +39,12 @@ export type EntityType =
   | 'data_product'
   | 'dataset'
   | 'domain'
-  | 'project';
+  | 'project'
+  | 'access_grant'
+  | 'role'
+  | 'data_asset_review'
+  | 'job'
+  | 'subscription';
 
 export type ScopeType = 'all' | 'project' | 'catalog' | 'domain';
 
@@ -39,7 +58,8 @@ export type StepType =
   | 'script'
   | 'pass'
   | 'fail'
-  | 'policy_check';  // Evaluates existing compliance policy by UUID
+  | 'policy_check'   // Evaluates existing compliance policy by UUID
+  | 'delivery';      // Triggers DeliveryService to apply changes
 
 export type ExecutionStatus =
   | 'pending'

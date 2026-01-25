@@ -76,7 +76,10 @@ class AccessGrantsManager:
         data: AccessGrantRequestCreate
     ) -> AccessGrantRequestResponse:
         """
-        Create a new access grant request.
+        Create a new access grant request via workflow.
+        
+        Fires ON_REQUEST_ACCESS trigger to execute configured workflows
+        for notifications and approvals.
         
         Args:
             db: Database session
@@ -89,6 +92,9 @@ class AccessGrantsManager:
         Raises:
             ValueError: If there's already a pending request
         """
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+        
         # Check for existing pending request
         existing = self._request_repo.check_existing_pending(
             db,
@@ -138,13 +144,33 @@ class AccessGrantsManager:
         
         db.commit()
         
-        # Send notification to admins
-        self._notify_admins_new_request(db, request_db)
+        # Fire the ON_REQUEST_ACCESS trigger
+        trigger_registry = get_trigger_registry(db)
+        executions = trigger_registry.on_request_access(
+            entity_type=EntityType.ACCESS_GRANT,
+            entity_id=str(request_db.id),
+            entity_name=data.entity_name,
+            entity_data={
+                "request_id": str(request_db.id),
+                "entity_type": data.entity_type,
+                "entity_id": data.entity_id,
+                "entity_name": data.entity_name,
+                "requested_duration_days": data.requested_duration_days,
+                "permission_level": data.permission_level.value,
+                "reason": data.reason,
+            },
+            user_email=requester_email,
+        )
         
         logger.info(
             f"Created access request {request_db.id} from {requester_email} "
-            f"for {data.entity_type}/{data.entity_id}"
+            f"for {data.entity_type}/{data.entity_id} "
+            f"(workflows triggered: {len(executions)})"
         )
+        
+        # Fall back to direct notification if no workflows configured
+        if not executions:
+            self._notify_admins_new_request(db, request_db)
         
         return AccessGrantRequestResponse.model_validate(request_db)
     
@@ -669,7 +695,40 @@ class AccessGrantsManager:
         grant: AccessGrantDb,
         reason: Optional[str] = None
     ) -> None:
-        """Notify the grantee that their access has been revoked."""
+        """Notify the grantee that their access has been revoked using workflow triggers."""
+        # Try workflow trigger first
+        try:
+            from src.common.workflow_triggers import get_trigger_registry
+            from src.models.process_workflows import EntityType
+            
+            trigger_registry = get_trigger_registry(db)
+            entity_data = {
+                "grant_id": str(grant.id),
+                "grantee_email": grant.grantee_email,
+                "entity_type": grant.entity_type,
+                "entity_id": grant.entity_id,
+                "entity_name": grant.entity_name,
+                "permission_level": grant.permission_level,
+                "revocation_reason": reason,
+            }
+            
+            executions = trigger_registry.on_revoke(
+                entity_type=EntityType.ACCESS_GRANT,
+                entity_id=str(grant.id),
+                entity_name=grant.entity_name or grant.entity_id,
+                entity_data=entity_data,
+                user_email=grant.grantee_email,
+                revoked_by=grant.revoked_by,
+                blocking=False,
+            )
+            
+            if executions:
+                logger.info(f"Triggered {len(executions)} workflow(s) for access revocation (grant {grant.id})")
+                return
+        except Exception as workflow_err:
+            logger.error(f"Failed to trigger workflow for access revocation: {workflow_err}", exc_info=True)
+        
+        # Fallback to direct notification
         if not self._notifications_manager:
             return
         
@@ -691,16 +750,51 @@ class AccessGrantsManager:
                 can_delete=True
             )
             self._notifications_manager.create_notification(notification=notification, db=db)
+            logger.info(f"No workflow configured; sent direct revocation notification for grant {grant.id}")
         except Exception as e:
             logger.error(f"Failed to send revocation notification: {e}")
     
     def _send_expiry_warning(self, db: Session, grant: AccessGrantDb) -> None:
-        """Send a warning that access is about to expire."""
+        """Send a warning that access is about to expire using workflow triggers."""
+        days = grant.days_until_expiry or 0
+        
+        # Try workflow trigger first
+        try:
+            from src.common.workflow_triggers import get_trigger_registry
+            from src.models.process_workflows import EntityType
+            
+            trigger_registry = get_trigger_registry(db)
+            entity_data = {
+                "grant_id": str(grant.id),
+                "grantee_email": grant.grantee_email,
+                "entity_type": grant.entity_type,
+                "entity_id": grant.entity_id,
+                "entity_name": grant.entity_name,
+                "permission_level": grant.permission_level,
+                "days_until_expiry": days,
+                "expires_at": grant.expires_at.isoformat() if grant.expires_at else None,
+            }
+            
+            executions = trigger_registry.on_expiring(
+                entity_type=EntityType.ACCESS_GRANT,
+                entity_id=str(grant.id),
+                entity_name=grant.entity_name or grant.entity_id,
+                entity_data=entity_data,
+                user_email=grant.grantee_email,
+                blocking=False,
+            )
+            
+            if executions:
+                logger.info(f"Triggered {len(executions)} workflow(s) for expiry warning (grant {grant.id})")
+                return
+        except Exception as workflow_err:
+            logger.error(f"Failed to trigger workflow for expiry warning: {workflow_err}", exc_info=True)
+        
+        # Fallback to direct notification
         if not self._notifications_manager:
             return
         
         try:
-            days = grant.days_until_expiry or 0
             notification = Notification(
                 id=str(uuid.uuid4()),
                 created_at=datetime.utcnow(),
@@ -715,6 +809,7 @@ class AccessGrantsManager:
                 can_delete=True
             )
             self._notifications_manager.create_notification(notification=notification, db=db)
+            logger.info(f"No workflow configured; sent direct expiry warning for grant {grant.id}")
         except Exception as e:
             logger.error(f"Failed to send expiry warning: {e}")
 

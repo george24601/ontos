@@ -285,5 +285,56 @@
     "light": "Claro",
     "dark": "Oscuro",
     "system": "Sistema"
+  },
+  "workflows": {
+    "triggerTypes": {
+      "on_create": "Al crear",
+      "on_update": "Al actualizar",
+      "on_delete": "Al eliminar",
+      "on_status_change": "Al cambiar estado",
+      "scheduled": "Programado",
+      "manual": "Manual",
+      "before_create": "Antes de crear",
+      "before_update": "Antes de actualizar",
+      "on_request_review": "Solicitud de revisión",
+      "on_request_access": "Solicitud de acceso",
+      "on_request_publish": "Solicitud de publicación",
+      "on_request_status_change": "Solicitud de cambio de estado",
+      "on_job_success": "Job exitoso",
+      "on_job_failure": "Job fallido",
+      "on_subscribe": "Suscripción",
+      "on_unsubscribe": "Cancelación",
+      "on_expiring": "Por expirar",
+      "on_revoke": "Acceso revocado"
+    },
+    "entityTypes": {
+      "catalog": "Catálogo",
+      "schema": "Esquema",
+      "table": "Tabla",
+      "view": "Vista",
+      "data_contract": "Contrato",
+      "data_product": "Producto",
+      "dataset": "Conjunto de datos",
+      "domain": "Dominio",
+      "project": "Proyecto",
+      "access_grant": "Permiso de acceso",
+      "role": "Rol",
+      "data_asset_review": "Revisión de activo",
+      "job": "Job",
+      "subscription": "Suscripción"
+    },
+    "stepTypes": {
+      "validation": "Validación",
+      "approval": "Aprobación",
+      "notification": "Notificación",
+      "assign_tag": "Asignar etiqueta",
+      "remove_tag": "Eliminar etiqueta",
+      "conditional": "Condicional",
+      "script": "Script",
+      "pass": "Exitoso",
+      "fail": "Fallido",
+      "policy_check": "Verificación de política",
+      "delivery": "Entrega"
+    }
   }
 }

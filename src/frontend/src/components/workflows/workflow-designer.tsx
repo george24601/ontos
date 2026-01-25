@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Node,
   Edge,
@@ -73,6 +74,12 @@ import type {
   StepTypeSchema,
   CompliancePolicyRef,
 } from '@/types/process-workflow';
+import { 
+  getTriggerTypeLabel, 
+  getEntityTypeLabel, 
+  ALL_TRIGGER_TYPES, 
+  ALL_ENTITY_TYPES 
+} from '@/lib/workflow-labels';
 
 // Node types registry
 const nodeTypes = {
@@ -199,6 +206,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
   
   const { get, post, put } = useApi();
   const { toast } = useToast();
+  const { t } = useTranslation(['common']);
   
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
@@ -225,8 +233,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
   // Set up breadcrumbs
   useEffect(() => {
     setStaticSegments([
-      { label: 'Compliance', path: '/compliance' },
-      { label: 'Workflows', path: '/compliance#workflows' },
+      { label: 'Workflows', path: '/workflows' },
     ]);
     setDynamicTitle(isNew ? 'New Workflow' : 'Loading...');
     
@@ -436,7 +443,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
           title: 'Success',
           description: `Workflow ${isNew ? 'created' : 'updated'} successfully`,
         });
-        navigate('/compliance#workflows');
+        navigate('/workflows');
       }
     } catch (error) {
       toast({
@@ -468,7 +475,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate('/compliance#workflows')}>
+          <Button variant="outline" size="sm" onClick={() => navigate('/workflows')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -568,27 +575,24 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                 // Trigger configuration
                 <>
                   <div>
-                    <Label>Trigger Type</Label>
+                    <Label>{t('common:labels.type')}</Label>
                     <Select value={triggerType} onValueChange={(v) => setTriggerType(v as TriggerType)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="before_create">Before Create (Inline)</SelectItem>
-                        <SelectItem value="before_update">Before Update (Inline)</SelectItem>
-                        <SelectItem value="on_create">On Create</SelectItem>
-                        <SelectItem value="on_update">On Update</SelectItem>
-                        <SelectItem value="on_delete">On Delete</SelectItem>
-                        <SelectItem value="on_status_change">On Status Change</SelectItem>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="manual">Manual</SelectItem>
+                        {ALL_TRIGGER_TYPES.map(tt => (
+                          <SelectItem key={tt} value={tt}>
+                            {getTriggerTypeLabel(tt, t)}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Entity Types</Label>
+                    <Label>{t('common:labels.category')}</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {(['catalog', 'schema', 'table', 'data_contract', 'data_product', 'dataset'] as EntityType[]).map(et => (
+                      {ALL_ENTITY_TYPES.map(et => (
                         <Badge
                           key={et}
                           variant={entityTypes.includes(et) ? 'default' : 'outline'}
@@ -601,7 +605,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                             }
                           }}
                         >
-                          {et.replace('_', ' ')}
+                          {getEntityTypeLabel(et, t)}
                         </Badge>
                       ))}
                     </div>

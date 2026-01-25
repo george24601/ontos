@@ -285,5 +285,56 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système"
+  },
+  "workflows": {
+    "triggerTypes": {
+      "on_create": "À la création",
+      "on_update": "À la mise à jour",
+      "on_delete": "À la suppression",
+      "on_status_change": "Au changement de statut",
+      "scheduled": "Planifié",
+      "manual": "Manuel",
+      "before_create": "Avant création",
+      "before_update": "Avant mise à jour",
+      "on_request_review": "Demande de révision",
+      "on_request_access": "Demande d'accès",
+      "on_request_publish": "Demande de publication",
+      "on_request_status_change": "Demande de changement de statut",
+      "on_job_success": "Job réussi",
+      "on_job_failure": "Job échoué",
+      "on_subscribe": "Abonnement",
+      "on_unsubscribe": "Désabonnement",
+      "on_expiring": "Expiration proche",
+      "on_revoke": "Accès révoqué"
+    },
+    "entityTypes": {
+      "catalog": "Catalogue",
+      "schema": "Schéma",
+      "table": "Table",
+      "view": "Vue",
+      "data_contract": "Contrat",
+      "data_product": "Produit",
+      "dataset": "Jeu de données",
+      "domain": "Domaine",
+      "project": "Projet",
+      "access_grant": "Droit d'accès",
+      "role": "Rôle",
+      "data_asset_review": "Révision d'actif",
+      "job": "Job",
+      "subscription": "Abonnement"
+    },
+    "stepTypes": {
+      "validation": "Validation",
+      "approval": "Approbation",
+      "notification": "Notification",
+      "assign_tag": "Attribuer un tag",
+      "remove_tag": "Supprimer un tag",
+      "conditional": "Conditionnel",
+      "script": "Script",
+      "pass": "Réussi",
+      "fail": "Échoué",
+      "policy_check": "Vérification de politique",
+      "delivery": "Livraison"
+    }
   }
 }

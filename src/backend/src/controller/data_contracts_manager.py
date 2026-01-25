@@ -4269,26 +4269,28 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         message: Optional[str] = None,
         current_user: Optional[str] = None
     ) -> dict:
-        """Request a data steward review for a contract.
+        """Request a data steward review for a contract via workflow.
         
-        Transitions DRAFT→PROPOSED, creates notifications, asset review, and change log.
+        Transitions DRAFT→PROPOSED, fires ON_REQUEST_REVIEW trigger to execute
+        configured workflows for notifications and approvals.
         
         Args:
             db: Database session
-            notifications_manager: Notifications manager instance
+            notifications_manager: Notifications manager instance (kept for backward compat)
             contract_id: Contract ID to request review for
             requester_email: Email of user requesting review
             message: Optional message to stewards
             current_user: Username requesting review
             
         Returns:
-            Dict with status and message
+            Dict with status, message, and workflow execution info
             
         Raises:
             ValueError: If contract not found or invalid status
         """
         from datetime import datetime
-        from src.models.notifications import NotificationType, Notification
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
         from src.models.data_asset_reviews import AssetType, ReviewedAssetStatus
         
         contract = data_contract_repo.get(db, id=contract_id)
@@ -4305,6 +4307,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         db.flush()
         
         now = datetime.utcnow()
+        request_id = str(uuid4())
         
         # Create asset review record
         try:
@@ -4326,37 +4329,22 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         except Exception as e:
             logger.warning(f"Failed to create asset review record: {e}", exc_info=True)
         
-        # Notify requester (receipt)
-        requester_note = Notification(
-            id=str(uuid4()),
-            created_at=now,
-            type=NotificationType.INFO,
-            title="Review Request Submitted",
-            subtitle=f"Contract: {contract.name}",
-            description=f"Your data steward review request has been submitted.{' Message: ' + message if message else ''}",
-            recipient=requester_email,
-            can_delete=True,
-        )
-        notifications_manager.create_notification(notification=requester_note, db=db)
-        
-        # Notify stewards
-        steward_note = Notification(
-            id=str(uuid4()),
-            created_at=now,
-            type=NotificationType.ACTION_REQUIRED,
-            title="Contract Review Requested",
-            subtitle=f"From: {requester_email}",
-            description=f"Review request for data contract '{contract.name}' (ID: {contract_id})" + (f"\n\nMessage: {message}" if message else ""),
-            recipient="DataSteward",
-            action_type="handle_steward_review",
-            action_payload={
+        # Fire the ON_REQUEST_REVIEW trigger
+        trigger_registry = get_trigger_registry(db)
+        executions = trigger_registry.on_request_review(
+            entity_type=EntityType.DATA_CONTRACT,
+            entity_id=contract_id,
+            entity_name=contract.name,
+            entity_data={
                 "contract_id": contract_id,
                 "contract_name": contract.name,
-                "requester_email": requester_email,
+                "from_status": from_status,
+                "to_status": contract.status,
+                "message": message,
+                "request_id": request_id,
             },
-            can_delete=False,
+            user_email=requester_email,
         )
-        notifications_manager.create_notification(notification=steward_note, db=db)
         
         # Change log entry
         from src.controller.change_log_manager import change_log_manager
@@ -4373,10 +4361,23 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 "to_status": contract.status,
                 "timestamp": now.isoformat(),
                 "summary": f"Review requested by {requester_email}" + (f": {message}" if message else ""),
+                "workflow_triggered": len(executions) > 0,
             },
         )
         
-        return {"status": contract.status, "message": "Review request submitted successfully"}
+        # Build response
+        result = {
+            "status": contract.status, 
+            "message": "Review request submitted successfully",
+            "request_id": request_id,
+        }
+        
+        if executions:
+            execution = executions[0]
+            result["execution_id"] = execution.id
+            result["workflow_status"] = execution.status.value
+        
+        return result
     
     def request_publish(
         self,
@@ -4387,26 +4388,28 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         justification: Optional[str] = None,
         current_user: Optional[str] = None
     ) -> dict:
-        """Request to publish an APPROVED contract to the marketplace.
+        """Request to publish an APPROVED contract to the marketplace via workflow.
         
-        Creates notifications and change log.
+        Fires ON_REQUEST_PUBLISH trigger to execute configured workflows
+        for notifications and approvals.
         
         Args:
             db: Database session
-            notifications_manager: Notifications manager instance
+            notifications_manager: Notifications manager instance (kept for backward compat)
             contract_id: Contract ID to request publish for
             requester_email: Email of user requesting publish
             justification: Optional justification
             current_user: Username requesting publish
             
         Returns:
-            Dict with message
+            Dict with message and workflow execution info
             
         Raises:
             ValueError: If contract not found, invalid status, or already published
         """
         from datetime import datetime
-        from src.models.notifications import NotificationType, Notification
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
         
         contract = data_contract_repo.get(db, id=contract_id)
         if not contract:
@@ -4420,38 +4423,23 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             raise ValueError("Contract is already published to marketplace.")
         
         now = datetime.utcnow()
+        request_id = str(uuid4())
         
-        # Notify requester (receipt)
-        requester_note = Notification(
-            id=str(uuid4()),
-            created_at=now,
-            type=NotificationType.INFO,
-            title="Publish Request Submitted",
-            subtitle=f"Contract: {contract.name}",
-            description=f"Your marketplace publish request has been submitted for approval.{' Justification: ' + justification if justification else ''}",
-            recipient=requester_email,
-            can_delete=True,
-        )
-        notifications_manager.create_notification(notification=requester_note, db=db)
-        
-        # Notify approvers
-        approver_note = Notification(
-            id=str(uuid4()),
-            created_at=now,
-            type=NotificationType.ACTION_REQUIRED,
-            title="Marketplace Publish Request",
-            subtitle=f"From: {requester_email}",
-            description=f"Publish request for contract '{contract.name}' (ID: {contract_id})" + (f"\n\nJustification: {justification}" if justification else ""),
-            recipient="ContractApprover",
-            action_type="handle_publish_request",
-            action_payload={
+        # Fire the ON_REQUEST_PUBLISH trigger
+        trigger_registry = get_trigger_registry(db)
+        executions = trigger_registry.on_request_publish(
+            entity_type=EntityType.DATA_CONTRACT,
+            entity_id=contract_id,
+            entity_name=contract.name,
+            entity_data={
                 "contract_id": contract_id,
                 "contract_name": contract.name,
-                "requester_email": requester_email,
+                "current_status": current_status,
+                "justification": justification,
+                "request_id": request_id,
             },
-            can_delete=False,
+            user_email=requester_email,
         )
-        notifications_manager.create_notification(notification=approver_note, db=db)
         
         # Change log entry
         from src.controller.change_log_manager import change_log_manager
@@ -4466,10 +4454,22 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 "justification": justification,
                 "timestamp": now.isoformat(),
                 "summary": f"Publish requested by {requester_email}" + (f": {justification}" if justification else ""),
+                "workflow_triggered": len(executions) > 0,
             },
         )
         
-        return {"message": "Publish request submitted successfully"}
+        # Build response
+        result = {
+            "message": "Publish request submitted successfully",
+            "request_id": request_id,
+        }
+        
+        if executions:
+            execution = executions[0]
+            result["execution_id"] = execution.id
+            result["workflow_status"] = execution.status.value
+        
+        return result
     
     def request_deploy(
         self,
@@ -4537,6 +4537,56 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         
         now = datetime.utcnow()
         
+        # Change log entry
+        from src.controller.change_log_manager import change_log_manager
+        change_log_manager.log_change_with_details(
+            db,
+            entity_type="data_contract",
+            entity_id=contract_id,
+            action="deploy_requested",
+            username=current_user,
+            details={
+                "requester_email": requester_email,
+                "catalog": catalog,
+                "schema": database_schema,
+                "message": message,
+                "timestamp": now.isoformat(),
+                "summary": f"Deploy requested by {requester_email}" + 
+                          (f" to {catalog}.{database_schema}" if catalog and database_schema else ""),
+            },
+        )
+        
+        # --- Trigger workflow for deploy request --- #
+        try:
+            from src.common.workflow_triggers import get_trigger_registry
+            from src.models.process_workflows import EntityType
+            
+            trigger_registry = get_trigger_registry(db)
+            entity_data = {
+                "contract_id": contract_id,
+                "contract_name": contract.name,
+                "requester_email": requester_email,
+                "catalog": catalog,
+                "schema": database_schema,
+                "message": message,
+            }
+            
+            executions = trigger_registry.on_request_publish(
+                entity_type=EntityType.DATA_CONTRACT,
+                entity_id=contract_id,
+                entity_name=contract.name,
+                entity_data=entity_data,
+                user_email=requester_email,
+                blocking=True,
+            )
+            
+            if executions:
+                logger.info(f"Triggered {len(executions)} workflow(s) for deploy request")
+                return {"message": "Deploy request submitted. Workflow triggered for approval."}
+        except Exception as workflow_err:
+            logger.error(f"Failed to trigger workflow for deploy request: {workflow_err}", exc_info=True)
+        
+        # Fallback to direct notification if no workflow configured
         # Notify requester (receipt)
         requester_note = Notification(
             id=str(uuid4()),
@@ -4572,25 +4622,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             can_delete=False,
         )
         notifications_manager.create_notification(notification=admin_note, db=db)
-        
-        # Change log entry
-        from src.controller.change_log_manager import change_log_manager
-        change_log_manager.log_change_with_details(
-            db,
-            entity_type="data_contract",
-            entity_id=contract_id,
-            action="deploy_requested",
-            username=current_user,
-            details={
-                "requester_email": requester_email,
-                "catalog": catalog,
-                "schema": database_schema,
-                "message": message,
-                "timestamp": now.isoformat(),
-                "summary": f"Deploy requested by {requester_email}" + 
-                          (f" to {catalog}.{database_schema}" if catalog and database_schema else ""),
-            },
-        )
+        logger.info("No workflow configured; sent direct deploy request notifications")
         
         return {"message": "Deploy request submitted successfully"}
     

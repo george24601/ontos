@@ -417,7 +417,7 @@ class ProjectsManager:
         return any(project.id == project_id for project in user_projects)
 
     async def request_project_access(self, db: Session, user_identifier: str, user_groups: List[str], request: ProjectAccessRequest, notifications_manager) -> ProjectAccessRequestResponse:
-        """Request access to a project by sending notifications to project team members."""
+        """Request access to a project using workflow triggers."""
         logger.debug(f"Processing project access request from user {user_identifier} for project {request.project_id}")
 
         # Verify project exists
@@ -435,63 +435,83 @@ class ProjectsManager:
         if not project_teams:
             raise ConflictError(f"Project '{db_project.name}' has no assigned teams. Cannot request access.")
 
-        # Send notifications to all team members of assigned teams
-        notifications_sent = 0
-
-        logger.debug(f"Found {len(project_teams)} teams assigned to project '{db_project.name}'")
+        # Collect team member emails for workflow notification
+        team_members = []
         for team in project_teams:
-            logger.debug(f"Processing team: {team.name} (ID: {team.id})")
-
-            # Get team with members using team repository
             team_with_members = self.team_repo.get_with_members(db, team.id)
-            if not team_with_members:
-                logger.warning(f"Could not fetch team {team.name} with members")
+            if team_with_members and team_with_members.members:
+                for member in team_with_members.members:
+                    team_members.append(member.member_identifier)
+
+        # --- Trigger workflow for project access request --- #
+        try:
+            from src.common.workflow_triggers import get_trigger_registry
+            from src.models.process_workflows import EntityType
+            
+            trigger_registry = get_trigger_registry(db)
+            entity_data = {
+                "project_id": request.project_id,
+                "project_name": db_project.name,
+                "requester": user_identifier,
+                "message": request.message,
+                "team_ids": [team.id for team in project_teams],
+                "team_members": team_members,
+            }
+            
+            executions = trigger_registry.on_request_access(
+                entity_type=EntityType.PROJECT,
+                entity_id=request.project_id,
+                entity_name=db_project.name,
+                entity_data=entity_data,
+                user_email=user_identifier,
+                blocking=True,  # Wait for workflow to complete/pause
+            )
+            
+            if executions:
+                logger.info(f"Triggered {len(executions)} workflow(s) for project access request")
+                return ProjectAccessRequestResponse(
+                    message=f"Access request submitted. Workflow triggered for approval.",
+                    project_name=db_project.name
+                )
+        except Exception as workflow_err:
+            logger.error(f"Failed to trigger workflow for project access request: {workflow_err}", exc_info=True)
+
+        # Fallback to direct notification if no workflow configured
+        notifications_sent = 0
+        logger.debug(f"No workflow configured; sending direct notifications to {len(team_members)} team members")
+        
+        for member_email in team_members:
+            try:
+                notification_title = "Project Access Request"
+                notification_description = (
+                    f"User {user_identifier} is requesting access to project '{db_project.name}'"
+                    f"{' - ' + request.message if request.message else ''}. "
+                    f"Please contact an administrator to grant access if appropriate."
+                )
+
+                notification = await notifications_manager.create_notification(
+                    db=db,
+                    user_id=member_email,
+                    title=notification_title,
+                    subtitle=f"From: {user_identifier}",
+                    description=notification_description,
+                    link=f"/projects/{request.project_id}",
+                    type=NotificationType.INFO,
+                    action_type="project_access_request",
+                    action_payload={
+                        "project_id": request.project_id,
+                        "requester": user_identifier,
+                    }
+                )
+                notifications_sent += 1
+            except Exception as e:
+                logger.error(f"Failed to send notification to {member_email}: {e}", exc_info=True)
                 continue
-
-            if not team_with_members.members:
-                logger.warning(f"Team {team.name} has no members, skipping notifications")
-                continue
-
-            logger.debug(f"Team {team.name} has {len(team_with_members.members)} members")
-            for member in team_with_members.members:
-                try:
-                    logger.debug(f"Attempting to send notification to member: {member.member_identifier}")
-
-                    # Create notification for each team member
-                    notification_title = f"Project Access Request"
-                    notification_description = (
-                        f"User {user_identifier} is requesting access to project '{db_project.name}'"
-                        f"{' - ' + request.message if request.message else ''}. "
-                        f"Please contact an administrator to grant access if appropriate."
-                    )
-
-                    # Create notification using the async method
-                    notification = await notifications_manager.create_notification(
-                        db=db,
-                        user_id=member.member_identifier,
-                        title=notification_title,
-                        subtitle=f"From: {user_identifier}",
-                        description=notification_description,
-                        link=f"/projects/{request.project_id}",
-                        type=NotificationType.INFO,
-                        action_type="project_access_request",
-                        action_payload={
-                            "project_id": request.project_id,
-                            "requester": user_identifier,
-                            "team_id": team.id
-                        }
-                    )
-                    notifications_sent += 1
-                    logger.debug(f"Successfully sent project access request notification to {member.member_identifier}")
-
-                except Exception as e:
-                    logger.error(f"Failed to send notification to team member {member.member_identifier}: {e}", exc_info=True)
-                    continue
 
         if notifications_sent == 0:
             raise ConflictError(f"Could not send notifications to any team members for project '{db_project.name}'.")
 
-        logger.info(f"Sent {notifications_sent} project access request notifications for project '{db_project.name}' from user {user_identifier}")
+        logger.info(f"Sent {notifications_sent} project access request notifications for project '{db_project.name}'")
 
         return ProjectAccessRequestResponse(
             message=f"Access request sent successfully. {notifications_sent} team members have been notified.",

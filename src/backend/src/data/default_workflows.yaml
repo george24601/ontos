@@ -416,3 +416,684 @@ workflows:
         config:
           message: "Table name cannot be a SQL reserved word"
 
+  # =========================================================================
+  # Request-Based Workflows
+  # =========================================================================
+
+  # Dataset Review Request
+  - id: "dataset-review-request"
+    name: "Dataset Review Request"
+    description: "Handles dataset review requests with data steward approval. Fires when ON_REQUEST_REVIEW is triggered for datasets."
+    trigger:
+      type: "on_request_review"
+      entity_types:
+        - "dataset"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your dataset review request has been submitted. A data steward will review it shortly."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Data Steward Approval"
+        type: "approval"
+        config:
+          approvers: "DataSteward"
+          timeout_days: 7
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Approval"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your dataset review request has been approved."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Rejection"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your dataset review request has been denied. Please check the feedback and resubmit if needed."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Review Approved"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Review Rejected"
+        type: "fail"
+        config:
+          message: "Dataset review request was rejected"
+
+  # Data Contract Review Request
+  - id: "contract-review-request"
+    name: "Data Contract Review Request"
+    description: "Handles data contract review requests with data steward approval."
+    trigger:
+      type: "on_request_review"
+      entity_types:
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your data contract review request has been submitted. A data steward will review it shortly."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Data Steward Approval"
+        type: "approval"
+        config:
+          approvers: "DataSteward"
+          timeout_days: 7
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Approval"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your data contract has been approved and is ready for the next step."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Rejection"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your data contract review request has been denied. Please review the feedback."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Contract Review Approved"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Contract Review Rejected"
+        type: "fail"
+        config:
+          message: "Data contract review request was rejected"
+
+  # Data Contract Publish Request
+  - id: "contract-publish-request"
+    name: "Data Contract Publish Request"
+    description: "Handles requests to publish data contracts to the marketplace with approver authorization."
+    trigger:
+      type: "on_request_publish"
+      entity_types:
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Publish Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your request to publish the data contract to the marketplace has been submitted."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Contract Approver Authorization"
+        type: "approval"
+        config:
+          approvers: "ContractApprover"
+          timeout_days: 5
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Publish Approved"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your data contract has been approved for publishing to the marketplace."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Publish Rejected"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your publish request has been denied. Please review the feedback."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Publish Approved"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Publish Rejected"
+        type: "fail"
+        config:
+          message: "Data contract publish request was rejected"
+
+  # Data Product Review Request
+  - id: "product-review-request"
+    name: "Data Product Review Request"
+    description: "Handles data product review requests with domain owner approval."
+    trigger:
+      type: "on_request_review"
+      entity_types:
+        - "data_product"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your data product review request has been submitted."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Domain Owner Approval"
+        type: "approval"
+        config:
+          approvers: "DomainOwner"
+          timeout_days: 7
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Approval"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your data product has been approved and is ready for publication."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Rejection"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your data product review request has been denied."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Product Review Approved"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Product Review Rejected"
+        type: "fail"
+        config:
+          message: "Data product review request was rejected"
+
+  # Access Grant Request
+  - id: "access-grant-request"
+    name: "Access Grant Request"
+    description: "Handles access grant requests with admin approval."
+    trigger:
+      type: "on_request_access"
+      entity_types:
+        - "access_grant"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Access Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your access request has been submitted and is pending approval."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Admin Approval"
+        type: "approval"
+        config:
+          approvers: "Admin"
+          timeout_days: 3
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Access Approved"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your access request has been approved. You now have access to the requested resource."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Access Rejected"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your access request has been denied. Please contact an administrator for more information."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Access Granted"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Access Denied"
+        type: "fail"
+        config:
+          message: "Access request was denied"
+
+  # Status Change Request (Generic)
+  - id: "status-change-request"
+    name: "Status Change Request"
+    description: "Handles status change requests for datasets and data products that require approval."
+    trigger:
+      type: "on_request_status_change"
+      entity_types:
+        - "dataset"
+        - "data_product"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Status Change Request"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your status change request has been submitted for approval."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Admin Approval"
+        type: "approval"
+        config:
+          approvers: "Admin"
+          timeout_days: 5
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Status Change Approved"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your status change request has been approved."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Status Change Rejected"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your status change request has been denied."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Status Change Approved"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Status Change Rejected"
+        type: "fail"
+        config:
+          message: "Status change request was rejected"
+
+  # =========================================================================
+  # Data Asset Review Workflows
+  # =========================================================================
+
+  # Data Asset Review Request
+  - id: "data-asset-review-request"
+    name: "Data Asset Review Request"
+    description: "Handles data asset review requests with reviewer notification and approval."
+    trigger:
+      type: "on_request_review"
+      entity_types:
+        - "data_asset_review"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-reviewer"
+        name: "Notify Reviewer"
+        type: "notification"
+        config:
+          recipients: "owner"
+          template: "request_submitted"
+          custom_message: "A new data asset review request has been assigned to you."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Reviewer Approval"
+        type: "approval"
+        config:
+          approvers: "DataSteward"
+          timeout_days: 7
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Review Approved"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your data asset review has been completed and approved."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Review Needs Changes"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your data asset review requires changes. Please review the feedback."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Review Completed"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Review Needs Changes"
+        type: "fail"
+        config:
+          message: "Data asset review requires changes"
+
+  # =========================================================================
+  # Project Access Request Workflow
+  # =========================================================================
+
+  - id: "project-access-request"
+    name: "Project Access Request"
+    description: "Handles project access requests with team member notification."
+    trigger:
+      type: "on_request_access"
+      entity_types:
+        - "project"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your project access request has been submitted to the project team."
+        on_pass: "notify-team"
+
+      - id: "notify-team"
+        name: "Notify Project Team"
+        type: "notification"
+        config:
+          recipients: "owner"
+          template: "request_submitted"
+          custom_message: "A user has requested access to your project."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Request Submitted"
+        type: "pass"
+
+  # =========================================================================
+  # Role Access Request Workflow
+  # =========================================================================
+
+  - id: "role-access-request"
+    name: "Role Access Request"
+    description: "Handles role access requests with approver notification and approval workflow."
+    trigger:
+      type: "on_request_access"
+      entity_types:
+        - "role"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Confirm Request Received"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your role access request has been submitted for approval."
+        on_pass: "request-approval"
+
+      - id: "request-approval"
+        name: "Request Admin Approval"
+        type: "approval"
+        config:
+          approvers: "Admin"
+          timeout_days: 5
+          require_all: false
+        on_pass: "notify-approved"
+        on_fail: "notify-rejected"
+
+      - id: "notify-approved"
+        name: "Notify Role Granted"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your role access request has been approved. Please contact an administrator to be added to the appropriate group."
+        on_pass: "success"
+
+      - id: "notify-rejected"
+        name: "Notify Role Denied"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your role access request has been denied."
+        on_pass: "fail-rejected"
+
+      - id: "success"
+        name: "Role Request Approved"
+        type: "pass"
+
+      - id: "fail-rejected"
+        name: "Role Request Rejected"
+        type: "fail"
+        config:
+          message: "Role access request was denied"
+
+  # =========================================================================
+  # Job Lifecycle Workflows
+  # =========================================================================
+
+  # Job Failure Notification
+  - id: "job-failure-notification"
+    name: "Job Failure Notification"
+    description: "Notifies administrators when a background job fails."
+    trigger:
+      type: "on_job_failure"
+      entity_types:
+        - "job"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-admins"
+        name: "Notify Administrators"
+        type: "notification"
+        config:
+          recipients: "Admin"
+          template: "validation_failed"
+          custom_message: "A background job has failed. Please check the job logs for details."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Notification Sent"
+        type: "pass"
+
+  # Job Success Notification
+  - id: "job-success-notification"
+    name: "Job Success Notification"
+    description: "Notifies users when a background job completes successfully."
+    trigger:
+      type: "on_job_success"
+      entity_types:
+        - "job"
+    scope:
+      type: "all"
+    is_active: false  # Disabled by default to avoid notification spam
+    is_default: true
+    steps:
+      - id: "notify-requester"
+        name: "Notify Job Requester"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "Your background job has completed successfully."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Notification Sent"
+        type: "pass"
+
+  # =========================================================================
+  # Subscription Workflows
+  # =========================================================================
+
+  # Dataset Subscription Welcome
+  - id: "subscription-welcome"
+    name: "Subscription Welcome"
+    description: "Sends a welcome notification when a user subscribes to a dataset."
+    trigger:
+      type: "on_subscribe"
+      entity_types:
+        - "dataset"
+    scope:
+      type: "all"
+    is_active: false  # Disabled by default
+    is_default: true
+    steps:
+      - id: "notify-subscriber"
+        name: "Welcome Subscriber"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_approved"
+          custom_message: "You have successfully subscribed to this dataset. You will receive updates when changes occur."
+        on_pass: "notify-owner"
+
+      - id: "notify-owner"
+        name: "Notify Dataset Owner"
+        type: "notification"
+        config:
+          recipients: "owner"
+          template: "request_submitted"
+          custom_message: "A new user has subscribed to your dataset."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Subscription Complete"
+        type: "pass"
+
+  # =========================================================================
+  # Access Grant Lifecycle Workflows
+  # =========================================================================
+
+  # Access Expiring Soon
+  - id: "access-expiring-warning"
+    name: "Access Expiring Warning"
+    description: "Notifies users when their access is about to expire."
+    trigger:
+      type: "on_expiring"
+      entity_types:
+        - "access_grant"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-grantee"
+        name: "Notify Grantee of Expiration"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_submitted"
+          custom_message: "Your access is expiring soon. Contact the resource owner if you need to extend your access."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Warning Sent"
+        type: "pass"
+
+  # Access Revoked
+  - id: "access-revoked-notification"
+    name: "Access Revoked Notification"
+    description: "Notifies users when their access has been revoked."
+    trigger:
+      type: "on_revoke"
+      entity_types:
+        - "access_grant"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-grantee"
+        name: "Notify of Revocation"
+        type: "notification"
+        config:
+          recipients: "requester"
+          template: "request_rejected"
+          custom_message: "Your access has been revoked. Contact an administrator if you believe this was done in error."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Revocation Notification Sent"
+        type: "pass"
+

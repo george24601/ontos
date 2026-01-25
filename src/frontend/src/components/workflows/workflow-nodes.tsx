@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
+import { useTranslation } from 'react-i18next';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -16,6 +17,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import type { WorkflowStep, WorkflowTrigger, TriggerType, EntityType, StepType } from '@/types/process-workflow';
+import { getTriggerTypeLabel, getEntityTypeLabel } from '@/lib/workflow-labels';
 
 // Base node styles - fixed width for consistent compact sizing
 const baseNodeClass = "rounded-lg shadow-md border-2 w-[180px] transition-all hover:shadow-lg";
@@ -26,47 +28,25 @@ interface TriggerNodeData {
 }
 
 export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
+  const { t } = useTranslation(['common']);
   const trigger = data.trigger;
-  
-  const triggerLabels: Record<TriggerType, string> = {
-    on_create: 'On Create',
-    on_update: 'On Update',
-    on_delete: 'On Delete',
-    on_status_change: 'On Status Change',
-    scheduled: 'Scheduled',
-    manual: 'Manual',
-    before_create: 'Before Create',
-    before_update: 'Before Update',
-  };
-
-  const entityLabels: Record<EntityType, string> = {
-    catalog: 'Catalog',
-    schema: 'Schema',
-    table: 'Table',
-    view: 'View',
-    data_contract: 'Contract',
-    data_product: 'Product',
-    dataset: 'Dataset',
-    domain: 'Domain',
-    project: 'Project',
-  };
 
   return (
     <Card className={`${baseNodeClass} border-purple-500 bg-purple-50 dark:bg-purple-950/30 ${selected ? 'ring-2 ring-purple-500' : ''}`}>
       <CardHeader className="p-3 pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Zap className="h-4 w-4 text-purple-500" />
-          Trigger
+          {t('common:labels.type')}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-0">
         <div className="text-xs text-muted-foreground">
-          {triggerLabels[trigger.type]}
+          {getTriggerTypeLabel(trigger.type, t)}
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
           {trigger.entity_types.slice(0, 3).map(et => (
             <Badge key={et} variant="secondary" className="text-xs px-1 py-0">
-              {entityLabels[et]}
+              {getEntityTypeLabel(et, t)}
             </Badge>
           ))}
           {trigger.entity_types.length > 3 && (

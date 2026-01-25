@@ -1495,6 +1495,156 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ============================================================================
+-- 20c. REQUEST-BASED WORKFLOWS (type=02d)
+-- ============================================================================
+-- Workflows that handle request triggers (on_request_review, on_request_access, etc.)
+-- These demonstrate the new request/approval workflow pattern.
+
+INSERT INTO process_workflows (id, name, description, trigger_config, scope_config, is_active, is_default, version, created_by, updated_by, created_at, updated_at) VALUES
+-- Contract Review Request with Multi-Level Approval
+('02d00001-0000-4000-8000-000000000001', 'Contract Review - Multi-Level Approval', 
+'Advanced contract review workflow with validation, steward approval, and domain owner sign-off.', 
+'{"type": "on_request_review", "entity_types": ["data_contract"]}',
+'{"type": "all"}',
+true, false, 1, 'system@demo', 'system@demo', NOW(), NOW()),
+
+-- Access Request with Policy Check
+('02d00002-0000-4000-8000-000000000002', 'Access Request with Compliance Check', 
+'Access grant workflow that validates compliance policies before approval.', 
+'{"type": "on_request_access", "entity_types": ["access_grant"]}',
+'{"type": "all"}',
+true, false, 1, 'system@demo', 'system@demo', NOW(), NOW()),
+
+-- Data Product Publish with Delivery
+('02d00003-0000-4000-8000-000000000003', 'Product Publish with Delivery', 
+'Data product status change workflow that triggers delivery on approval.', 
+'{"type": "on_request_status_change", "entity_types": ["data_product"], "from_status": "under_review", "to_status": "active"}',
+'{"type": "all"}',
+false, false, 1, 'system@demo', 'system@demo', NOW(), NOW())
+
+ON CONFLICT (id) DO NOTHING;
+
+
+-- ============================================================================
+-- 20d. REQUEST WORKFLOW STEPS (type=02e)
+-- ============================================================================
+
+INSERT INTO workflow_steps (id, workflow_id, step_id, name, step_type, config, on_pass, on_fail, "order", position, created_at, updated_at) VALUES
+-- Contract Review - Multi-Level Approval (02d00001)
+('02e00001-0000-4000-8000-000000000001', '02d00001-0000-4000-8000-000000000001', 'notify-receipt', 'Confirm Request Received', 'notification',
+'{"recipients": "requester", "template": "request_submitted", "custom_message": "Your data contract review request has been submitted. It will go through a multi-level approval process."}',
+'validate-schema', NULL, 1, '{"x": 250, "y": 50}', NOW(), NOW()),
+
+('02e00002-0000-4000-8000-000000000002', '02d00001-0000-4000-8000-000000000001', 'validate-schema', 'Validate Schema Completeness', 'validation',
+'{"rule": "MATCH (obj:Object) ASSERT LENGTH(obj.schema) > 10 ON_FAIL FAIL ''Schema must be defined''"}',
+'steward-approval', 'fail-validation', 2, '{"x": 250, "y": 150}', NOW(), NOW()),
+
+('02e00003-0000-4000-8000-000000000003', '02d00001-0000-4000-8000-000000000001', 'steward-approval', 'Data Steward Approval', 'approval',
+'{"approvers": "DataSteward", "timeout_days": 5, "require_all": false}',
+'domain-approval', 'notify-steward-reject', 3, '{"x": 250, "y": 250}', NOW(), NOW()),
+
+('02e00004-0000-4000-8000-000000000004', '02d00001-0000-4000-8000-000000000001', 'domain-approval', 'Domain Owner Sign-off', 'approval',
+'{"approvers": "DomainOwner", "timeout_days": 3, "require_all": false}',
+'notify-approved', 'notify-domain-reject', 4, '{"x": 250, "y": 350}', NOW(), NOW()),
+
+('02e00005-0000-4000-8000-000000000005', '02d00001-0000-4000-8000-000000000001', 'notify-approved', 'Notify Full Approval', 'notification',
+'{"recipients": "requester", "template": "request_approved", "custom_message": "Your data contract has been approved by both the data steward and domain owner."}',
+'success', NULL, 5, '{"x": 250, "y": 450}', NOW(), NOW()),
+
+('02e00006-0000-4000-8000-000000000006', '02d00001-0000-4000-8000-000000000001', 'notify-steward-reject', 'Notify Steward Rejection', 'notification',
+'{"recipients": "requester", "template": "request_rejected", "custom_message": "Your data contract was not approved by the data steward. Please review their feedback."}',
+'fail-rejected', NULL, 6, '{"x": 100, "y": 350}', NOW(), NOW()),
+
+('02e00007-0000-4000-8000-000000000007', '02d00001-0000-4000-8000-000000000001', 'notify-domain-reject', 'Notify Domain Rejection', 'notification',
+'{"recipients": "requester", "template": "request_rejected", "custom_message": "Your data contract was approved by the steward but rejected by the domain owner."}',
+'fail-rejected', NULL, 7, '{"x": 400, "y": 400}', NOW(), NOW()),
+
+('02e00008-0000-4000-8000-000000000008', '02d00001-0000-4000-8000-000000000001', 'fail-validation', 'Schema Validation Failed', 'fail',
+'{"message": "Contract schema validation failed"}',
+NULL, NULL, 8, '{"x": 400, "y": 200}', NOW(), NOW()),
+
+('02e00009-0000-4000-8000-000000000009', '02d00001-0000-4000-8000-000000000001', 'success', 'Contract Approved', 'pass',
+'{}',
+NULL, NULL, 9, '{"x": 250, "y": 550}', NOW(), NOW()),
+
+('02e0000a-0000-4000-8000-000000000010', '02d00001-0000-4000-8000-000000000001', 'fail-rejected', 'Contract Rejected', 'fail',
+'{"message": "Contract review was rejected"}',
+NULL, NULL, 10, '{"x": 100, "y": 450}', NOW(), NOW()),
+
+-- Access Request with Compliance Check (02d00002)
+('02e0000b-0000-4000-8000-000000000011', '02d00002-0000-4000-8000-000000000002', 'notify-receipt', 'Confirm Access Request', 'notification',
+'{"recipients": "requester", "template": "request_submitted", "custom_message": "Your access request is being processed and will undergo compliance verification."}',
+'check-compliance', NULL, 1, '{"x": 250, "y": 50}', NOW(), NOW()),
+
+('02e0000c-0000-4000-8000-000000000012', '02d00002-0000-4000-8000-000000000002', 'check-compliance', 'Check Access Policies', 'conditional',
+'{"condition": "obj.permission_level != ''ADMIN'' OR obj.reason != ''''"}',
+'admin-approval', 'fail-compliance', 2, '{"x": 250, "y": 150}', NOW(), NOW()),
+
+('02e0000d-0000-4000-8000-000000000013', '02d00002-0000-4000-8000-000000000002', 'admin-approval', 'Admin Approval Required', 'approval',
+'{"approvers": "Admin", "timeout_days": 2, "require_all": false}',
+'notify-approved', 'notify-rejected', 3, '{"x": 250, "y": 250}', NOW(), NOW()),
+
+('02e0000e-0000-4000-8000-000000000014', '02d00002-0000-4000-8000-000000000002', 'notify-approved', 'Notify Access Granted', 'notification',
+'{"recipients": "requester", "template": "request_approved", "custom_message": "Your access request has been approved. You now have access to the requested resource."}',
+'success', NULL, 4, '{"x": 250, "y": 350}', NOW(), NOW()),
+
+('02e0000f-0000-4000-8000-000000000015', '02d00002-0000-4000-8000-000000000002', 'notify-rejected', 'Notify Access Denied', 'notification',
+'{"recipients": "requester", "template": "request_rejected", "custom_message": "Your access request was denied. Contact an administrator for more information."}',
+'fail-rejected', NULL, 5, '{"x": 400, "y": 300}', NOW(), NOW()),
+
+('02e00010-0000-4000-8000-000000000016', '02d00002-0000-4000-8000-000000000002', 'fail-compliance', 'Compliance Check Failed', 'fail',
+'{"message": "Access request does not meet compliance requirements"}',
+NULL, NULL, 6, '{"x": 400, "y": 200}', NOW(), NOW()),
+
+('02e00011-0000-4000-8000-000000000017', '02d00002-0000-4000-8000-000000000002', 'success', 'Access Granted', 'pass',
+'{}',
+NULL, NULL, 7, '{"x": 250, "y": 450}', NOW(), NOW()),
+
+('02e00012-0000-4000-8000-000000000018', '02d00002-0000-4000-8000-000000000002', 'fail-rejected', 'Access Denied', 'fail',
+'{"message": "Access request was denied"}',
+NULL, NULL, 8, '{"x": 400, "y": 400}', NOW(), NOW()),
+
+-- Product Publish with Delivery (02d00003)
+('02e00013-0000-4000-8000-000000000019', '02d00003-0000-4000-8000-000000000003', 'notify-receipt', 'Confirm Publish Request', 'notification',
+'{"recipients": "requester", "template": "request_submitted", "custom_message": "Your data product publish request is being processed."}',
+'domain-approval', NULL, 1, '{"x": 250, "y": 50}', NOW(), NOW()),
+
+('02e00014-0000-4000-8000-000000000020', '02d00003-0000-4000-8000-000000000003', 'domain-approval', 'Domain Owner Approval', 'approval',
+'{"approvers": "DomainOwner", "timeout_days": 5, "require_all": false}',
+'trigger-delivery', 'notify-rejected', 2, '{"x": 250, "y": 150}', NOW(), NOW()),
+
+('02e00015-0000-4000-8000-000000000021', '02d00003-0000-4000-8000-000000000003', 'trigger-delivery', 'Execute Delivery', 'delivery',
+'{"change_type": "publish", "modes": ["direct"]}',
+'notify-published', 'notify-delivery-failed', 3, '{"x": 250, "y": 250}', NOW(), NOW()),
+
+('02e00016-0000-4000-8000-000000000022', '02d00003-0000-4000-8000-000000000003', 'notify-published', 'Notify Publication Success', 'notification',
+'{"recipients": "requester", "template": "request_approved", "custom_message": "Your data product has been published and is now available in the marketplace."}',
+'success', NULL, 4, '{"x": 250, "y": 350}', NOW(), NOW()),
+
+('02e00017-0000-4000-8000-000000000023', '02d00003-0000-4000-8000-000000000003', 'notify-rejected', 'Notify Publish Rejected', 'notification',
+'{"recipients": "requester", "template": "request_rejected", "custom_message": "Your publish request was rejected by the domain owner."}',
+'fail-rejected', NULL, 5, '{"x": 400, "y": 200}', NOW(), NOW()),
+
+('02e00018-0000-4000-8000-000000000024', '02d00003-0000-4000-8000-000000000003', 'notify-delivery-failed', 'Notify Delivery Failed', 'notification',
+'{"recipients": "requester", "template": "validation_failed", "custom_message": "Publication was approved but delivery failed. An administrator has been notified."}',
+'fail-delivery', NULL, 6, '{"x": 400, "y": 300}', NOW(), NOW()),
+
+('02e00019-0000-4000-8000-000000000025', '02d00003-0000-4000-8000-000000000003', 'success', 'Product Published', 'pass',
+'{}',
+NULL, NULL, 7, '{"x": 250, "y": 450}', NOW(), NOW()),
+
+('02e0001a-0000-4000-8000-000000000026', '02d00003-0000-4000-8000-000000000003', 'fail-rejected', 'Publish Rejected', 'fail',
+'{"message": "Data product publish request was rejected"}',
+NULL, NULL, 8, '{"x": 400, "y": 400}', NOW(), NOW()),
+
+('02e0001b-0000-4000-8000-000000000027', '02d00003-0000-4000-8000-000000000003', 'fail-delivery', 'Delivery Failed', 'fail',
+'{"message": "Data product delivery failed"}',
+NULL, NULL, 9, '{"x": 400, "y": 500}', NOW(), NOW())
+
+ON CONFLICT (id) DO NOTHING;
+
+
+-- ============================================================================
 -- 21. RATINGS (Comments with rating type) (type=02c)
 -- ============================================================================
 -- Star ratings for data products and datasets in the marketplace

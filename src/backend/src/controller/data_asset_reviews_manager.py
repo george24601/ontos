@@ -177,22 +177,49 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
             # Convert DB object back to API model for response
             created_api_obj = DataAssetReviewRequestApi.from_orm(created_db_obj)
 
-            # --- Create Notification --- #
+            # --- Trigger workflow for review request --- #
             try:
-                 notification = Notification(
-                     id=str(uuid.uuid4()),
-                     recipient=created_api_obj.reviewer_email,  # Notify the reviewer
-                     title="New Data Asset Review Request",
-                     description=f"Review request ({created_api_obj.id}) assigned to you by {created_api_obj.requester_email}.",
-                     type=NotificationType.INFO,
-                     link=f"/data-asset-reviews/{created_api_obj.id}",
-                     created_at=datetime.utcnow(),
-                 )
-                 self._notifications_manager.create_notification(notification)
-                 logger.info(f"Notification created for reviewer {created_api_obj.reviewer_email} for request {created_api_obj.id}")
-            except Exception as notify_err:
-                 # Log error but don't fail the request creation
-                 logger.error(f"Failed to create notification for review request {created_api_obj.id}: {notify_err}", exc_info=True)
+                from src.common.workflow_triggers import get_trigger_registry
+                from src.models.process_workflows import EntityType
+                
+                trigger_registry = get_trigger_registry(db_session)
+                entity_data = {
+                    "id": created_api_obj.id,
+                    "requester_email": created_api_obj.requester_email,
+                    "reviewer_email": created_api_obj.reviewer_email,
+                    "status": created_api_obj.status.value,
+                    "notes": created_api_obj.notes,
+                    "asset_count": len(created_api_obj.assets),
+                    "asset_fqns": [a.asset_fqn for a in created_api_obj.assets],
+                }
+                
+                executions = trigger_registry.on_request_review(
+                    entity_type=EntityType.DATA_ASSET_REVIEW,
+                    entity_id=created_api_obj.id,
+                    entity_name=f"Review Request by {created_api_obj.requester_email}",
+                    entity_data=entity_data,
+                    user_email=created_api_obj.requester_email,
+                    blocking=False,  # Don't block on notification workflows
+                )
+                
+                if executions:
+                    logger.info(f"Triggered {len(executions)} workflow(s) for review request {created_api_obj.id}")
+                else:
+                    # Fallback to direct notification if no workflow configured
+                    notification = Notification(
+                        id=str(uuid.uuid4()),
+                        recipient=created_api_obj.reviewer_email,
+                        title="New Data Asset Review Request",
+                        description=f"Review request ({created_api_obj.id}) assigned to you by {created_api_obj.requester_email}.",
+                        type=NotificationType.INFO,
+                        link=f"/data-asset-reviews/{created_api_obj.id}",
+                        created_at=datetime.utcnow(),
+                    )
+                    self._notifications_manager.create_notification(notification)
+                    logger.info(f"No workflow configured; sent direct notification to {created_api_obj.reviewer_email}")
+            except Exception as workflow_err:
+                # Log error but don't fail the request creation
+                logger.error(f"Failed to trigger workflow for review request {created_api_obj.id}: {workflow_err}", exc_info=True)
 
             return created_api_obj
 
@@ -250,29 +277,56 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
                 logger.warning(f"Attempted to update status for non-existent review request: {request_id}")
                 return None
             
+            from_status = db_obj.status.value if hasattr(db_obj.status, 'value') else str(db_obj.status)
             updated_db_obj = self._repo.update_request_status(db=self._db, db_obj=db_obj, status=update_data.status, notes=update_data.notes)
+            to_status = updated_db_obj.status.value if hasattr(updated_db_obj.status, 'value') else str(updated_db_obj.status)
             
-            # --- Add Notification for Requester on final status --- #
+            # --- Trigger workflow for status change --- #
             final_statuses = [ReviewRequestStatus.APPROVED, ReviewRequestStatus.NEEDS_REVIEW, ReviewRequestStatus.DENIED]
             if updated_db_obj.status in final_statuses:
                 try:
-                     notification_message = f"Data asset review request ({updated_db_obj.id}) status updated to {updated_db_obj.status} by {updated_db_obj.reviewer_email}."
-                     # Map review status to notification type
-                     notification_type = NotificationType.INFO if updated_db_obj.status == ReviewRequestStatus.APPROVED else NotificationType.WARNING
+                    from src.common.workflow_triggers import get_trigger_registry
+                    from src.models.process_workflows import EntityType, TriggerType
+                    
+                    trigger_registry = get_trigger_registry(self._db)
+                    entity_data = {
+                        "id": updated_db_obj.id,
+                        "requester_email": updated_db_obj.requester_email,
+                        "reviewer_email": updated_db_obj.reviewer_email,
+                        "status": to_status,
+                        "notes": update_data.notes,
+                    }
+                    
+                    executions = trigger_registry.on_status_change(
+                        entity_type=EntityType.DATA_ASSET_REVIEW,
+                        entity_id=updated_db_obj.id,
+                        from_status=from_status,
+                        to_status=to_status,
+                        entity_name=f"Review Request {updated_db_obj.id}",
+                        entity_data=entity_data,
+                        user_email=updated_db_obj.reviewer_email,
+                        blocking=False,
+                    )
+                    
+                    if executions:
+                        logger.info(f"Triggered {len(executions)} workflow(s) for review status change {updated_db_obj.id}")
+                    else:
+                        # Fallback to direct notification if no workflow configured
+                        notification_message = f"Data asset review request ({updated_db_obj.id}) status updated to {to_status} by {updated_db_obj.reviewer_email}."
+                        notification_type = NotificationType.INFO if updated_db_obj.status == ReviewRequestStatus.APPROVED else NotificationType.WARNING
 
-                     notification = Notification(
-                         id=str(uuid.uuid4()),
-                         user_email=updated_db_obj.requester_email, # Notify the requester
-                         title=f"Review Request {updated_db_obj.status.value.capitalize()}",
-                         description=notification_message,
-                         type=notification_type, # Use NotificationType enum
-                         link=f"/data-asset-reviews/{updated_db_obj.id}"
-                     )
-                     self._notifications_manager.create_notification(notification)
-                     logger.info(f"Notification created for requester {updated_db_obj.requester_email} for request {updated_db_obj.id} status update.")
-                except Exception as notify_err:
-                    logger.error(f"Failed to create status update notification for request {updated_db_obj.id}: {notify_err}", exc_info=True)
-            # --- End Notification --- #
+                        notification = Notification(
+                            id=str(uuid.uuid4()),
+                            user_email=updated_db_obj.requester_email,
+                            title=f"Review Request {to_status.capitalize()}",
+                            description=notification_message,
+                            type=notification_type,
+                            link=f"/data-asset-reviews/{updated_db_obj.id}"
+                        )
+                        self._notifications_manager.create_notification(notification)
+                        logger.info(f"No workflow configured; sent direct notification to {updated_db_obj.requester_email}")
+                except Exception as workflow_err:
+                    logger.error(f"Failed to trigger workflow for review status update {updated_db_obj.id}: {workflow_err}", exc_info=True)
             
             return DataAssetReviewRequestApi.from_orm(updated_db_obj)
         except SQLAlchemyError as e:

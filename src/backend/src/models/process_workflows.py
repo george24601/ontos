@@ -21,6 +21,24 @@ class TriggerType(str, Enum):
     MANUAL = "manual"
     BEFORE_CREATE = "before_create"  # Pre-creation validation (inline/blocking)
     BEFORE_UPDATE = "before_update"  # Pre-update validation (inline/blocking)
+    
+    # Request triggers - fire when a request action is initiated
+    ON_REQUEST_REVIEW = "on_request_review"  # When review is requested (datasets, contracts, products)
+    ON_REQUEST_ACCESS = "on_request_access"  # When access is requested (access grants, projects)
+    ON_REQUEST_PUBLISH = "on_request_publish"  # When publish/deployment is requested (contracts)
+    ON_REQUEST_STATUS_CHANGE = "on_request_status_change"  # When status change is requested
+    
+    # Job lifecycle triggers
+    ON_JOB_SUCCESS = "on_job_success"  # When a background job completes successfully
+    ON_JOB_FAILURE = "on_job_failure"  # When a background job fails
+    
+    # Subscription triggers
+    ON_SUBSCRIBE = "on_subscribe"  # When a user subscribes to an entity
+    ON_UNSUBSCRIBE = "on_unsubscribe"  # When a user unsubscribes from an entity
+    
+    # Access lifecycle triggers
+    ON_EXPIRING = "on_expiring"  # When access/entity is about to expire
+    ON_REVOKE = "on_revoke"  # When access is revoked
 
 
 class EntityType(str, Enum):
@@ -34,6 +52,11 @@ class EntityType(str, Enum):
     DATASET = "dataset"
     DOMAIN = "domain"
     PROJECT = "project"
+    ACCESS_GRANT = "access_grant"  # For access grant request workflows
+    ROLE = "role"  # For role access request workflows
+    DATA_ASSET_REVIEW = "data_asset_review"  # For data asset review request workflows
+    JOB = "job"  # For background job lifecycle workflows
+    SUBSCRIPTION = "subscription"  # For subscription events
 
 
 class ScopeType(str, Enum):
@@ -56,6 +79,7 @@ class StepType(str, Enum):
     PASS = "pass"
     FAIL = "fail"
     POLICY_CHECK = "policy_check"  # Evaluates existing compliance policy by UUID
+    DELIVERY = "delivery"  # Triggers DeliveryService to apply changes
 
 
 class ExecutionStatus(str, Enum):

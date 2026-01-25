@@ -108,12 +108,17 @@ class ValidationStepHandler(StepHandler):
 
 
 class ApprovalStepHandler(StepHandler):
-    """Handler for approval steps."""
+    """Handler for approval steps - creates actionable notifications and pauses workflow."""
 
     def execute(self, context: StepContext) -> StepResult:
+        from uuid import uuid4
+        from src.models.notifications import Notification, NotificationType
+        from src.repositories.notifications_repository import notification_repo
+        
         approvers = self._config.get('approvers', '')
         timeout_days = self._config.get('timeout_days', 7)
         require_all = self._config.get('require_all', False)
+        approval_message = self._config.get('message', '')
         
         if not approvers:
             return StepResult(passed=False, error="No approvers configured")
@@ -122,48 +127,112 @@ class ApprovalStepHandler(StepHandler):
             # Resolve approvers
             resolved_approvers = self._resolve_approvers(approvers, context)
             
-            # Create approval request using the approvals manager
-            # For now, we return blocking=True to pause the workflow
-            # The approval system will resume the workflow when approved/rejected
+            if not resolved_approvers:
+                return StepResult(passed=False, error="Could not resolve any approvers")
             
+            entity_display = context.entity_name or context.entity_id
+            
+            # Create actionable notification for each approver
+            created_count = 0
+            for approver in resolved_approvers:
+                try:
+                    # Build description with request details
+                    description = (
+                        f"Approval requested for {context.entity_type} '{entity_display}'.\n\n"
+                        f"Requested by: {context.user_email or 'Unknown'}\n"
+                    )
+                    if approval_message:
+                        description += f"\nMessage: {approval_message}"
+                    if context.entity.get('message'):
+                        description += f"\nMessage: {context.entity.get('message')}"
+                    if context.entity.get('justification'):
+                        description += f"\nJustification: {context.entity.get('justification')}"
+                    
+                    notification = Notification(
+                        id=str(uuid4()),
+                        created_at=datetime.utcnow(),
+                        type=NotificationType.ACTION_REQUIRED,
+                        title="Approval Required",
+                        subtitle=f"{context.entity_type}: {entity_display}",
+                        description=description,
+                        recipient=approver,
+                        action_type="workflow_approval",
+                        action_payload={
+                            "execution_id": context.execution_id,
+                            "workflow_id": context.workflow_id,
+                            "workflow_name": context.workflow_name,
+                            "entity_type": context.entity_type,
+                            "entity_id": context.entity_id,
+                            "entity_name": context.entity_name,
+                            "requester_email": context.user_email,
+                            "timeout_days": timeout_days,
+                        },
+                        can_delete=False,  # Must respond to this notification
+                        read=False,
+                    )
+                    notification_repo.create(db=self._db, obj_in=notification)
+                    created_count += 1
+                    logger.info(f"Approval notification created for {approver}")
+                except Exception as e:
+                    logger.warning(f"Failed to create approval notification for {approver}: {e}")
+            
+            if created_count == 0:
+                return StepResult(
+                    passed=False,
+                    error="Failed to create approval notifications",
+                    data={'approvers': resolved_approvers}
+                )
+            
+            # Return blocking=True to pause workflow and wait for approval
             return StepResult(
-                passed=True,  # Initial pass, actual result comes from approval
+                passed=True,  # Initial pass, actual result comes when approval is handled
                 message=f"Approval requested from: {', '.join(resolved_approvers)}",
                 data={
                     'approvers': resolved_approvers,
                     'timeout_days': timeout_days,
                     'require_all': require_all,
                     'status': 'pending',
+                    'notifications_created': created_count,
                 },
-                blocking=True,  # Pause workflow
+                blocking=True,  # Pause workflow until resume_workflow() is called
             )
         except Exception as e:
             logger.exception(f"Approval step failed: {e}")
             return StepResult(passed=False, error=str(e))
 
     def _resolve_approvers(self, approvers: str, context: StepContext) -> List[str]:
-        """Resolve approver specification to actual user emails."""
+        """Resolve approver specification to user emails or role names.
+        
+        For role names (e.g., 'DataSteward'), returns the role name as-is.
+        The notification system supports role-based recipients.
+        """
         if approvers == 'domain_owners':
-            # TODO: Look up domain owners based on entity
-            return ['domain-owner@example.com']
+            # Return role name for role-based notification
+            return ['DomainOwner']
         elif approvers == 'project_owners':
-            # TODO: Look up project owners
-            return ['project-owner@example.com']
+            return ['ProjectOwner']
+        elif approvers == 'data_stewards':
+            return ['DataSteward']
+        elif approvers == 'admins':
+            return ['Admin']
         elif approvers == 'requester':
             return [context.user_email] if context.user_email else []
         elif '@' in approvers:
             # Assume it's an email or comma-separated emails
             return [e.strip() for e in approvers.split(',')]
         else:
-            # Assume it's a group name
-            # TODO: Look up group members
+            # Assume it's a role/group name - use as-is
             return [approvers]
 
 
 class NotificationStepHandler(StepHandler):
-    """Handler for notification steps."""
+    """Handler for notification steps - sends notifications via NotificationsManager."""
 
     def execute(self, context: StepContext) -> StepResult:
+        from uuid import uuid4
+        from src.models.notifications import Notification, NotificationType
+        from src.repositories.notifications_repository import notification_repo
+        
         recipients = self._config.get('recipients', '')
         template = self._config.get('template', '')
         custom_message = self._config.get('custom_message')
@@ -177,13 +246,51 @@ class NotificationStepHandler(StepHandler):
             
             # Build notification message
             message = custom_message or self._get_template_message(template, context)
+            title = self._get_template_title(template, context)
             
-            # Send notification using notifications manager
-            # For now, just log it
-            logger.info(f"Notification to {resolved_recipients}: {message}")
+            # Determine notification type based on template
+            notification_type = self._get_notification_type(template)
             
-            # TODO: Integrate with NotificationsManager
-            # notifications_manager.send_notification(...)
+            # Determine if this is an actionable notification (for approvals)
+            action_type = None
+            action_payload = None
+            can_delete = True
+            
+            if template in ('approval_requested', 'request_submitted'):
+                # This will be handled by the approval step, not notification
+                pass
+            elif template in ('request_approved', 'request_rejected'):
+                can_delete = True
+            
+            # Create notifications for each recipient
+            created_count = 0
+            for recipient in resolved_recipients:
+                try:
+                    notification = Notification(
+                        id=str(uuid4()),
+                        created_at=datetime.utcnow(),
+                        type=notification_type,
+                        title=title,
+                        subtitle=f"{context.entity_type}: {context.entity_name}",
+                        description=message,
+                        recipient=recipient,
+                        action_type=action_type,
+                        action_payload=action_payload,
+                        can_delete=can_delete,
+                        read=False,
+                    )
+                    notification_repo.create(db=self._db, obj_in=notification)
+                    created_count += 1
+                    logger.info(f"Notification created for {recipient}: {title}")
+                except Exception as e:
+                    logger.warning(f"Failed to create notification for {recipient}: {e}")
+            
+            if created_count == 0:
+                return StepResult(
+                    passed=False,
+                    error="Failed to create any notifications",
+                    data={'recipients': resolved_recipients, 'template': template}
+                )
             
             return StepResult(
                 passed=True,
@@ -192,6 +299,7 @@ class NotificationStepHandler(StepHandler):
                     'recipients': resolved_recipients,
                     'template': template,
                     'message': message,
+                    'created_count': created_count,
                 }
             )
         except Exception as e:
@@ -199,28 +307,69 @@ class NotificationStepHandler(StepHandler):
             return StepResult(passed=False, error=str(e))
 
     def _resolve_recipients(self, recipients: str, context: StepContext) -> List[str]:
-        """Resolve recipient specification to actual user emails."""
+        """Resolve recipient specification to actual user emails or role names."""
         if recipients == 'requester':
             return [context.user_email] if context.user_email else []
         elif recipients == 'owner':
             owner = context.entity.get('owner')
             return [owner] if owner else []
+        elif recipients == 'domain_owners':
+            # Could look up domain owners, for now return role name
+            return ['DomainOwner']
+        elif recipients == 'data_stewards':
+            return ['DataSteward']
         elif '@' in recipients:
             return [e.strip() for e in recipients.split(',')]
         else:
-            # Assume it's a group name
+            # Assume it's a role/group name - use as-is for role-based notifications
             return [recipients]
+
+    def _get_template_title(self, template: str, context: StepContext) -> str:
+        """Get notification title from template."""
+        entity_display = context.entity_name or context.entity_id
+        titles = {
+            'validation_failed': "Validation Failed",
+            'validation_passed': "Validation Passed",
+            'product_approved': "Data Product Approved",
+            'product_rejected': "Data Product Rejected",
+            'approval_requested': "Approval Requested",
+            'request_submitted': "Request Submitted",
+            'request_approved': "Request Approved",
+            'request_rejected': "Request Denied",
+            'dataset_updated': "Dataset Updated",
+            'pii_detected': "PII Detected",
+        }
+        return titles.get(template, "Workflow Notification")
 
     def _get_template_message(self, template: str, context: StepContext) -> str:
         """Get message from template."""
+        entity_display = context.entity_name or context.entity_id
         templates = {
-            'validation_failed': f"Validation failed for {context.entity_type} '{context.entity_name}'",
-            'validation_passed': f"Validation passed for {context.entity_type} '{context.entity_name}'",
-            'product_approved': f"Data product '{context.entity_name}' has been approved",
-            'product_rejected': f"Data product '{context.entity_name}' has been rejected",
-            'approval_requested': f"Approval requested for {context.entity_type} '{context.entity_name}'",
+            'validation_failed': f"Validation failed for {context.entity_type} '{entity_display}'",
+            'validation_passed': f"Validation passed for {context.entity_type} '{entity_display}'",
+            'product_approved': f"Data product '{entity_display}' has been approved",
+            'product_rejected': f"Data product '{entity_display}' has been rejected",
+            'approval_requested': f"Approval requested for {context.entity_type} '{entity_display}'",
+            'request_submitted': f"Your request for {context.entity_type} '{entity_display}' has been submitted and is pending review.",
+            'request_approved': f"Your request for {context.entity_type} '{entity_display}' has been approved.",
+            'request_rejected': f"Your request for {context.entity_type} '{entity_display}' has been denied.",
+            'dataset_updated': f"Dataset '{entity_display}' has been updated.",
+            'pii_detected': f"Potential PII detected in {context.entity_type} '{entity_display}'. Please review.",
         }
-        return templates.get(template, f"Workflow notification for {context.entity_name}")
+        return templates.get(template, f"Workflow notification for {entity_display}")
+
+    def _get_notification_type(self, template: str) -> 'NotificationType':
+        """Get notification type based on template."""
+        from src.models.notifications import NotificationType
+        
+        if template in ('validation_failed', 'request_rejected', 'product_rejected', 'pii_detected'):
+            return NotificationType.ERROR
+        elif template in ('approval_requested',):
+            return NotificationType.ACTION_REQUIRED
+        elif template in ('validation_passed', 'request_approved', 'product_approved'):
+            return NotificationType.SUCCESS
+        else:
+            return NotificationType.INFO
 
 
 class AssignTagStepHandler(StepHandler):
@@ -728,31 +877,201 @@ class WorkflowExecutor:
         step_result: bool,
         *,
         result_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
     ) -> Optional[WorkflowExecution]:
         """Resume a paused workflow after approval/external action.
+        
+        When a workflow pauses at a blocking step (e.g., approval), this method
+        resumes execution from where it left off, using the step_result to
+        determine which branch (on_pass or on_fail) to follow.
         
         Args:
             execution_id: ID of paused execution
             step_result: Result of the paused step (True=approved, False=rejected)
-            result_data: Additional result data
+            result_data: Additional result data from the approval response
+            user_email: Email of user who responded to the approval
             
         Returns:
-            Updated WorkflowExecution
+            Updated WorkflowExecution, or None if execution not found/not paused
         """
         db_execution = workflow_execution_repo.get(self._db, execution_id)
         if not db_execution or db_execution.status != 'paused':
+            logger.warning(f"Cannot resume workflow {execution_id}: not found or not paused")
             return None
         
         # Get workflow
         from src.repositories.process_workflows_repository import process_workflow_repo
         db_workflow = process_workflow_repo.get(self._db, db_execution.workflow_id)
         if not db_workflow:
+            logger.error(f"Workflow {db_execution.workflow_id} not found for execution {execution_id}")
             return None
         
-        # TODO: Implement resume logic
-        # This would continue execution from current_step_id
+        # Convert to ProcessWorkflow model
+        from src.controller.workflows_manager import WorkflowsManager
+        workflows_manager = WorkflowsManager(self._db)
+        workflow = workflows_manager._db_to_model(db_workflow)
         
-        return self._db_to_model(db_execution, db_workflow.name)
+        # Build step lookup
+        steps_by_id = {s.step_id: s for s in workflow.steps}
+        
+        # Find the current (paused) step
+        current_step_id = db_execution.current_step_id
+        if not current_step_id or current_step_id not in steps_by_id:
+            logger.error(f"Current step {current_step_id} not found in workflow")
+            return None
+        
+        current_step = steps_by_id[current_step_id]
+        
+        # Record the approval result for the paused step
+        workflow_execution_repo.add_step_execution(
+            self._db,
+            execution_id=execution_id,
+            step_id=current_step.id,
+            status=StepExecutionStatus.SUCCEEDED.value if step_result else StepExecutionStatus.FAILED.value,
+            passed=step_result,
+            result_data={
+                'approval_result': 'approved' if step_result else 'rejected',
+                'responded_by': user_email,
+                **(result_data or {}),
+            },
+            error_message=None if step_result else (result_data or {}).get('reason', 'Request denied'),
+            duration_ms=0,  # Approval duration not tracked this way
+        )
+        
+        # Determine next step based on approval result
+        next_step_id = current_step.on_pass if step_result else current_step.on_fail
+        
+        logger.info(
+            f"Resuming workflow {execution_id} from step '{current_step_id}' "
+            f"({'approved' if step_result else 'rejected'}) -> next step: {next_step_id}"
+        )
+        
+        # Rebuild trigger context
+        trigger_context = None
+        if db_execution.trigger_context:
+            try:
+                tc_data = json.loads(db_execution.trigger_context)
+                trigger_context = TriggerContext(**tc_data)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        # Rebuild step context from execution
+        # Get entity data from trigger context or create minimal context
+        entity_data = {}
+        if trigger_context and trigger_context.entity_data:
+            entity_data = trigger_context.entity_data
+        
+        context = StepContext(
+            entity=entity_data.copy(),
+            entity_type=trigger_context.entity_type if trigger_context else 'unknown',
+            entity_id=trigger_context.entity_id if trigger_context else execution_id,
+            entity_name=trigger_context.entity_name if trigger_context else None,
+            user_email=user_email or (trigger_context.user_email if trigger_context else None),
+            trigger_context=trigger_context,
+            execution_id=execution_id,
+            workflow_id=workflow.id,
+            workflow_name=workflow.name,
+            step_results={current_step_id: {
+                'passed': step_result,
+                'message': 'approved' if step_result else 'rejected',
+                'data': result_data,
+            }},
+        )
+        
+        # Continue execution from next step
+        success_count = db_execution.success_count
+        failure_count = db_execution.failure_count
+        
+        # Count the approval step
+        if step_result:
+            success_count += 1
+        else:
+            failure_count += 1
+        
+        final_status = ExecutionStatus.RUNNING
+        error_message = None
+        
+        while next_step_id:
+            step = steps_by_id.get(next_step_id)
+            if not step:
+                error_message = f"Step not found: {next_step_id}"
+                final_status = ExecutionStatus.FAILED
+                break
+            
+            # Execute step
+            start_time = time.time()
+            result = self._execute_step(step, context)
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Record step execution
+            step_status = StepExecutionStatus.SUCCEEDED if result.passed else StepExecutionStatus.FAILED
+            workflow_execution_repo.add_step_execution(
+                self._db,
+                execution_id=execution_id,
+                step_id=step.id,
+                status=step_status.value,
+                passed=result.passed,
+                result_data=result.data,
+                error_message=result.error,
+                duration_ms=duration_ms,
+            )
+            
+            # Store result in context for subsequent steps
+            context.step_results[step.step_id] = {
+                'passed': result.passed,
+                'message': result.message,
+                'data': result.data,
+            }
+            
+            # Update counters
+            if result.passed:
+                success_count += 1
+            else:
+                failure_count += 1
+            
+            # Check for another blocking step
+            if result.blocking:
+                final_status = ExecutionStatus.PAUSED
+                workflow_execution_repo.update_status(
+                    self._db,
+                    execution_id,
+                    status=final_status.value,
+                    current_step_id=next_step_id,
+                    success_count=success_count,
+                    failure_count=failure_count,
+                )
+                break
+            
+            # Determine next step
+            if result.passed:
+                next_step_id = step.on_pass
+            else:
+                next_step_id = step.on_fail
+            
+            # If no next step, we're done
+            if not next_step_id:
+                if result.passed:
+                    final_status = ExecutionStatus.SUCCEEDED
+                else:
+                    final_status = ExecutionStatus.FAILED
+                    error_message = result.message or result.error
+        
+        # Finalize execution if not paused again
+        if final_status != ExecutionStatus.PAUSED:
+            workflow_execution_repo.update_status(
+                self._db,
+                execution_id,
+                status=final_status.value,
+                current_step_id=None,
+                success_count=success_count,
+                failure_count=failure_count,
+                error_message=error_message,
+                finished_at=datetime.utcnow().isoformat(),
+            )
+        
+        # Return updated execution
+        db_execution = workflow_execution_repo.get(self._db, execution_id)
+        return self._db_to_model(db_execution, workflow.name)
 
     def _execute_step(self, step: WorkflowStep, context: StepContext) -> StepResult:
         """Execute a single step."""

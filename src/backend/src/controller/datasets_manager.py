@@ -537,10 +537,11 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
         requested_by: str,
     ) -> Dict[str, Any]:
         """
-        Request approval for a status change.
+        Request approval for a status change via workflow.
         
-        Creates an approval request that will be reviewed by administrators.
-        This is for users who don't have direct status change permission.
+        Fires the ON_REQUEST_STATUS_CHANGE trigger which executes any configured
+        workflows. Workflows can include approval steps that pause execution until
+        an approver responds.
         
         Args:
             dataset_id: ID of the dataset
@@ -549,11 +550,14 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             requested_by: Username of requester
             
         Returns:
-            Request metadata including request_id
+            Request metadata including workflow execution info
             
         Raises:
             ValueError: If dataset not found or transition not valid
         """
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+        
         try:
             db_dataset = dataset_repo.get(db=self._db, id=dataset_id)
             if not db_dataset:
@@ -570,32 +574,59 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
                     f"Allowed transitions: {allowed or 'none (terminal state)'}"
                 )
             
-            # For now, we'll create a simple request record
-            # In a full implementation, this would integrate with an approval workflow system
-            # or create a notification for admins
-            
             request_id = str(uuid4())
             
             logger.info(
-                f"Status change request created for dataset {dataset_id}: "
+                f"Status change request for dataset {dataset_id}: "
                 f"'{current_status}' -> '{target}' by {requested_by}. "
-                f"Request ID: {request_id}, Justification: {justification[:100]}..."
+                f"Request ID: {request_id}"
             )
             
-            # TODO: In a full implementation:
-            # 1. Store the request in a status_change_requests table
-            # 2. Notify administrators via the notification system
-            # 3. Create an audit log entry
+            # Fire the ON_REQUEST_STATUS_CHANGE trigger
+            trigger_registry = get_trigger_registry(self._db)
+            executions = trigger_registry.on_request_status_change(
+                entity_type=EntityType.DATASET,
+                entity_id=dataset_id,
+                from_status=current_status,
+                to_status=target,
+                entity_name=db_dataset.name,
+                entity_data={
+                    "dataset_id": dataset_id,
+                    "dataset_name": db_dataset.name,
+                    "current_status": current_status,
+                    "target_status": target,
+                    "justification": justification,
+                    "request_id": request_id,
+                },
+                user_email=requested_by,
+            )
             
-            return {
-                "request_id": request_id,
-                "dataset_id": dataset_id,
-                "current_status": current_status,
-                "target_status": target,
-                "requested_by": requested_by,
-                "justification": justification,
-                "status": "pending",
-            }
+            # Determine response based on workflow execution
+            if executions:
+                execution = executions[0]
+                return {
+                    "request_id": request_id,
+                    "execution_id": execution.id,
+                    "dataset_id": dataset_id,
+                    "current_status": current_status,
+                    "target_status": target,
+                    "requested_by": requested_by,
+                    "justification": justification,
+                    "status": execution.status.value,
+                    "message": "Status change request submitted via workflow",
+                }
+            else:
+                # No workflow configured - fall back to simple pending status
+                return {
+                    "request_id": request_id,
+                    "dataset_id": dataset_id,
+                    "current_status": current_status,
+                    "target_status": target,
+                    "requested_by": requested_by,
+                    "justification": justification,
+                    "status": "pending",
+                    "message": "Status change request submitted (no workflow configured)",
+                }
             
         except ValueError:
             raise
@@ -610,10 +641,10 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
         message: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Request a data steward review for a dataset.
+        Request a data steward review for a dataset via workflow.
         
-        This is typically used for draft datasets that are ready for review.
-        A data steward will be notified and can approve or request changes.
+        Fires the ON_REQUEST_REVIEW trigger which executes any configured
+        workflows. Workflows typically include notification and approval steps.
         
         Args:
             dataset_id: ID of the dataset
@@ -621,11 +652,14 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             message: Optional message for the reviewer
             
         Returns:
-            Request metadata including request_id
+            Request metadata including workflow execution info
             
         Raises:
             ValueError: If dataset not found or not in draft status
         """
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+        
         try:
             db_dataset = dataset_repo.get(db=self._db, id=dataset_id)
             if not db_dataset:
@@ -644,23 +678,49 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             
             logger.info(
                 f"Steward review requested for dataset {dataset_id} by {requested_by}. "
-                f"Request ID: {request_id}, Message: {(message or '')[:100]}"
+                f"Request ID: {request_id}"
             )
             
-            # TODO: In a full implementation:
-            # 1. Store the review request in a review_requests table
-            # 2. Find assigned data stewards and notify them
-            # 3. Create an audit log entry
-            # 4. Potentially move status to 'pending_review' or similar
+            # Fire the ON_REQUEST_REVIEW trigger
+            trigger_registry = get_trigger_registry(self._db)
+            executions = trigger_registry.on_request_review(
+                entity_type=EntityType.DATASET,
+                entity_id=dataset_id,
+                entity_name=db_dataset.name,
+                entity_data={
+                    "dataset_id": dataset_id,
+                    "dataset_name": db_dataset.name,
+                    "current_status": current_status,
+                    "message": message,
+                    "request_id": request_id,
+                },
+                user_email=requested_by,
+            )
             
-            return {
-                "request_id": request_id,
-                "dataset_id": dataset_id,
-                "current_status": current_status,
-                "requested_by": requested_by,
-                "message": message,
-                "status": "review_requested",
-            }
+            # Determine response based on workflow execution
+            if executions:
+                execution = executions[0]
+                return {
+                    "request_id": request_id,
+                    "execution_id": execution.id,
+                    "dataset_id": dataset_id,
+                    "current_status": current_status,
+                    "requested_by": requested_by,
+                    "message": message,
+                    "status": execution.status.value,
+                    "workflow_message": "Review request submitted via workflow",
+                }
+            else:
+                # No workflow configured - fall back to simple status
+                return {
+                    "request_id": request_id,
+                    "dataset_id": dataset_id,
+                    "current_status": current_status,
+                    "requested_by": requested_by,
+                    "message": message,
+                    "status": "review_requested",
+                    "workflow_message": "Review request submitted (no workflow configured)",
+                }
             
         except ValueError:
             raise
@@ -768,6 +828,34 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             
             logger.info(f"User {email} subscribed to dataset {dataset_id}")
             
+            # Trigger subscription workflow
+            try:
+                from src.common.workflow_triggers import get_trigger_registry
+                from src.models.process_workflows import EntityType
+                
+                trigger_registry = get_trigger_registry(self._db)
+                entity_data = {
+                    "subscription_id": subscription.id,
+                    "dataset_id": dataset_id,
+                    "dataset_name": db_dataset.name,
+                    "subscriber_email": email,
+                    "reason": reason,
+                }
+                
+                executions = trigger_registry.on_subscribe(
+                    entity_type=EntityType.DATASET,
+                    entity_id=dataset_id,
+                    entity_name=db_dataset.name,
+                    entity_data=entity_data,
+                    user_email=email,
+                    blocking=False,
+                )
+                
+                if executions:
+                    logger.info(f"Triggered {len(executions)} workflow(s) for subscription to dataset {dataset_id}")
+            except Exception as workflow_err:
+                logger.error(f"Failed to trigger subscription workflow: {workflow_err}", exc_info=True)
+            
             return DatasetSubscriptionResponse(
                 subscribed=True,
                 subscription=DatasetSubscription(
@@ -790,6 +878,10 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
     ) -> DatasetSubscriptionResponse:
         """Unsubscribe a user from a dataset."""
         try:
+            # Get dataset name for workflow
+            db_dataset = dataset_repo.get(db=self._db, id=dataset_id)
+            dataset_name = db_dataset.name if db_dataset else dataset_id
+            
             success = dataset_subscription_repo.unsubscribe(
                 db=self._db,
                 dataset_id=dataset_id,
@@ -798,6 +890,32 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             
             if success:
                 logger.info(f"User {email} unsubscribed from dataset {dataset_id}")
+                
+                # Trigger unsubscribe workflow
+                try:
+                    from src.common.workflow_triggers import get_trigger_registry
+                    from src.models.process_workflows import EntityType
+                    
+                    trigger_registry = get_trigger_registry(self._db)
+                    entity_data = {
+                        "dataset_id": dataset_id,
+                        "dataset_name": dataset_name,
+                        "subscriber_email": email,
+                    }
+                    
+                    executions = trigger_registry.on_unsubscribe(
+                        entity_type=EntityType.DATASET,
+                        entity_id=dataset_id,
+                        entity_name=dataset_name,
+                        entity_data=entity_data,
+                        user_email=email,
+                        blocking=False,
+                    )
+                    
+                    if executions:
+                        logger.info(f"Triggered {len(executions)} workflow(s) for unsubscription from dataset {dataset_id}")
+                except Exception as workflow_err:
+                    logger.error(f"Failed to trigger unsubscribe workflow: {workflow_err}", exc_info=True)
             
             return DatasetSubscriptionResponse(
                 subscribed=False,

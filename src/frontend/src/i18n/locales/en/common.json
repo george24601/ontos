@@ -283,5 +283,56 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "workflows": {
+    "triggerTypes": {
+      "on_create": "On Create",
+      "on_update": "On Update",
+      "on_delete": "On Delete",
+      "on_status_change": "On Status Change",
+      "scheduled": "Scheduled",
+      "manual": "Manual",
+      "before_create": "Before Create",
+      "before_update": "Before Update",
+      "on_request_review": "Review Request",
+      "on_request_access": "Access Request",
+      "on_request_publish": "Publish Request",
+      "on_request_status_change": "Status Change Request",
+      "on_job_success": "Job Success",
+      "on_job_failure": "Job Failure",
+      "on_subscribe": "Subscription",
+      "on_unsubscribe": "Unsubscription",
+      "on_expiring": "Expiring Soon",
+      "on_revoke": "Access Revoked"
+    },
+    "entityTypes": {
+      "catalog": "Catalog",
+      "schema": "Schema",
+      "table": "Table",
+      "view": "View",
+      "data_contract": "Contract",
+      "data_product": "Product",
+      "dataset": "Dataset",
+      "domain": "Domain",
+      "project": "Project",
+      "access_grant": "Access Grant",
+      "role": "Role",
+      "data_asset_review": "Asset Review",
+      "job": "Job",
+      "subscription": "Subscription"
+    },
+    "stepTypes": {
+      "validation": "Validation",
+      "approval": "Approval",
+      "notification": "Notification",
+      "assign_tag": "Assign Tag",
+      "remove_tag": "Remove Tag",
+      "conditional": "Conditional",
+      "script": "Script",
+      "pass": "Pass",
+      "fail": "Fail",
+      "policy_check": "Policy Check",
+      "delivery": "Delivery"
+    }
   }
 }

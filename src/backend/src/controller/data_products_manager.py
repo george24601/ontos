@@ -719,13 +719,14 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         requester_email: str,
         current_user: Optional[str] = None
     ) -> Dict[str, str]:
-        """Request a status change for a product (requires approval).
+        """Request a status change for a product via workflow.
         
-        Creates notifications for admins to review and approve/deny the request.
+        Fires ON_REQUEST_STATUS_CHANGE trigger to execute configured workflows
+        for notifications and approvals.
         
         Args:
             db: Database session
-            notifications_manager: NotificationsManager instance
+            notifications_manager: NotificationsManager instance (kept for backward compat)
             product_id: ID of product to change
             target_status: Requested target status
             justification: Reason for the status change
@@ -733,14 +734,15 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             current_user: Username of requester
             
         Returns:
-            Dict with success message
+            Dict with success message and workflow execution info
             
         Raises:
             ValueError: If product not found or invalid transition
         """
         from datetime import datetime
         from uuid import uuid4
-        from src.models.notifications import NotificationType, Notification, ActionableNotification
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
         from src.controller.change_log_manager import change_log_manager
         
         product = data_product_repo.get(db, id=product_id)
@@ -756,46 +758,26 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             raise ValueError(f"Invalid status transition from '{from_status}' to '{target_status}'.")
         
         now = datetime.utcnow()
+        request_id = str(uuid4())
         
-        # Create INFO notification for requester
-        requester_note = Notification(
-            id=str(uuid4()),
-            created_at=now,
-            type=NotificationType.INFO,
-            title="Status Change Request Submitted",
-            subtitle=f"Product: {product.name}",
-            description=f"Your request to change the status of '{product.name}' from '{from_status}' to '{target_status}' has been submitted for review. Justification: {justification}",
-            recipient=requester_email,
-            can_delete=True,
+        # Fire the ON_REQUEST_STATUS_CHANGE trigger
+        trigger_registry = get_trigger_registry(db)
+        executions = trigger_registry.on_request_status_change(
+            entity_type=EntityType.DATA_PRODUCT,
+            entity_id=product_id,
+            from_status=from_status,
+            to_status=target_status_lower,
+            entity_name=product.name,
+            entity_data={
+                "product_id": product_id,
+                "product_name": product.name,
+                "from_status": from_status,
+                "target_status": target_status_lower,
+                "justification": justification,
+                "request_id": request_id,
+            },
+            user_email=requester_email,
         )
-        notifications_manager.create_notification(notification=requester_note, db=db)
-        
-        # Create ACTION_REQUIRED notification for admins
-        from src.common.utils import get_admin_emails
-        admin_emails = get_admin_emails(db)
-        if not admin_emails:
-            logger.warning("No admin emails found for status change request notification.")
-        
-        for admin_email in admin_emails:
-            actionable_note = ActionableNotification(
-                id=str(uuid4()),
-                created_at=now,
-                type=NotificationType.ACTION_REQUIRED,
-                title="Action Required: Product Status Change Request",
-                subtitle=f"Product: {product.name}",
-                description=f"User '{current_user}' has requested to change the status of product '{product.name}' from '{from_status}' to '{target_status}'. Justification: {justification}",
-                recipient=admin_email,
-                action_type="handle_product_status_change",
-                action_payload={
-                    "product_id": product_id,
-                    "requester_email": requester_email,
-                    "target_status": target_status,
-                    "current_status": from_status,
-                    "justification": justification,
-                },
-                can_delete=True,
-            )
-            notifications_manager.create_notification(notification=actionable_note, db=db)
         
         # Log to change_log
         change_log_manager.log_change_with_details(
@@ -811,10 +793,22 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 "justification": justification,
                 "timestamp": now.isoformat(),
                 "summary": f"Status change requested from {from_status} to {target_status} by {current_user}",
+                "workflow_triggered": len(executions) > 0,
             },
         )
         
-        return {"message": "Status change request submitted successfully"}
+        # Build response
+        result = {
+            "message": "Status change request submitted successfully",
+            "request_id": request_id,
+        }
+        
+        if executions:
+            execution = executions[0]
+            result["execution_id"] = execution.id
+            result["workflow_status"] = execution.status.value
+        
+        return result
 
     def handle_status_change_response(
         self,
@@ -940,10 +934,10 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         current_user: Optional[str] = None
     ) -> dict:
         """
-        Request a data steward review for a product.
+        Request a data steward review for a product via workflow.
         
-        Transitions DRAFT/SANDBOX → PROPOSED → UNDER_REVIEW, creates notifications, 
-        asset review record, and change log.
+        Transitions DRAFT/SANDBOX → PROPOSED → UNDER_REVIEW, fires ON_REQUEST_REVIEW
+        trigger to execute configured workflows for notifications and approvals.
         
         Args:
             product_id: Product ID to request review for
@@ -953,14 +947,15 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             current_user: Username requesting review
             
         Returns:
-            Dict with status and message
+            Dict with status, message, and workflow execution info
             
         Raises:
             ValueError: If product not found or invalid status
         """
         from datetime import datetime
         from uuid import uuid4
-        from src.models.notifications import NotificationType, Notification
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
         from src.models.data_asset_reviews import AssetType, ReviewedAssetStatus
         
         product_db = self._repo.get(db=self._db, id=product_id)
@@ -978,6 +973,7 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         self.transition_status(product_id, 'under_review', current_user)
         
         now = datetime.utcnow()
+        request_id = str(uuid4())
         
         # Create asset review record
         try:
@@ -1004,39 +1000,37 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         except Exception as e:
             logger.warning(f"Failed to create asset review record: {e}", exc_info=True)
         
-        # Send notifications if manager is available
-        if self._notifications_manager:
-            # Notify requester (receipt)
-            requester_note = Notification(
-                id=str(uuid4()),
-                created_at=now,
-                type=NotificationType.INFO,
-                title="Review Request Submitted",
-                subtitle=f"Product: {product_db.name or product_id}",
-                description=f"Your data steward review request has been submitted.{' Message: ' + message if message else ''}",
-                recipient=requester_email,
-                can_delete=True,
-            )
-            self._notifications_manager.create_notification(notification=requester_note, db=self._db)
-            
-            # Notify reviewer
-            reviewer_note = Notification(
-                id=str(uuid4()),
-                created_at=now,
-                type=NotificationType.ACTION_REQUIRED,
-                title="Product Review Requested",
-                subtitle=f"Product: {product_db.name or product_id}",
-                description=f"Please review this data product.{' Message from requester: ' + message if message else ''}",
-                recipient=reviewer_email,
-                link=f"/data-products/{product_id}",
-                can_delete=False,
-            )
-            self._notifications_manager.create_notification(notification=reviewer_note, db=self._db)
+        # Fire the ON_REQUEST_REVIEW trigger
+        trigger_registry = get_trigger_registry(self._db)
+        executions = trigger_registry.on_request_review(
+            entity_type=EntityType.DATA_PRODUCT,
+            entity_id=product_id,
+            entity_name=product_db.name,
+            entity_data={
+                "product_id": product_id,
+                "product_name": product_db.name,
+                "from_status": from_status,
+                "to_status": "under_review",
+                "message": message,
+                "reviewer_email": reviewer_email,
+                "request_id": request_id,
+            },
+            user_email=requester_email,
+        )
         
-        return {
+        # Build response
+        result = {
             "status": "success",
-            "message": f"Review request created for product {product_db.name or product_id}"
+            "message": f"Review request created for product {product_db.name or product_id}",
+            "request_id": request_id,
         }
+        
+        if executions:
+            execution = executions[0]
+            result["execution_id"] = execution.id
+            result["workflow_status"] = execution.status.value
+        
+        return result
 
     def get_published_products(self, skip: int = 0, limit: int = 100) -> List[DataProductApi]:
         """

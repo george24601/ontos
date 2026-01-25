@@ -71,6 +71,14 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
         'name': 'Compliance',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS
     },
+    'process-workflows': {
+        'name': 'Process Workflows',
+        'allowed_levels': [
+            FeatureAccessLevel.NONE,
+            FeatureAccessLevel.READ_ONLY,
+            FeatureAccessLevel.ADMIN,  # Only Admin gets full write access
+        ]
+    },
     'estate-manager': {
         'name': 'Estate Manager',
         'allowed_levels': READ_ONLY_FULL_LEVELS # Now includes ADMIN
