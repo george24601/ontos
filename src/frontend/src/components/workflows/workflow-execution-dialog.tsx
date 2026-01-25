@@ -36,7 +36,7 @@ import {
   getStepIcon,
   getStepColor,
 } from '@/lib/workflow-labels';
-import { useApi } from '@/hooks/useApi';
+import { useApi } from '@/hooks/use-api';
 
 interface WorkflowExecutionDialogProps {
   execution: WorkflowExecution | null;
