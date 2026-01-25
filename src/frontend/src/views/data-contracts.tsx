@@ -35,36 +35,11 @@ export default function DataContracts() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [odcsPaste, setOdcsPaste] = useState<string>('')
-  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
 
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const { currentProject, hasProjectContext } = useProjectContext();
   const navigate = useNavigate();
-
-  // Fetch team names for owner display
-  const fetchTeamNames = async (contractsList: DataContractListItem[]) => {
-    const teamIds = [...new Set(contractsList.map(c => c.owner_team_id).filter(Boolean))] as string[];
-    const names: Record<string, string> = {};
-    
-    for (const teamId of teamIds) {
-      if (!teamNames[teamId]) {
-        try {
-          const response = await fetch(`/api/teams/${teamId}`);
-          if (response.ok) {
-            const data = await response.json();
-            names[teamId] = data.name || teamId;
-          }
-        } catch (e) {
-          console.warn('Failed to fetch team:', teamId, e);
-        }
-      }
-    }
-    
-    if (Object.keys(names).length > 0) {
-      setTeamNames(prev => ({ ...prev, ...names }));
-    }
-  };
 
   useEffect(() => {
     fetchContracts();
@@ -100,11 +75,6 @@ export default function DataContracts() {
       const data = await response.json();
       setContracts(data);
       setError(null);
-      
-      // Fetch team names for owner display
-      if (data && data.length > 0) {
-        fetchTeamNames(data);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch contracts');
     } finally {
@@ -342,9 +312,8 @@ export default function DataContracts() {
         );
       },
       cell: ({ row }) => {
-        const teamId = row.original.owner_team_id;
-        const teamName = teamId ? teamNames[teamId] : undefined;
-        return <div>{teamName || teamId || t('common:states.notAvailable')}</div>;
+        const teamName = row.original.owner_team_name;
+        return <div>{teamName || t('common:states.notAvailable')}</div>;
       },
     },
     {

@@ -111,11 +111,6 @@ export default function DataProductDetails() {
   // Contract linking states
   const [isLinkContractDialogOpen, setIsLinkContractDialogOpen] = useState(false);
   const [selectedPortForLinking, setSelectedPortForLinking] = useState<number | null>(null);
-  const [contractNames, setContractNames] = useState<Record<string, string>>({});
-
-  // Owner team state
-  const [ownerTeamName, setOwnerTeamName] = useState<string>('');
-  const [projectName, setProjectName] = useState<string>('');
 
   // Subscription state
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionResponse | null>(null);
@@ -160,50 +155,6 @@ export default function DataProductDetails() {
     return 'default';
   };
 
-  const fetchOwnerTeamName = async (teamId: string) => {
-    if (!teamId) return
-    try {
-      const response = await fetch(`/api/teams/${teamId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setOwnerTeamName(data.name || '')
-      }
-    } catch (e) {
-      console.warn('Failed to fetch owner team:', e)
-    }
-  };
-
-  const fetchProjectName = async (projectId: string) => {
-    if (!projectId) return;
-    try {
-      const response = await fetch(`/api/projects/${projectId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setProjectName(data.name || '');
-      }
-    } catch (e) {
-      console.warn('Failed to fetch project:', e);
-    }
-  };
-
-  const fetchContractNames = async (outputPorts: OutputPort[]) => {
-    const names: Record<string, string> = {};
-    for (const port of outputPorts) {
-      if (port.contractId && !names[port.contractId]) {
-        try {
-          const response = await fetch(`/api/data-contracts/${port.contractId}`);
-          if (response.ok) {
-            const contract = await response.json();
-            names[port.contractId] = contract.name || port.contractId;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch contract", port.contractId, ":", e);
-        }
-      }
-    }
-    setContractNames(names);
-  };
-
   const fetchProductDetails = async () => {
     if (!productId) {
       setError(t('navigation.missingId'));
@@ -231,25 +182,6 @@ export default function DataProductDetails() {
       const productData = checkApiResponse(productResp, 'Product Details');
       setProduct(productData);
       setLinks(Array.isArray(linksResp.data) ? linksResp.data : []);
-
-      // Fetch owner team name if owner_team_id is set
-      if (productData.owner_team_id) {
-        await fetchOwnerTeamName(productData.owner_team_id);
-      } else {
-        setOwnerTeamName('');
-      }
-
-      // Fetch project name if project_id is set
-      if ((productData as any).project_id) {
-        await fetchProjectName((productData as any).project_id);
-      } else {
-        setProjectName('');
-      }
-
-      // Fetch contract names for output ports
-      if (productData.outputPorts && productData.outputPorts.length > 0) {
-        await fetchContractNames(productData.outputPorts);
-      }
 
       // Fetch subscription status for current user
       try {
@@ -734,7 +666,7 @@ export default function DataProductDetails() {
         property: 'assigned_team',
         value: JSON.stringify({
           team_id: product.owner_team_id,
-          team_name: ownerTeamName,
+          team_name: product.owner_team_name,
           assigned_at: new Date().toISOString(),
           member_count: members.length
         }),
@@ -768,7 +700,7 @@ export default function DataProductDetails() {
       
       toast({
         title: 'Team Members Imported',
-        description: `Successfully imported ${members.length} team member(s) from ${ownerTeamName}`,
+        description: `Successfully imported ${members.length} team member(s) from ${product.owner_team_name}`,
       });
     } catch (error) {
       console.error('Failed to import team members:', error);
@@ -1127,13 +1059,13 @@ export default function DataProductDetails() {
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Project:</Label>
-              {(product as any).project_id && projectName ? (
+              {(product as any).project_id && product.project_name ? (
                 <span
                   className="text-xs cursor-pointer text-primary hover:underline truncate"
                   onClick={() => navigate(`/projects/${(product as any).project_id}`)}
                   title={`Project ID: ${(product as any).project_id}`}
                 >
-                  {projectName}
+                  {product.project_name}
                 </span>
               ) : (
                 <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
@@ -1145,13 +1077,13 @@ export default function DataProductDetails() {
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
-              {product.owner_team_id && ownerTeamName ? (
+              {product.owner_team_id && product.owner_team_name ? (
                 <span
                   className="text-xs cursor-pointer text-primary hover:underline truncate"
                   onClick={() => navigate(`/teams/${product.owner_team_id}`)}
                   title={`Team ID: ${product.owner_team_id}`}
                 >
-                  {ownerTeamName}
+                  {product.owner_team_name}
                 </span>
               ) : (
                 <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
@@ -1309,7 +1241,7 @@ export default function DataProductDetails() {
                             className="cursor-pointer hover:bg-secondary/80"
                             onClick={() => navigate(`/data-contracts/${port.contractId}`)}
                           >
-                            Contract: {contractNames[port.contractId] || port.contractId}
+                            Contract: {port.contractName || port.contractId}
                           </Badge>
                         </div>
                       )}
@@ -1706,7 +1638,7 @@ export default function DataProductDetails() {
           entityId={productId!}
           entityType="product"
           teamId={product.owner_team_id}
-          teamName={ownerTeamName || product.owner_team_id}
+          teamName={product.owner_team_name || product.owner_team_id}
           onImport={handleImportTeamMembers}
         />
       )}

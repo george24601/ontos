@@ -204,8 +204,6 @@ export default function DataContractDetails() {
 
   // Team import state
   const [isImportTeamMembersOpen, setIsImportTeamMembersOpen] = useState(false)
-  const [ownerTeamName, setOwnerTeamName] = useState<string>('')
-  const [projectName, setProjectName] = useState<string>('')
 
   // Link product dialog state
   const [isLinkProductDialogOpen, setIsLinkProductDialogOpen] = useState(false)
@@ -318,36 +316,6 @@ export default function DataContractDetails() {
     }
   }
 
-  const fetchOwnerTeamName = async (teamId: string) => {
-    if (!teamId) return
-    console.log('[DEBUG] fetchOwnerTeamName called with teamId:', teamId)
-    try {
-      const response = await fetch(`/api/teams/${teamId}`)
-      console.log('[DEBUG] Team fetch response status:', response.status)
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[DEBUG] Team data received:', data)
-        setOwnerTeamName(data.name || '')
-        console.log('[DEBUG] Owner team name set to:', data.name)
-      }
-    } catch (e) {
-      console.warn('Failed to fetch owner team:', e)
-    }
-  }
-
-  const fetchProjectName = async (projectId: string) => {
-    if (!projectId) return
-    try {
-      const response = await fetch(`/api/projects/${projectId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setProjectName(data.name || '')
-      }
-    } catch (e) {
-      console.warn('Failed to fetch project:', e)
-    }
-  }
-
   const fetchContractAuthDefs = async () => {
     if (!contractId) return
     try {
@@ -413,22 +381,6 @@ export default function DataContractDetails() {
       })
       setContract(contractData)
       setDynamicTitle(contractData.name)
-
-      // Fetch owner team name if set
-      if (contractData.owner_team_id) {
-        console.log('[DEBUG] Fetching owner team name for:', contractData.owner_team_id)
-        await fetchOwnerTeamName(contractData.owner_team_id)
-      } else {
-        console.log('[DEBUG] No owner_team_id, clearing team name')
-        setOwnerTeamName('')
-      }
-
-      // Fetch project name if set
-      if ((contractData as any).project_id) {
-        await fetchProjectName((contractData as any).project_id)
-      } else {
-        setProjectName('')
-      }
 
       if (linksRes.ok) {
         const linksData = await linksRes.json()
@@ -816,22 +768,6 @@ export default function DataContractDetails() {
       
       console.log('[DEBUG] Calling fetchDetails()...')
       await fetchDetails()
-      
-      // If owner_team_id was updated, fetch the new team name
-      if (payload.owner_team_id) {
-        console.log('[DEBUG] Re-fetching team name after update for:', payload.owner_team_id)
-        await fetchOwnerTeamName(payload.owner_team_id)
-      } else {
-        console.log('[DEBUG] No owner_team_id in payload, clearing name')
-        setOwnerTeamName('')
-      }
-
-      // If project_id was updated, fetch the new project name
-      if (payload.project_id) {
-        await fetchProjectName(payload.project_id)
-      } else {
-        setProjectName('')
-      }
       
       toast({ title: 'Updated', description: 'Contract metadata updated.' })
     } catch (e) {
@@ -1387,7 +1323,7 @@ export default function DataContractDetails() {
         customProperties: {
           ...customProps,
           assignedTeamId: contract.owner_team_id,
-          assignedTeamName: ownerTeamName,
+          assignedTeamName: contract.owner_team_name,
           assignedTeamDate: now
         }
       }, false)  // Suppress generic toast, show custom one below
@@ -1615,16 +1551,16 @@ export default function DataContractDetails() {
               </div>
             )}
             {/* Hide Project if empty in minimal mode */}
-            {(viewMode !== 'minimal' || ((contract as any).project_id && projectName)) && (
+            {(viewMode !== 'minimal' || ((contract as any).project_id && contract.project_name)) && (
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground min-w-[4rem]">Project:</Label>
-                {(contract as any).project_id && projectName ? (
+                {(contract as any).project_id && contract.project_name ? (
                   <span
                     className="text-xs cursor-pointer text-primary hover:underline truncate"
                     onClick={() => navigate(`/projects/${(contract as any).project_id}`)}
                     title={`Project ID: ${(contract as any).project_id}`}
                   >
-                    {projectName}
+                    {contract.project_name}
                   </span>
                 ) : (
                   <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
@@ -1639,16 +1575,16 @@ export default function DataContractDetails() {
               </div>
             )}
             {/* Hide Owner if empty in minimal mode */}
-            {(viewMode !== 'minimal' || (contract.owner_team_id && ownerTeamName)) && (
+            {(viewMode !== 'minimal' || (contract.owner_team_id && contract.owner_team_name)) && (
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
-                {contract.owner_team_id && ownerTeamName ? (
+                {contract.owner_team_id && contract.owner_team_name ? (
                   <span
                     className="text-xs cursor-pointer text-primary hover:underline truncate"
                     onClick={() => navigate(`/teams/${contract.owner_team_id}`)}
                     title={`Team ID: ${contract.owner_team_id}`}
                   >
-                    {ownerTeamName}
+                    {contract.owner_team_name}
                   </span>
                 ) : (
                   <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
@@ -2497,7 +2433,7 @@ export default function DataContractDetails() {
               {(() => {
                 console.log('[DEBUG] Rendering Team Members buttons:', {
                   owner_team_id: contract.owner_team_id,
-                  ownerTeamName,
+                  owner_team_name: contract.owner_team_name,
                   hasOwnerTeamId: !!contract.owner_team_id,
                   shouldShowButton: !!contract.owner_team_id
                 })
@@ -2508,8 +2444,8 @@ export default function DataContractDetails() {
                   size="sm" 
                   variant="outline"
                   onClick={() => setIsImportTeamMembersOpen(true)}
-                  disabled={!ownerTeamName}
-                  title={ownerTeamName ? `Import members from ${ownerTeamName}` : 'Loading team...'}
+                  disabled={!contract.owner_team_name}
+                  title={contract.owner_team_name ? `Import members from ${contract.owner_team_name}` : 'No team assigned'}
                 >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Import from Team
@@ -3028,7 +2964,7 @@ export default function DataContractDetails() {
           entityId={contractId!}
           entityType="contract"
           teamId={contract.owner_team_id}
-          teamName={ownerTeamName || contract.owner_team_id}
+          teamName={contract.owner_team_name || contract.owner_team_id}
           onImport={handleImportTeamMembers}
         />
       )}

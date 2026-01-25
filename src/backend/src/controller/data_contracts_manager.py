@@ -5549,6 +5549,27 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         except Exception as e:
             logger.warning(f"Failed to load tags for contract {db_contract.id}: {e}")
         
+        # Resolve owner team name
+        owner_team_name = None
+        if db_contract.owner_team_id:
+            try:
+                from src.repositories.teams_repository import team_repo
+                from uuid import UUID
+                owner_team = team_repo.get(db, id=UUID(db_contract.owner_team_id))
+                owner_team_name = owner_team.name if owner_team else None
+            except Exception as e:
+                logger.debug(f"Could not resolve owner_team: {e}")
+
+        # Resolve project name
+        project_name = None
+        if db_contract.project_id:
+            try:
+                from src.repositories.projects_repository import project_repo
+                project = project_repo.get(db, id=db_contract.project_id)
+                project_name = project.name if project else None
+            except Exception as e:
+                logger.debug(f"Could not resolve project: {e}")
+        
         logger.debug(f"Building API model for contract {db_contract.id}")
         
         return DataContractRead(
@@ -5558,7 +5579,9 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             status=db_contract.status,
             published=db_contract.published if hasattr(db_contract, 'published') else False,
             owner_team_id=db_contract.owner_team_id,
+            owner_team_name=owner_team_name,
             project_id=db_contract.project_id,
+            project_name=project_name,
             kind=db_contract.kind,
             apiVersion=db_contract.api_version,
             tenant=db_contract.tenant,

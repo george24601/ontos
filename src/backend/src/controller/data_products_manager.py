@@ -2025,6 +2025,35 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             else:
                 product_api.tags = []
 
+            # Resolve owner team name
+            if product_api.owner_team_id:
+                try:
+                    from uuid import UUID
+                    owner_team = team_repo.get(self._db, id=UUID(product_api.owner_team_id))
+                    product_api.owner_team_name = owner_team.name if owner_team else None
+                except Exception as e:
+                    logger.debug(f"Could not resolve owner_team: {e}")
+
+            # Resolve project name
+            if product_api.project_id:
+                try:
+                    from src.repositories.projects_repository import project_repo
+                    project = project_repo.get(self._db, id=product_api.project_id)
+                    product_api.project_name = project.name if project else None
+                except Exception as e:
+                    logger.debug(f"Could not resolve project: {e}")
+
+            # Resolve contract names for output ports
+            if product_api.outputPorts:
+                from src.repositories.data_contracts_repository import data_contract_repo
+                for port in product_api.outputPorts:
+                    if port.contractId:
+                        try:
+                            contract = data_contract_repo.get(self._db, id=port.contractId)
+                            port.contractName = contract.name if contract else None
+                        except Exception as e:
+                            logger.debug(f"Could not resolve contract: {e}")
+
             return product_api
 
         except Exception as e:

@@ -103,6 +103,7 @@ export interface OutputPort {
   description?: string;
   type?: string; // Type of output port
   contractId?: string; // Optional link to contract
+  contractName?: string; // Resolved contract name
   sbom?: SBOM[];
   inputContracts?: InputContract[];
   tags?: string[];
@@ -222,6 +223,7 @@ export interface DataProduct {
 
   // Databricks extension
   project_id?: string;
+  project_name?: string; // Resolved project name
 
   // Versioning fields
   draftOwnerId?: string; // Personal draft owner - if set, visible only to owner

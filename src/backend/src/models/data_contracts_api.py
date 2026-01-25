@@ -433,7 +433,9 @@ class DataContractRead(BaseModel):
     status: str  # Required by ODCS
     published: bool = False  # Marketplace publication status
     owner_team_id: Optional[str] = None  # No alias - always serializes as owner_team_id
+    owner_team_name: Optional[str] = None  # Resolved at query time
     project_id: Optional[str] = None  # Project association
+    project_name: Optional[str] = None  # Resolved at query time
     kind: str = Field('DataContract')  # Required by ODCS
     # Ensure JSON uses camelCase key 'apiVersion' so frontend reads it
     apiVersion: str = Field('v3.0.2', alias='apiVersion')  # Required by ODCS

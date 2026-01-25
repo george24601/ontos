@@ -6,7 +6,9 @@ export type DataContractListItem = {
   status: string
   published?: boolean // Marketplace publication status
   owner_team_id?: string // UUID of the owning team
+  owner_team_name?: string // Resolved owner team name
   project_id?: string // Project association
+  project_name?: string // Resolved project name
   tags?: any[] // Tags assigned to the contract
   created?: string
   updated?: string
@@ -196,6 +198,7 @@ export interface DataContract {
   owner_team_id?: string // UUID of the owning team
   owner_team_name?: string // Display name of the owning team
   project_id?: string // Project association
+  project_name?: string // Resolved project name
   description?: ContractDescription
   tags?: any[] // Tags assigned to the contract
   schema?: SchemaObject[]
