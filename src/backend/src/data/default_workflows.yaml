@@ -600,6 +600,32 @@ workflows:
         config:
           message: "Data contract publish request was rejected"
 
+  # Dataset Publish Notification
+  - id: "dataset-publish-notify"
+    name: "Dataset Publish Notification"
+    description: "Notifies the owner when their dataset is published to the marketplace."
+    trigger:
+      type: "on_request_publish"
+      entity_types:
+        - "dataset"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-owner"
+        name: "Notify Dataset Owner"
+        type: "notification"
+        config:
+          recipients: "owner"
+          template: "request_approved"
+          custom_message: "Your dataset '{{entity_name}}' has been published to the marketplace and is now discoverable by other users."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Publish Complete"
+        type: "pass"
+
   # Data Product Review Request
   - id: "product-review-request"
     name: "Data Product Review Request"

@@ -376,6 +376,9 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
         Raises:
             ValueError: If validation fails
         """
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+        
         try:
             db_dataset = dataset_repo.get(db=self._db, id=dataset_id)
             if not db_dataset:
@@ -412,6 +415,38 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             self._db.refresh(db_dataset)
             
             logger.info(f"Published dataset {dataset_id} to marketplace")
+            
+            # Trigger ON_REQUEST_PUBLISH workflow
+            try:
+                trigger_registry = get_trigger_registry(self._db)
+                entity_data = {
+                    "dataset_id": dataset_id,
+                    "dataset_name": db_dataset.name,
+                    "status": db_dataset.status,
+                    "published": True,
+                    "action": "publish",
+                    "owner_team_id": db_dataset.owner_team_id,
+                    "owner_email": db_dataset.owner_email,
+                    "contract_id": db_dataset.contract_id,
+                }
+                
+                executions = trigger_registry.on_request_publish(
+                    entity_type=EntityType.DATASET,
+                    entity_id=dataset_id,
+                    entity_name=db_dataset.name,
+                    entity_data=entity_data,
+                    user_email=current_user,
+                    blocking=False,  # Non-blocking - don't wait for workflow completion
+                )
+                
+                if executions:
+                    logger.info(f"Triggered ON_REQUEST_PUBLISH workflow for dataset {dataset_id}. Execution IDs: {[e.id for e in executions]}")
+                else:
+                    logger.debug(f"No ON_REQUEST_PUBLISH workflow found for dataset {dataset_id}")
+            except Exception as wf_err:
+                logger.warning(f"Failed to trigger publish workflow for dataset {dataset_id}: {wf_err}")
+                # Don't fail the publish operation if workflow trigger fails
+            
             return self._to_api_model(db_dataset)
             
         except ValueError:
@@ -435,6 +470,9 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
         Raises:
             ValueError: If dataset not found
         """
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+        
         try:
             db_dataset = dataset_repo.get(db=self._db, id=dataset_id)
             if not db_dataset:
@@ -452,6 +490,40 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             self._db.refresh(db_dataset)
             
             logger.info(f"Unpublished dataset {dataset_id} from marketplace")
+            
+            # Trigger ON_STATUS_CHANGE workflow (publication status change)
+            try:
+                trigger_registry = get_trigger_registry(self._db)
+                entity_data = {
+                    "dataset_id": dataset_id,
+                    "dataset_name": db_dataset.name,
+                    "status": db_dataset.status,
+                    "published": False,
+                    "action": "unpublish",
+                    "owner_team_id": db_dataset.owner_team_id,
+                    "owner_email": db_dataset.owner_email,
+                    "contract_id": db_dataset.contract_id,
+                }
+                
+                executions = trigger_registry.on_status_change(
+                    entity_type=EntityType.DATASET,
+                    entity_id=dataset_id,
+                    from_status="published",
+                    to_status="unpublished",
+                    entity_name=db_dataset.name,
+                    entity_data=entity_data,
+                    user_email=current_user,
+                    blocking=False,  # Non-blocking
+                )
+                
+                if executions:
+                    logger.info(f"Triggered ON_STATUS_CHANGE workflow for unpublish of dataset {dataset_id}. Execution IDs: {[e.id for e in executions]}")
+                else:
+                    logger.debug(f"No ON_STATUS_CHANGE workflow found for unpublish of dataset {dataset_id}")
+            except Exception as wf_err:
+                logger.warning(f"Failed to trigger unpublish workflow for dataset {dataset_id}: {wf_err}")
+                # Don't fail the unpublish operation if workflow trigger fails
+            
             return self._to_api_model(db_dataset)
             
         except ValueError:
