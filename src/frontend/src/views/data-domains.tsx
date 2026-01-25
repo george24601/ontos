@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, PlusCircle, Loader2, AlertCircle, BoxSelect, TableIcon, WorkflowIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, AlertCircle, BoxSelect, TableIcon, WorkflowIcon, Loader2, ChevronDown } from 'lucide-react';
+import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { DataDomain } from '@/types/data-domain';
@@ -169,7 +170,12 @@ export default function DataDomainsView() {
   const columns = useMemo<ColumnDef<DataDomain>[]>(() => [
     {
       accessorKey: "name",
-      header: t('table.name'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.name')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         const domain = row.original;
         return (
@@ -197,7 +203,12 @@ export default function DataDomainsView() {
     },
     {
       accessorKey: "description",
-      header: t('table.description'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.description')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <div className="truncate max-w-sm text-sm text-muted-foreground">
           {row.getValue("description") || '-'}
@@ -206,7 +217,12 @@ export default function DataDomainsView() {
     },
     {
       accessorKey: "owner",
-      header: t('table.owners'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.owners')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         const owners = row.original.owner;
         if (!owners || owners.length === 0) return '-' ;
@@ -236,12 +252,22 @@ export default function DataDomainsView() {
     },
     {
         accessorKey: "children_count",
-        header: t('table.children'),
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+            {t('table.children')}
+            <ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
         cell: ({ row }) => row.original.children_count ?? 0,
     },
     {
       accessorKey: "updated_at",
-      header: t('table.lastUpdated'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.lastUpdated')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
          const dateValue = row.getValue("updated_at");
          return dateValue ? <RelativeDate date={dateValue as string | Date | number} /> : t('common:states.notAvailable');
@@ -292,9 +318,7 @@ export default function DataDomainsView() {
       </div>
 
       {(apiIsLoading || permissionsLoading) ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
+        <ListViewSkeleton columns={6} rows={5} toolbarButtons={1} />
       ) : !canRead ? (
          <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />

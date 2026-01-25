@@ -14,6 +14,7 @@ import { useApi } from '@/hooks/use-api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Pencil, Trash2, AlertCircle, Sparkles, CopyPlus, ArrowLeft, Package, KeyRound, Plus, FileText, Download, Bell, BellOff, Users } from 'lucide-react';
+import { DetailViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TagChip from '@/components/ui/tag-chip';
@@ -944,11 +945,7 @@ export default function DataProductDetails() {
   };
 
   if (loading || permissionsLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailViewSkeleton cards={5} actionButtons={5} />;
   }
 
   if (error) {

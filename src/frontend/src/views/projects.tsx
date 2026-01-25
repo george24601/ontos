@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, PlusCircle, Loader2, AlertCircle, FolderOpen, User, Users } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, AlertCircle, FolderOpen, User, Users, Loader2, ChevronDown } from 'lucide-react';
+import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { ProjectRead } from '@/types/project';
@@ -142,7 +143,12 @@ export default function ProjectsView() {
   const columns = useMemo<ColumnDef<ProjectRead>[]>(() => [
     {
       accessorKey: "name",
-      header: t('table.name'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.name')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         const project = row.original;
         const isPersonal = ((project as any).project_type || '').toUpperCase() === 'PERSONAL';
@@ -151,7 +157,15 @@ export default function ProjectsView() {
           <div className="flex items-start gap-2">
             <Icon className="w-4 h-4 mt-0.5 text-muted-foreground" />
             <div>
-              <span className="font-medium">{project.name}</span>
+              <span
+                className="font-medium cursor-pointer hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenEditDialog(project);
+                }}
+              >
+                {project.name}
+              </span>
               {project.title && (
                 <div className="text-xs text-muted-foreground">
                   {project.title}
@@ -164,7 +178,12 @@ export default function ProjectsView() {
     },
     {
       accessorKey: "description",
-      header: t('table.description'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.description')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <div className="truncate max-w-sm text-sm text-muted-foreground">
           {row.getValue("description") || '-'}
@@ -219,7 +238,12 @@ export default function ProjectsView() {
     },
     {
       accessorKey: "updated_at",
-      header: t('table.lastUpdated'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.lastUpdated')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
          const dateValue = row.getValue("updated_at");
          return dateValue ? <RelativeDate date={dateValue as string | Date | number} /> : t('common:states.notAvailable');
@@ -256,7 +280,7 @@ export default function ProjectsView() {
         );
       },
     },
-  ], [canWrite, canAdmin, t]);
+  ], [canWrite, canAdmin, t, handleOpenEditDialog]);
 
   return (
     <div className="py-6">
@@ -268,9 +292,7 @@ export default function ProjectsView() {
       </div>
 
       {(apiIsLoading || permissionsLoading) ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
+        <ListViewSkeleton columns={5} rows={5} toolbarButtons={1} />
       ) : !canRead ? (
          <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />

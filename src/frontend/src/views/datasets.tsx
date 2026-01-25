@@ -12,9 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { RelativeDate } from '@/components/common/relative-date';
 import { useToast } from '@/hooks/use-toast';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
@@ -23,11 +22,11 @@ import {
   Plus,
   Trash2,
   AlertCircle,
-  Search,
   Database,
   FileText,
   Users,
   Server,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -61,8 +60,7 @@ export default function Datasets() {
   // Dialog state
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
-  // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  // Filter state (status filter is server-side, search is handled by DataTable client-side)
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Fetch datasets
@@ -73,9 +71,6 @@ export default function Datasets() {
       const params = new URLSearchParams();
       if (hasProjectContext && currentProject) {
         params.append('project_id', currentProject.id);
-      }
-      if (searchQuery) {
-        params.append('search', searchQuery);
       }
       if (statusFilter && statusFilter !== 'all') {
         params.append('status', statusFilter);
@@ -94,7 +89,7 @@ export default function Datasets() {
     } finally {
       setLoading(false);
     }
-  }, [hasProjectContext, currentProject, searchQuery, statusFilter]);
+  }, [hasProjectContext, currentProject, statusFilter]);
 
   useEffect(() => {
     fetchDatasets();
@@ -135,41 +130,17 @@ export default function Datasets() {
     }
   };
 
-  // Loading skeleton
-  if (loading) {
-    return (
-      <div className="py-6 space-y-6">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-9 w-48" />
-            <Skeleton className="h-4 w-72" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-
-        {/* Filters skeleton */}
-        <div className="flex flex-wrap items-center gap-4">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-
-        {/* Table skeleton */}
-        <div className="space-y-3">
-          <Skeleton className="h-10 w-full" />
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   // Table columns
   const columns: ColumnDef<DatasetListItem>[] = [
     {
       accessorKey: 'name',
-      header: t('table.name'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.name')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span
@@ -188,7 +159,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'status',
-      header: t('table.status'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.status')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         const status = row.original.status as DatasetStatus;
         return (
@@ -203,7 +179,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'instance_count',
-      header: t('table.instances'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.instances')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <Server className="h-3 w-3 text-muted-foreground" />
@@ -215,7 +196,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'contract_name',
-      header: t('table.contract'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.contract')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         if (!row.original.contract_id) {
           return <span className="text-muted-foreground text-sm">-</span>;
@@ -247,7 +233,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'owner_team_name',
-      header: t('table.owner'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.owner')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         if (!row.original.owner_team_id) {
           return <span className="text-muted-foreground text-sm">-</span>;
@@ -262,7 +253,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'subscriber_count',
-      header: t('table.subscribers'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.subscribers')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.subscriber_count || 0}
@@ -271,7 +267,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'version',
-      header: t('table.version'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.version')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground font-mono">
           {row.original.version || '-'}
@@ -280,7 +281,12 @@ export default function Datasets() {
     },
     {
       accessorKey: 'updated_at',
-      header: t('table.updated'),
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          {t('table.updated')}
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <RelativeDate date={row.original.updated_at} />
       ),
@@ -317,63 +323,59 @@ export default function Datasets() {
 
   return (
     <div className="py-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Database className="w-8 h-8" />
-            {t('title')}
-          </h1>
-          <p className="text-muted-foreground">
-            {t('subtitle')}
-          </p>
-        </div>
-        <Button onClick={() => setOpenCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('newDataset')}
-        </Button>
-      </div>
+      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
+        <Database className="w-8 h-8" />
+        {t('title')}
+      </h1>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t('searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder={t('table.status')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('filters.allStatus')}</SelectItem>
-            <SelectItem value="draft">{t('filters.draft')}</SelectItem>
-            <SelectItem value="active">{t('filters.active')}</SelectItem>
-            <SelectItem value="deprecated">{t('filters.deprecated')}</SelectItem>
-            <SelectItem value="retired">{t('filters.retired')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Error Alert */}
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <AlertDescription className="whitespace-pre-wrap flex-1">{error}</AlertDescription>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 ml-2 hover:bg-destructive/20"
+            onClick={() => setError(null)}
+            title={t('common:tooltips.dismiss')}
+          >
+            <span className="sr-only">Dismiss</span>
+            ×
+          </Button>
         </Alert>
       )}
 
-      {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={datasets}
-        onRowClick={(row) => navigate(`/datasets/${row.id}`)}
-      />
+      {loading ? (
+        <ListViewSkeleton columns={8} rows={5} toolbarButtons={2} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={datasets}
+          searchColumn="name"
+          storageKey="datasets-sort"
+          toolbarActions={
+            <>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder={t('table.status')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('filters.allStatus')}</SelectItem>
+                  <SelectItem value="draft">{t('filters.draft')}</SelectItem>
+                  <SelectItem value="active">{t('filters.active')}</SelectItem>
+                  <SelectItem value="deprecated">{t('filters.deprecated')}</SelectItem>
+                  <SelectItem value="retired">{t('filters.retired')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => setOpenCreateDialog(true)} className="gap-2 h-9">
+                <Plus className="h-4 w-4" />
+                {t('newDataset')}
+              </Button>
+            </>
+          }
+          onRowClick={(row) => navigate(`/datasets/${row.original.id}`)}
+        />
+      )}
 
       {/* Create Dialog */}
       <DatasetFormDialog

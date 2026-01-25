@@ -20,6 +20,7 @@ import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import { RelativeDate } from '@/components/common/relative-date';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { DetailViewSkeleton } from '@/components/common/list-view-skeleton';
 import { DataDomainMiniGraph } from '@/components/data-domains/data-domain-mini-graph';
 import { DataDomainFormDialog } from '@/components/data-domains/data-domain-form-dialog';
 import { CommentSidebar } from '@/components/comments';
@@ -532,11 +533,7 @@ export default function DataDomainDetailsView() {
   }, [domain, setDynamicTitle]);
 
   if (isLoading) {
-    return (
-        <div className="flex justify-center items-center h-[calc(100vh-200px)]">
-            <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </div>
-    );
+    return <DetailViewSkeleton cards={4} actionButtons={2} />;
   }
 
   if (error) {

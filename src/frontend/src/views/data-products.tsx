@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Pencil, Trash2, AlertCircle, Package, ChevronDown, Upload, Loader2, Sparkles, KeyRound, Table as TableIcon, Workflow, Bell, BellOff, HelpCircle } from 'lucide-react';
+import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ViewModeToggle } from '@/components/common/view-mode-toggle';
 import {
@@ -642,9 +643,7 @@ export default function DataProducts() {
 
       {/* 1. Check Permissions Loading */}
       {permissionsLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
+        <ListViewSkeleton columns={7} rows={5} toolbarButtons={3} />
       ) : !canRead ? (
         // 2. Check Read Permission (if permissions loaded)
         <Alert variant="destructive" className="mb-4">
@@ -653,9 +652,7 @@ export default function DataProducts() {
         </Alert>
       ) : loading ? (
         // 3. Check Data Loading (if permissions OK)
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
+        <ListViewSkeleton columns={7} rows={5} toolbarButtons={3} />
       ) : (
         // 5. Render Content (if permissions OK and data loaded)
         <div className="space-y-4">

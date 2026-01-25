@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, Loader2, KeyRound, HelpCircle, FileText, Table2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, KeyRound, HelpCircle, FileText, Table2 } from 'lucide-react';
+import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import DataContractBasicFormDialog from '@/components/data-contracts/data-contract-basic-form-dialog'
 import CreateContractFromDatasetDialog from '@/components/datasets/create-contract-from-dataset-dialog'
@@ -492,9 +493,7 @@ export default function DataContracts() {
       )}
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="animate-spin h-12 w-12 text-primary" />
-        </div>
+        <ListViewSkeleton columns={6} rows={5} toolbarButtons={3} />
       ) : (
         <DataTable
           columns={columns}
