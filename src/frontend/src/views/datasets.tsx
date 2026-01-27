@@ -170,7 +170,7 @@ export default function Datasets() {
         return (
           <Badge
             variant="outline"
-            className={DATASET_STATUS_COLORS[status] || 'bg-gray-100'}
+            className={DATASET_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
           >
             {t(`status.${status}`) || DATASET_STATUS_LABELS[status] || status}
           </Badge>

@@ -246,12 +246,12 @@ export default function CommitDraftDialog({
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="summary">Summary</TabsTrigger>
                   {hasBreakingChanges && (
-                    <TabsTrigger value="breaking" className="text-red-600">
+                    <TabsTrigger value="breaking" className="text-red-600 dark:text-red-400">
                       Breaking ({analysis.breaking_changes.length})
                     </TabsTrigger>
                   )}
                   {hasNewFeatures && (
-                    <TabsTrigger value="features" className="text-blue-600">
+                    <TabsTrigger value="features" className="text-blue-600 dark:text-blue-400">
                       Features ({analysis.new_features.length})
                     </TabsTrigger>
                   )}
@@ -283,7 +283,7 @@ export default function CommitDraftDialog({
                         <ul className="space-y-2">
                           {analysis.breaking_changes.map((change, idx) => (
                             <li key={idx} className="flex items-start gap-2 text-sm">
-                              <span className="text-red-600 mt-0.5">•</span>
+                              <span className="text-red-600 dark:text-red-400 mt-0.5">•</span>
                               <span>{change}</span>
                             </li>
                           ))}
@@ -298,7 +298,7 @@ export default function CommitDraftDialog({
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                          <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           New Features
                         </CardTitle>
                       </CardHeader>
@@ -306,7 +306,7 @@ export default function CommitDraftDialog({
                         <ul className="space-y-2">
                           {analysis.new_features.map((feature, idx) => (
                             <li key={idx} className="flex items-start gap-2 text-sm">
-                              <span className="text-blue-600 mt-0.5">•</span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                               <span>{feature}</span>
                             </li>
                           ))}

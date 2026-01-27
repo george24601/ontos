@@ -296,7 +296,7 @@ export default function DataDomainsView() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => openDeleteDialog(domain.id)}
-                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:text-red-400 dark:focus:text-red-400 dark:focus:bg-red-950"
                 disabled={!canAdmin}
               >
                 {t('deleteDomain')}

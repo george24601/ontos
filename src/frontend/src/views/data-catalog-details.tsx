@@ -292,9 +292,9 @@ const DataCatalogDetails: React.FC = () => {
           
           <div className="flex items-center gap-3">
             {isView ? (
-              <Eye className="h-8 w-8 text-green-600" />
+              <Eye className="h-8 w-8 text-green-600 dark:text-green-400" />
             ) : (
-              <TableIcon className="h-8 w-8 text-blue-600" />
+              <TableIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             )}
             
             <div>
@@ -312,7 +312,7 @@ const DataCatalogDetails: React.FC = () => {
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyFqn}>
                       {copiedFqn ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
+                        <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}

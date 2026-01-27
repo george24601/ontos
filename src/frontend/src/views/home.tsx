@@ -539,8 +539,8 @@ export default function Home() {
 
       {/* Fallback message for users with no access */}
       {!permissionsLoading && !hasAnyAccess && (!requestableRoles || requestableRoles.length === 0) && (
-        <Alert variant="default" className="mb-8 bg-blue-50 border-blue-200 text-blue-800">
-          <AlertCircle className="h-4 w-4 !text-blue-600" />
+        <Alert variant="default" className="mb-8 bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200">
+          <AlertCircle className="h-4 w-4 !text-blue-600 dark:!text-blue-400" />
           <AlertDescription className="ml-2">
             {t('home:noAccess.message')} {t('home:noAccess.contactAdmin', 'Please contact an administrator to request access to the application.')}
           </AlertDescription>

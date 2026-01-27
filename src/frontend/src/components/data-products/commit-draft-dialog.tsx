@@ -158,9 +158,9 @@ export default function CommitDraftDialog({
             <>
               {/* Change Analysis Summary */}
               {diffAnalysis && (
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertTitle className="text-blue-800">Change Analysis</AlertTitle>
-                  <AlertDescription className="text-blue-700">
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                  <AlertTitle className="text-blue-800 dark:text-blue-200">Change Analysis</AlertTitle>
+                  <AlertDescription className="text-blue-700 dark:text-blue-300">
                     Based on your changes, we recommend a <strong>{diffAnalysis.suggested_bump}</strong> version bump.
                     {diffAnalysis.analysis?.summary && (
                       <p className="mt-1 text-sm">{diffAnalysis.analysis.summary}</p>

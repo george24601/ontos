@@ -253,7 +253,7 @@ export default function AccessGrantsPanel({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
-                    <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                    <Badge variant="outline" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       {summary.expiring_soon_count} expiring
                     </Badge>

@@ -554,7 +554,7 @@ export default function DataProducts() {
           <div className="flex items-center gap-1.5">
             <Badge variant={getStatusColor(row.original.status)}>{row.original.status}</Badge>
             {row.original.draftOwnerId && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">Personal Draft</Badge>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Personal Draft</Badge>
             )}
           </div>
         ) : t('common:states.notAvailable')

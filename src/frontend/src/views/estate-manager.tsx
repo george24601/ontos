@@ -356,7 +356,7 @@ export default function EstateManager() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="text-red-600 focus:text-red-50 focus:bg-red-600"
+                className="text-red-600 focus:text-red-50 focus:bg-red-600 dark:text-red-400"
                 onClick={(e) => { e.stopPropagation(); handleDelete(estate.id); }}
               >
                 {t('common:actions.delete')}

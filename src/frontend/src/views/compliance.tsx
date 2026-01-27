@@ -212,19 +212,19 @@ export default function Compliance() {
   };
 
   const getComplianceColor = (score: number) => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
-    return 'text-red-600';
+    if (score >= 90) return 'text-green-600 dark:text-green-400';
+    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   const getSeverityBadge = (severity: string) => {
     const variants = {
-      low: 'bg-blue-100 text-blue-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-orange-100 text-orange-800',
-      critical: 'bg-red-100 text-red-800'
+      low: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+      medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+      high: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+      critical: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
     };
-    return variants[severity as keyof typeof variants] || 'bg-gray-100 text-gray-800';
+    return variants[severity as keyof typeof variants] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   };
 
   const columns: ColumnDef<CompliancePolicy>[] = [
@@ -289,7 +289,7 @@ export default function Compliance() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="text-red-600"
+                className="text-red-600 dark:text-red-400"
                 onClick={() => handleDelete(policy.id)}
               >
                 {t('common:actions.delete')}
@@ -321,7 +321,7 @@ export default function Compliance() {
       )}
 
       {componentError && (
-         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+         <div className="bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 px-4 py-3 rounded relative mb-4" role="alert">
            <strong className="font-bold">Error: </strong>
            <span className="block sm:inline">{componentError}</span>
          </div>
@@ -355,7 +355,7 @@ export default function Compliance() {
                 <CardTitle className="text-lg">{t('compliance:stats.criticalIssues')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-red-600">{criticalIssues}</div>
+                <div className="text-3xl font-bold text-red-600 dark:text-red-400">{criticalIssues}</div>
                 <p className="text-sm text-muted-foreground mt-2">{t('compliance:stats.requireAttention')}</p>
               </CardContent>
             </Card>

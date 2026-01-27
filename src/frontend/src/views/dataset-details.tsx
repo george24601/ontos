@@ -619,7 +619,7 @@ export default function DatasetDetails() {
               <div className="flex items-center gap-1.5">
                 <Badge
                   variant="outline"
-                  className={DATASET_STATUS_COLORS[status] || 'bg-gray-100'}
+                  className={DATASET_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
                 >
                   {t(`status.${status}`) || DATASET_STATUS_LABELS[status] || status}
                 </Badge>
@@ -802,7 +802,7 @@ export default function DatasetDetails() {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant="outline"
-                        className={DATASET_INSTANCE_ROLE_COLORS[role] || 'bg-gray-100'}
+                        className={DATASET_INSTANCE_ROLE_COLORS[role] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
                       >
                         {t(`instanceRole.${role}`) || DATASET_INSTANCE_ROLE_LABELS[role] || role}
                       </Badge>
@@ -844,7 +844,7 @@ export default function DatasetDetails() {
                                 {instEnv ? (
                                   <Badge
                                     variant="outline"
-                                    className={DATASET_INSTANCE_ENVIRONMENT_COLORS[instEnv] || 'bg-gray-100'}
+                                    className={DATASET_INSTANCE_ENVIRONMENT_COLORS[instEnv] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
                                   >
                                     {DATASET_INSTANCE_ENVIRONMENT_LABELS[instEnv] || instEnv}
                                   </Badge>
@@ -901,7 +901,7 @@ export default function DatasetDetails() {
                               <TableCell>
                                 <Badge
                                   variant="outline"
-                                  className={DATASET_INSTANCE_STATUS_COLORS[instStatus] || 'bg-gray-100'}
+                                  className={DATASET_INSTANCE_STATUS_COLORS[instStatus] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
                                 >
                                   {t(`instanceStatus.${instStatus}`) || DATASET_INSTANCE_STATUS_LABELS[instStatus] || instStatus}
                                 </Badge>

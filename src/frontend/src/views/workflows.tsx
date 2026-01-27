@@ -537,7 +537,7 @@ export default function Workflows() {
             onCheckedChange={() => handleToggleWorkflowActive(row.original)}
             disabled={!canEdit}
           />
-          <span className={row.original.is_active ? 'text-green-600' : 'text-muted-foreground'}>
+          <span className={row.original.is_active ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
             {row.original.is_active ? t('common:labels.active') : t('common:labels.inactive')}
           </span>
         </div>
@@ -638,7 +638,7 @@ export default function Workflows() {
         if (status !== 'paused' && status !== 'running') return null;
         const stepDisplay = current_step_name || current_step_id || '-';
         return (
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400">
             {stepDisplay}
           </Badge>
         );
@@ -717,14 +717,14 @@ export default function Workflows() {
                     onClick={() => handleForceApprove(execution)}
                     disabled={isActionInProgress}
                   >
-                    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                    <CheckCircle className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
                     Force Approve
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => handleForceReject(execution)}
                     disabled={isActionInProgress}
                   >
-                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                    <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-400" />
                     Force Reject
                   </DropdownMenuItem>
                 </>
@@ -817,7 +817,7 @@ export default function Workflows() {
             <CardTitle className="text-lg">Active Workflows</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{activeWorkflows}</div>
+            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{activeWorkflows}</div>
             <p className="text-sm text-muted-foreground mt-1">of {totalWorkflows} total</p>
           </CardContent>
         </Card>

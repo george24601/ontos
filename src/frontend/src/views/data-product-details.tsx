@@ -1003,9 +1003,9 @@ export default function DataProductDetails() {
 
       {/* Personal Draft Banner */}
       {isPersonalDraft && (
-        <Alert className="bg-blue-100 border-blue-400 text-blue-800">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+        <Alert className="bg-blue-50 border-blue-300 dark:bg-blue-950 dark:border-blue-800">
+          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             <strong>Personal Draft</strong> - This is your personal draft. Only you can see it. Commit changes to share with your team.
           </AlertDescription>
         </Alert>
@@ -1013,9 +1013,9 @@ export default function DataProductDetails() {
 
       {/* Read-Only Banner */}
       {isReadOnly && (
-        <Alert className="bg-yellow-100 border-yellow-400 text-yellow-800">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+        <Alert className="bg-yellow-50 border-yellow-300 dark:bg-yellow-950 dark:border-yellow-800">
+          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
             <strong>Read-Only</strong> - This product is {product?.status?.toLowerCase()}. Clone to create a personal draft for editing.
           </AlertDescription>
         </Alert>
