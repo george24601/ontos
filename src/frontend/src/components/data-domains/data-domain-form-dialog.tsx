@@ -146,10 +146,6 @@ export function DataDomainFormDialog({
   const dialogContent = (
     <DialogContent 
       className="sm:max-w-[525px]"
-      onInteractOutside={(e) => {
-        // Prevent closing on outside click
-        e.preventDefault();
-      }}
       onEscapeKeyDown={(e) => {
         // Prevent closing on Escape key
         e.preventDefault();

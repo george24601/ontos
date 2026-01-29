@@ -312,10 +312,6 @@ export default function DataProductCreateDialog({
       <Dialog open={open} onOpenChange={handleCloseAttempt}>
         <DialogContent 
           className="max-w-2xl max-h-[90vh] overflow-y-auto"
-          onInteractOutside={(e) => {
-            // Prevent closing on outside click
-            e.preventDefault();
-          }}
           onEscapeKeyDown={(e) => {
             // Prevent closing on Escape key
             e.preventDefault();
