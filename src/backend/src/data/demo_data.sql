@@ -55,6 +55,7 @@
 --   01e = data_contract_schema_object_authoritative_definitions
 --   01f = data_contract_schema_property_authoritative_definitions
 --   020 = rdf_triples (demo ontology concepts)
+--   030 = knowledge_collection_meta (collection metadata in urn:meta:sources)
 --   021 = datasets
 --   022 = dataset_subscriptions
 --   023 = dataset_tags
@@ -678,6 +679,71 @@ INSERT INTO rdf_triples (id, subject_uri, predicate_uri, object_value, object_is
 ('0200012e-0000-4000-8000-00000000012e', 'http://demo.ontos.app/glossary#DeviceType', 'http://www.w3.org/2004/02/skos/core#broader', 'http://demo.ontos.app/glossary#Device', true, 'urn:demo', 'demo', 'demo_data.sql', 'system@demo', NOW()),
 -- DeviceStatus -> Device
 ('0200012f-0000-4000-8000-00000000012f', 'http://demo.ontos.app/glossary#DeviceStatus', 'http://www.w3.org/2004/02/skos/core#broader', 'http://demo.ontos.app/glossary#Device', true, 'urn:demo', 'demo', 'demo_data.sql', 'system@demo', NOW())
+
+ON CONFLICT (id) DO NOTHING;
+
+
+-- ============================================================================
+-- 10b. KNOWLEDGE COLLECTIONS (Collection Metadata in urn:meta:sources)
+-- ============================================================================
+-- Register the demo RDF context as a KnowledgeCollection with hierarchy.
+-- Uses ontos: namespace for collection properties.
+-- Type codes: 030 = knowledge_collection_meta
+
+INSERT INTO rdf_triples (id, subject_uri, predicate_uri, object_value, object_is_uri, context_name, source_type, source_identifier, created_by, created_at) VALUES
+-- Enterprise Glossary Collection (parent collection)
+('03000001-0000-4000-8000-000000000001', 'urn:glossary:enterprise', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://ontos.app/ontology#KnowledgeCollection', true, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000002-0000-4000-8000-000000000002', 'urn:glossary:enterprise', 'http://www.w3.org/2000/01/rdf-schema#label', 'Enterprise Glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000003-0000-4000-8000-000000000003', 'urn:glossary:enterprise', 'http://www.w3.org/2000/01/rdf-schema#comment', 'Company-wide business terms and definitions used across all domains', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000004-0000-4000-8000-000000000004', 'urn:glossary:enterprise', 'http://ontos.app/ontology#collectionType', 'glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000005-0000-4000-8000-000000000005', 'urn:glossary:enterprise', 'http://ontos.app/ontology#scopeLevel', 'enterprise', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000006-0000-4000-8000-000000000006', 'urn:glossary:enterprise', 'http://ontos.app/ontology#sourceType', 'custom', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000007-0000-4000-8000-000000000007', 'urn:glossary:enterprise', 'http://ontos.app/ontology#isEditable', 'true', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+('03000008-0000-4000-8000-000000000008', 'urn:glossary:enterprise', 'http://ontos.app/ontology#status', 'active', false, 'urn:meta:sources', 'collection', 'urn:glossary:enterprise', 'system@demo', NOW()),
+
+-- Demo Collection (child of Enterprise Glossary - contains the demo concepts)
+('03000011-0000-4000-8000-000000000011', 'urn:demo', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://ontos.app/ontology#KnowledgeCollection', true, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000012-0000-4000-8000-000000000012', 'urn:demo', 'http://www.w3.org/2000/01/rdf-schema#label', 'Demo Business Concepts', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000013-0000-4000-8000-000000000013', 'urn:demo', 'http://www.w3.org/2000/01/rdf-schema#comment', 'Demo business concepts and glossary terms for retail operations', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000014-0000-4000-8000-000000000014', 'urn:demo', 'http://ontos.app/ontology#collectionType', 'glossary', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000015-0000-4000-8000-000000000015', 'urn:demo', 'http://ontos.app/ontology#scopeLevel', 'domain', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000016-0000-4000-8000-000000000016', 'urn:demo', 'http://ontos.app/ontology#parentCollection', 'urn:glossary:enterprise', true, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000017-0000-4000-8000-000000000017', 'urn:demo', 'http://ontos.app/ontology#sourceType', 'custom', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000018-0000-4000-8000-000000000018', 'urn:demo', 'http://ontos.app/ontology#isEditable', 'true', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+('03000019-0000-4000-8000-000000000019', 'urn:demo', 'http://ontos.app/ontology#status', 'active', false, 'urn:meta:sources', 'collection', 'urn:demo', 'system@demo', NOW()),
+
+-- Customer Domain Glossary (child of Demo - specific to customer domain)
+('03000021-0000-4000-8000-000000000021', 'urn:glossary:customer-domain', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://ontos.app/ontology#KnowledgeCollection', true, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000022-0000-4000-8000-000000000022', 'urn:glossary:customer-domain', 'http://www.w3.org/2000/01/rdf-schema#label', 'Customer Domain Glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000023-0000-4000-8000-000000000023', 'urn:glossary:customer-domain', 'http://www.w3.org/2000/01/rdf-schema#comment', 'Business terms specific to customer data and CRM operations', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000024-0000-4000-8000-000000000024', 'urn:glossary:customer-domain', 'http://ontos.app/ontology#collectionType', 'glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000025-0000-4000-8000-000000000025', 'urn:glossary:customer-domain', 'http://ontos.app/ontology#scopeLevel', 'domain', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000026-0000-4000-8000-000000000026', 'urn:glossary:customer-domain', 'http://ontos.app/ontology#parentCollection', 'urn:glossary:enterprise', true, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000027-0000-4000-8000-000000000027', 'urn:glossary:customer-domain', 'http://ontos.app/ontology#sourceType', 'custom', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000028-0000-4000-8000-000000000028', 'urn:glossary:customer-domain', 'http://ontos.app/ontology#isEditable', 'true', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+('03000029-0000-4000-8000-000000000029', 'urn:glossary:customer-domain', 'http://ontos.app/ontology#status', 'active', false, 'urn:meta:sources', 'collection', 'urn:glossary:customer-domain', 'system@demo', NOW()),
+
+-- IoT Domain Glossary (child of Demo - specific to IoT domain)
+('03000031-0000-4000-8000-000000000031', 'urn:glossary:iot-domain', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://ontos.app/ontology#KnowledgeCollection', true, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000032-0000-4000-8000-000000000032', 'urn:glossary:iot-domain', 'http://www.w3.org/2000/01/rdf-schema#label', 'IoT Domain Glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000033-0000-4000-8000-000000000033', 'urn:glossary:iot-domain', 'http://www.w3.org/2000/01/rdf-schema#comment', 'Business terms for IoT devices, sensors, and telemetry data', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000034-0000-4000-8000-000000000034', 'urn:glossary:iot-domain', 'http://ontos.app/ontology#collectionType', 'glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000035-0000-4000-8000-000000000035', 'urn:glossary:iot-domain', 'http://ontos.app/ontology#scopeLevel', 'domain', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000036-0000-4000-8000-000000000036', 'urn:glossary:iot-domain', 'http://ontos.app/ontology#parentCollection', 'urn:glossary:enterprise', true, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000037-0000-4000-8000-000000000037', 'urn:glossary:iot-domain', 'http://ontos.app/ontology#sourceType', 'custom', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000038-0000-4000-8000-000000000038', 'urn:glossary:iot-domain', 'http://ontos.app/ontology#isEditable', 'true', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+('03000039-0000-4000-8000-000000000039', 'urn:glossary:iot-domain', 'http://ontos.app/ontology#status', 'active', false, 'urn:meta:sources', 'collection', 'urn:glossary:iot-domain', 'system@demo', NOW()),
+
+-- Finance Domain Glossary
+('03000041-0000-4000-8000-000000000041', 'urn:glossary:finance-domain', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://ontos.app/ontology#KnowledgeCollection', true, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000042-0000-4000-8000-000000000042', 'urn:glossary:finance-domain', 'http://www.w3.org/2000/01/rdf-schema#label', 'Finance Domain Glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000043-0000-4000-8000-000000000043', 'urn:glossary:finance-domain', 'http://www.w3.org/2000/01/rdf-schema#comment', 'Financial terms, metrics, and reporting concepts', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000044-0000-4000-8000-000000000044', 'urn:glossary:finance-domain', 'http://ontos.app/ontology#collectionType', 'glossary', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000045-0000-4000-8000-000000000045', 'urn:glossary:finance-domain', 'http://ontos.app/ontology#scopeLevel', 'domain', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000046-0000-4000-8000-000000000046', 'urn:glossary:finance-domain', 'http://ontos.app/ontology#parentCollection', 'urn:glossary:enterprise', true, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000047-0000-4000-8000-000000000047', 'urn:glossary:finance-domain', 'http://ontos.app/ontology#sourceType', 'custom', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000048-0000-4000-8000-000000000048', 'urn:glossary:finance-domain', 'http://ontos.app/ontology#isEditable', 'true', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW()),
+('03000049-0000-4000-8000-000000000049', 'urn:glossary:finance-domain', 'http://ontos.app/ontology#status', 'active', false, 'urn:meta:sources', 'collection', 'urn:glossary:finance-domain', 'system@demo', NOW())
 
 ON CONFLICT (id) DO NOTHING;
 

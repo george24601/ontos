@@ -266,22 +266,12 @@ class AppEntityLoader(EntityLoader):
                         'updated_at': domain.updated_at,
                     }
 
-            # Glossary Terms
-            if 'glossary_term' in entity_types:
-                from src.repositories.business_glossary_repository import business_glossary_repo
-                terms = business_glossary_repo.list_terms(self.db, glossary_id=None)
-                for term in terms:
-                    yield {
-                        'type': 'glossary_term',
-                        'id': term.id,
-                        'name': term.name,
-                        'description': term.description,
-                        'glossary_id': term.glossary_id,
-                        'status': term.status,
-                        'tags': term.tags or {},
-                        'created_at': term.created_at,
-                        'updated_at': term.updated_at,
-                    }
+            # Glossary Terms - Now stored as RDF concepts in KnowledgeCollections
+            # Compliance checks for glossary terms should query the semantic models manager
+            # TODO: Implement compliance entity fetching from RDF-based knowledge collections
+            # if 'glossary_term' in entity_types:
+            #     # Glossary terms are now managed via SemanticModelsManager as OntologyConcepts
+            #     pass
 
             # Reviews
             if 'review' in entity_types:
