@@ -999,6 +999,340 @@ class CreateAssetReviewStepHandler(StepHandler):
             return None
 
 
+class WebhookStepHandler(StepHandler):
+    """Handler for webhook steps - calls external HTTP endpoints.
+    
+    Supports two modes:
+    1. UC Connection mode: Uses Unity Catalog HTTP Connection via SDK
+    2. Inline mode: Direct HTTP calls using httpx
+    """
+
+    def execute(self, context: StepContext) -> StepResult:
+        import re
+        
+        connection_name = self._config.get('connection_name')
+        url = self._config.get('url')
+        method = self._config.get('method', 'POST').upper()
+        path = self._config.get('path', '')
+        headers = self._config.get('headers', {}) or {}
+        body_template = self._config.get('body_template')
+        timeout_seconds = self._config.get('timeout_seconds', 30)
+        success_codes = self._config.get('success_codes')
+        retry_count = self._config.get('retry_count', 0)
+        
+        # Validate configuration
+        if not connection_name and not url:
+            return StepResult(
+                passed=False,
+                error="Webhook requires either 'connection_name' (UC Connection) or 'url' (inline mode)"
+            )
+        
+        # Substitute template variables in body
+        body = None
+        if body_template:
+            body = self._substitute_template(body_template, context)
+        
+        # Substitute template variables in headers
+        resolved_headers = {}
+        for key, value in headers.items():
+            resolved_headers[key] = self._substitute_template(value, context)
+        
+        try:
+            if connection_name:
+                # UC Connection mode
+                result = self._execute_via_uc_connection(
+                    connection_name=connection_name,
+                    method=method,
+                    path=path,
+                    headers=resolved_headers,
+                    body=body,
+                    timeout_seconds=timeout_seconds,
+                    success_codes=success_codes,
+                    retry_count=retry_count,
+                )
+            else:
+                # Inline mode
+                result = self._execute_direct(
+                    url=url,
+                    method=method,
+                    headers=resolved_headers,
+                    body=body,
+                    timeout_seconds=timeout_seconds,
+                    success_codes=success_codes,
+                    retry_count=retry_count,
+                )
+            
+            return result
+            
+        except Exception as e:
+            logger.exception(f"Webhook step failed: {e}")
+            return StepResult(passed=False, error=str(e))
+
+    def _substitute_template(self, template: str, context: StepContext) -> str:
+        """Replace ${variable} placeholders with context values."""
+        import re
+        
+        # Build substitution map
+        substitutions = {
+            'entity_type': context.entity_type,
+            'entity_id': context.entity_id,
+            'entity_name': context.entity_name or '',
+            'user_email': context.user_email or '',
+            'workflow_name': context.workflow_name,
+            'workflow_id': context.workflow_id,
+            'execution_id': context.execution_id,
+        }
+        
+        # Add entity fields
+        for key, value in context.entity.items():
+            if isinstance(value, (str, int, float, bool)):
+                substitutions[f'entity.{key}'] = str(value)
+        
+        # Add step results (for accessing previous step data)
+        for step_id, step_data in context.step_results.items():
+            if isinstance(step_data, dict):
+                for key, value in step_data.items():
+                    if isinstance(value, (str, int, float, bool)):
+                        substitutions[f'step_results.{step_id}.{key}'] = str(value)
+                    elif isinstance(value, dict):
+                        for k, v in value.items():
+                            if isinstance(v, (str, int, float, bool)):
+                                substitutions[f'step_results.{step_id}.{key}.{k}'] = str(v)
+        
+        # Replace ${var} patterns
+        def replace_var(match):
+            var_name = match.group(1)
+            return substitutions.get(var_name, match.group(0))
+        
+        return re.sub(r'\$\{([^}]+)\}', replace_var, template)
+
+    def _execute_via_uc_connection(
+        self,
+        connection_name: str,
+        method: str,
+        path: str,
+        headers: Dict[str, str],
+        body: Optional[str],
+        timeout_seconds: int,
+        success_codes: Optional[List[int]],
+        retry_count: int,
+    ) -> StepResult:
+        """Execute HTTP request via Unity Catalog Connection."""
+        from src.common.workspace_client import get_workspace_client
+        from databricks.sdk.service.serving import ExternalFunctionRequestHttpMethod
+        
+        try:
+            ws = get_workspace_client()
+            
+            # Map method string to enum
+            method_map = {
+                'GET': ExternalFunctionRequestHttpMethod.GET,
+                'POST': ExternalFunctionRequestHttpMethod.POST,
+                'PUT': ExternalFunctionRequestHttpMethod.PUT,
+                'PATCH': ExternalFunctionRequestHttpMethod.PATCH,
+                'DELETE': ExternalFunctionRequestHttpMethod.DELETE,
+            }
+            http_method = method_map.get(method, ExternalFunctionRequestHttpMethod.POST)
+            
+            # Parse body as JSON if provided
+            json_body = None
+            if body:
+                try:
+                    import json
+                    json_body = json.loads(body)
+                except json.JSONDecodeError:
+                    # If not valid JSON, treat as raw string
+                    logger.warning(f"Body is not valid JSON, sending as-is")
+                    json_body = {"data": body}
+            
+            # Execute with retry
+            last_error = None
+            for attempt in range(retry_count + 1):
+                try:
+                    response = ws.serving_endpoints.http_request(
+                        conn=connection_name,
+                        method=http_method,
+                        path=path or '/',
+                        headers=headers if headers else None,
+                        json=json_body,
+                    )
+                    
+                    # Check success based on status code
+                    status_code = getattr(response, 'status_code', 200)
+                    if self._is_success(status_code, success_codes):
+                        return StepResult(
+                            passed=True,
+                            message=f"Webhook succeeded via UC Connection '{connection_name}'",
+                            data={
+                                'connection_name': connection_name,
+                                'method': method,
+                                'path': path,
+                                'status_code': status_code,
+                                'response': str(response)[:500],  # Truncate for safety
+                            }
+                        )
+                    else:
+                        last_error = f"HTTP {status_code}"
+                        
+                except Exception as e:
+                    last_error = str(e)
+                    if attempt < retry_count:
+                        logger.warning(f"Webhook attempt {attempt + 1} failed: {e}, retrying...")
+                        continue
+            
+            return StepResult(
+                passed=False,
+                error=f"Webhook failed after {retry_count + 1} attempt(s): {last_error}",
+                data={'connection_name': connection_name, 'method': method, 'path': path}
+            )
+            
+        except ImportError as e:
+            logger.warning(f"UC Connection HTTP not available: {e}")
+            return StepResult(
+                passed=False,
+                error=f"UC Connection HTTP feature not available: {e}"
+            )
+        except Exception as e:
+            logger.exception(f"UC Connection webhook failed: {e}")
+            return StepResult(passed=False, error=str(e))
+
+    def _execute_direct(
+        self,
+        url: str,
+        method: str,
+        headers: Dict[str, str],
+        body: Optional[str],
+        timeout_seconds: int,
+        success_codes: Optional[List[int]],
+        retry_count: int,
+    ) -> StepResult:
+        """Execute HTTP request directly using httpx."""
+        try:
+            import httpx
+        except ImportError:
+            # Fallback to urllib if httpx not available
+            return self._execute_direct_urllib(
+                url, method, headers, body, timeout_seconds, success_codes, retry_count
+            )
+        
+        # Parse body as JSON if possible
+        json_body = None
+        content = None
+        if body:
+            try:
+                import json
+                json_body = json.loads(body)
+            except json.JSONDecodeError:
+                content = body
+        
+        last_error = None
+        for attempt in range(retry_count + 1):
+            try:
+                with httpx.Client(timeout=timeout_seconds) as client:
+                    response = client.request(
+                        method=method,
+                        url=url,
+                        headers=headers if headers else None,
+                        json=json_body,
+                        content=content if not json_body else None,
+                    )
+                    
+                    if self._is_success(response.status_code, success_codes):
+                        return StepResult(
+                            passed=True,
+                            message=f"Webhook succeeded: {method} {url}",
+                            data={
+                                'url': url,
+                                'method': method,
+                                'status_code': response.status_code,
+                                'response': response.text[:500],  # Truncate for safety
+                            }
+                        )
+                    else:
+                        last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                        
+            except Exception as e:
+                last_error = str(e)
+                if attempt < retry_count:
+                    logger.warning(f"Webhook attempt {attempt + 1} failed: {e}, retrying...")
+                    continue
+        
+        return StepResult(
+            passed=False,
+            error=f"Webhook failed after {retry_count + 1} attempt(s): {last_error}",
+            data={'url': url, 'method': method}
+        )
+
+    def _execute_direct_urllib(
+        self,
+        url: str,
+        method: str,
+        headers: Dict[str, str],
+        body: Optional[str],
+        timeout_seconds: int,
+        success_codes: Optional[List[int]],
+        retry_count: int,
+    ) -> StepResult:
+        """Fallback HTTP execution using urllib (no external deps)."""
+        import urllib.request
+        import urllib.error
+        
+        last_error = None
+        for attempt in range(retry_count + 1):
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=body.encode('utf-8') if body else None,
+                    headers=headers or {},
+                    method=method,
+                )
+                
+                with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
+                    status_code = response.getcode()
+                    response_body = response.read().decode('utf-8')[:500]
+                    
+                    if self._is_success(status_code, success_codes):
+                        return StepResult(
+                            passed=True,
+                            message=f"Webhook succeeded: {method} {url}",
+                            data={
+                                'url': url,
+                                'method': method,
+                                'status_code': status_code,
+                                'response': response_body,
+                            }
+                        )
+                    else:
+                        last_error = f"HTTP {status_code}"
+                        
+            except urllib.error.HTTPError as e:
+                if self._is_success(e.code, success_codes):
+                    return StepResult(
+                        passed=True,
+                        message=f"Webhook succeeded: {method} {url}",
+                        data={'url': url, 'method': method, 'status_code': e.code}
+                    )
+                last_error = f"HTTP {e.code}: {e.reason}"
+            except Exception as e:
+                last_error = str(e)
+                if attempt < retry_count:
+                    logger.warning(f"Webhook attempt {attempt + 1} failed: {e}, retrying...")
+                    continue
+        
+        return StepResult(
+            passed=False,
+            error=f"Webhook failed after {retry_count + 1} attempt(s): {last_error}",
+            data={'url': url, 'method': method}
+        )
+
+    def _is_success(self, status_code: int, success_codes: Optional[List[int]]) -> bool:
+        """Check if status code indicates success."""
+        if success_codes:
+            return status_code in success_codes
+        # Default: 2xx is success
+        return 200 <= status_code < 300
+
+
 class WorkflowExecutor:
     """Executes process workflows."""
 
@@ -1016,6 +1350,7 @@ class WorkflowExecutor:
         'policy_check': PolicyCheckStepHandler,
         'delivery': DeliveryStepHandler,
         'create_asset_review': CreateAssetReviewStepHandler,
+        'webhook': WebhookStepHandler,
     }
 
     def __init__(self, db: Session):

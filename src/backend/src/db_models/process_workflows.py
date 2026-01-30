@@ -69,7 +69,8 @@ class WorkflowStepDb(Base):
     # Step metadata
     name = Column(String(255), nullable=True)
     
-    # Step type: validation, approval, notification, assign_tag, conditional, script, pass, fail
+    # Step type: validation, approval, notification, assign_tag, conditional, script, pass, fail, 
+    #            policy_check, delivery, create_asset_review, webhook
     step_type = Column(String(50), nullable=False)
     
     # Step configuration (JSON) - type-specific settings
@@ -79,6 +80,7 @@ class WorkflowStepDb(Base):
     # For assign_tag: { key: "owner", value: "...", value_source: "current_user" }
     # For conditional: { condition: "DSL expression" }
     # For script: { language: "python", code: "..." }
+    # For webhook: { connection_name: "...", url: "...", method: "POST", body_template: "..." }
     config = Column(Text, nullable=True)
     
     # Branching - which step to go to on pass/fail

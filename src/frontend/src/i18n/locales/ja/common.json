@@ -335,7 +335,8 @@
       "fail": "失敗",
       "policy_check": "ポリシーチェック",
       "delivery": "配信",
-      "create_asset_review": "アセットレビュー作成"
+      "create_asset_review": "アセットレビュー作成",
+      "webhook": "Webhook"
     }
   }
 }

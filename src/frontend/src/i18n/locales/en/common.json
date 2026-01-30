@@ -27,9 +27,12 @@
     "upload": "Upload",
     "import": "Import",
     "export": "Export",
+    "exportTurtle": "Export as Turtle",
+    "exportRdfXml": "Export as RDF/XML",
     "sync": "Sync",
     "view": "View",
     "open": "Open",
+    "help": "Help",
     "back": "Back",
     "next": "Next",
     "previous": "Previous",
@@ -112,6 +115,7 @@
     "relationships": "relationships",
     "conceptGraph": "Concept Graph",
     "concepts": "concepts",
+    "properties": "properties",
     "securableId": "Securable ID",
     "securableType": "Securable Type",
     "permission": "Permission",
@@ -121,6 +125,7 @@
     "search": "Search...",
     "searchTables": "Search tables...",
     "searchConceptsAndTerms": "Search concepts and terms...",
+    "searchConcepts": "Search concepts...",
     "selectType": "Select type",
     "selectStatus": "Select status",
     "selectCategory": "Select category",
@@ -333,7 +338,8 @@
       "fail": "Fail",
       "policy_check": "Policy Check",
       "delivery": "Delivery",
-      "create_asset_review": "Create Asset Review"
+      "create_asset_review": "Create Asset Review",
+      "webhook": "Webhook"
     }
   }
 }

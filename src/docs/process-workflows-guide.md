@@ -363,6 +363,7 @@ class WorkflowExecutor:
         'pass': PassStepHandler,
         'fail': FailStepHandler,
         'policy_check': PolicyCheckStepHandler,
+        'webhook': WebhookStepHandler,
     }
 ```
 
@@ -625,6 +626,67 @@ def execute(self, context: StepContext) -> StepResult:
 ```
 
 > **Best Practice:** Use `policy_check` steps instead of `validation` steps when you want to centralize compliance rule management. This ensures that policy updates automatically apply to all workflows referencing that policy.
+
+#### 11. Webhook Step
+
+Calls external HTTP endpoints to integrate with external systems like ServiceNow, Slack, PagerDuty, or custom APIs. Supports two modes:
+
+1. **UC Connection mode** (Recommended): Uses a pre-configured Unity Catalog HTTP Connection for secure credential management
+2. **Inline mode**: Provides URL and credentials directly in configuration (for testing/simple cases)
+
+| Config Key | Type | Description |
+|------------|------|-------------|
+| `connection_name` | String | UC HTTP Connection name (if using UC mode) |
+| `url` | String | Target URL (if using inline mode) |
+| `method` | String | HTTP method: GET, POST, PUT, PATCH, DELETE (default: POST) |
+| `path` | String | Path appended to connection base URL (for UC mode) |
+| `headers` | Object | Custom headers (merged with connection headers) |
+| `body_template` | String | JSON body with `${variable}` substitution |
+| `timeout_seconds` | Integer | Request timeout (default: 30) |
+| `success_codes` | Array[Integer] | HTTP codes considered success (default: 200-299) |
+| `retry_count` | Integer | Number of retries on failure (default: 0) |
+
+**Template Variables:**
+- `${entity_type}`, `${entity_id}`, `${entity_name}` - Entity information
+- `${user_email}`, `${workflow_name}`, `${execution_id}` - Execution context
+- `${step_results.step_id.data.field}` - Data from previous steps
+
+**Example Configuration (UC Connection):**
+```yaml
+step_type: webhook
+config:
+  connection_name: servicenow-prod  # Pre-configured in Unity Catalog
+  method: POST
+  path: /api/now/table/incident
+  body_template: |
+    {
+      "short_description": "Alert: ${entity_name}",
+      "description": "Entity ${entity_type}/${entity_id} triggered workflow ${workflow_name}",
+      "urgency": "2"
+    }
+  timeout_seconds: 30
+on_pass: notify-success
+on_fail: notify-failure
+```
+
+**Example Configuration (Inline URL):**
+```yaml
+step_type: webhook
+config:
+  url: https://hooks.slack.com/services/T00/B00/XXX
+  method: POST
+  headers:
+    Content-Type: application/json
+  body_template: |
+    {
+      "text": "Workflow completed for ${entity_name}"
+    }
+on_pass: done
+```
+
+**Handler:** `WebhookStepHandler`
+
+> **Security Note:** UC Connections are recommended for production use as credentials are stored securely in Unity Catalog and managed by administrators. Inline mode stores credentials in workflow configuration.
 
 ---
 

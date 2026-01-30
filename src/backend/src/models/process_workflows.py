@@ -81,6 +81,7 @@ class StepType(str, Enum):
     POLICY_CHECK = "policy_check"  # Evaluates existing compliance policy by UUID
     DELIVERY = "delivery"  # Triggers DeliveryService to apply changes
     CREATE_ASSET_REVIEW = "create_asset_review"  # Creates a DataAssetReview for formal review tracking
+    WEBHOOK = "webhook"  # Calls external HTTP endpoints via UC Connections or direct URL
 
 
 class ExecutionStatus(str, Enum):
@@ -248,6 +249,40 @@ class PolicyCheckStepConfig(BaseModel):
         }
 
 
+class WebhookStepConfig(BaseModel):
+    """Configuration for webhook steps - calls external HTTP endpoints.
+    
+    Supports two modes:
+    1. UC Connection mode: Use a pre-configured Unity Catalog HTTP Connection (secure, production)
+    2. Inline mode: Provide URL and credentials directly (testing/simple cases)
+    """
+    # UC Connection mode - reference by name
+    connection_name: Optional[str] = Field(None, description="UC HTTP Connection name (if using UC mode)")
+    
+    # Inline mode - direct URL
+    url: Optional[str] = Field(None, description="Target URL (required if not using connection)")
+    
+    # Common settings
+    method: str = Field(default="POST", description="HTTP method: GET, POST, PUT, PATCH, DELETE")
+    path: Optional[str] = Field(None, description="Path appended to connection base URL (for UC mode)")
+    headers: Optional[Dict[str, str]] = Field(default_factory=dict, description="Custom headers (merged with connection headers)")
+    body_template: Optional[str] = Field(None, description="JSON body with ${variable} substitution")
+    timeout_seconds: int = Field(default=30, description="Request timeout in seconds")
+    success_codes: Optional[List[int]] = Field(default=None, description="HTTP codes considered success (default: 200-299)")
+    retry_count: int = Field(default=0, description="Number of retries on failure")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "connection_name": "servicenow-prod",
+                "method": "POST",
+                "path": "/api/now/table/incident",
+                "body_template": '{"short_description": "Alert: ${entity_name}"}',
+                "timeout_seconds": 30
+            }
+        }
+
+
 # Union type for step configs
 StepConfig = Union[
     ValidationStepConfig,
@@ -258,6 +293,7 @@ StepConfig = Union[
     ConditionalStepConfig,
     ScriptStepConfig,
     PolicyCheckStepConfig,
+    WebhookStepConfig,
     Dict[str, Any],  # For pass/fail steps with no config
 ]
 

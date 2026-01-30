@@ -333,7 +333,8 @@
       "fail": "Fehlgeschlagen",
       "policy_check": "Richtlinienprüfung",
       "delivery": "Auslieferung",
-      "create_asset_review": "Asset-Überprüfung erstellen"
+      "create_asset_review": "Asset-Überprüfung erstellen",
+      "webhook": "Webhook"
     }
   }
 }

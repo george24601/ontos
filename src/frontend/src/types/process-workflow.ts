@@ -60,7 +60,8 @@ export type StepType =
   | 'fail'
   | 'policy_check'       // Evaluates existing compliance policy by UUID
   | 'delivery'           // Triggers DeliveryService to apply changes
-  | 'create_asset_review'; // Creates a DataAssetReview for formal review tracking
+  | 'create_asset_review' // Creates a DataAssetReview for formal review tracking
+  | 'webhook';           // Calls external HTTP endpoints via UC Connections or direct URL
 
 export type ExecutionStatus =
   | 'pending'
@@ -144,6 +145,26 @@ export interface PolicyCheckStepConfig {
   policy_name?: string;  // Cached for display
 }
 
+export interface WebhookStepConfig {
+  connection_name?: string;    // UC HTTP Connection name (if using UC mode)
+  url?: string;                // Target URL (if using inline mode)
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  path?: string;               // Path appended to connection base URL (for UC mode)
+  headers?: Record<string, string>;  // Custom headers
+  body_template?: string;      // JSON body with ${variable} substitution
+  timeout_seconds?: number;    // Request timeout (default: 30)
+  success_codes?: number[];    // HTTP codes considered success (default: 200-299)
+  retry_count?: number;        // Number of retries on failure (default: 0)
+}
+
+// Reference to a UC HTTP Connection (for UI selection)
+export interface HttpConnectionRef {
+  name: string;
+  connection_type: string;
+  comment?: string;
+  owner?: string;
+}
+
 // Reference to a compliance policy (for UI selection)
 export interface CompliancePolicyRef {
   id: string;
@@ -164,6 +185,7 @@ export type StepConfig =
   | ScriptStepConfig
   | FailStepConfig
   | PolicyCheckStepConfig
+  | WebhookStepConfig
   | Record<string, unknown>;
 
 // Workflow step

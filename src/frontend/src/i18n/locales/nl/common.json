@@ -333,7 +333,8 @@
       "fail": "Mislukking",
       "policy_check": "Beleidscontrole",
       "delivery": "Levering",
-      "create_asset_review": "Asset Beoordeling Aanmaken"
+      "create_asset_review": "Asset Beoordeling Aanmaken",
+      "webhook": "Webhook"
     }
   }
 }

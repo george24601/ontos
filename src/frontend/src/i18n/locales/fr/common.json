@@ -335,7 +335,8 @@
       "fail": "Échoué",
       "policy_check": "Vérification de politique",
       "delivery": "Livraison",
-      "create_asset_review": "Créer un examen d'actif"
+      "create_asset_review": "Créer un examen d'actif",
+      "webhook": "Webhook"
     }
   }
 }

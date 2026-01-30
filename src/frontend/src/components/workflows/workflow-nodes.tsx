@@ -16,6 +16,7 @@ import {
   Truck,
   GitBranch,
   FileSearch,
+  Globe,
 } from 'lucide-react';
 import type { WorkflowStep, WorkflowTrigger, StepType } from '@/types/process-workflow';
 import { 
@@ -84,6 +85,11 @@ const nodeColorStyles = {
     card: "border-red-500 bg-red-50 dark:bg-red-900/50 dark:border-red-400",
     icon: "text-red-600 dark:text-red-300",
     ring: "ring-red-500 dark:ring-red-400",
+  },
+  webhook: {
+    card: "border-orange-500 bg-orange-50 dark:bg-orange-900/50 dark:border-orange-400",
+    icon: "text-orange-600 dark:text-orange-300",
+    ring: "ring-orange-500 dark:ring-orange-400",
   },
 } as const;
 
@@ -467,3 +473,46 @@ export const CreateAssetReviewNode = memo((props: NodeProps<StepNodeData>) => {
 
 CreateAssetReviewNode.displayName = 'CreateAssetReviewNode';
 
+// Webhook Node - calls external HTTP endpoints
+export const WebhookNode = memo((props: NodeProps<StepNodeData>) => {
+  const connectionName = (props.data.step.config as { connection_name?: string })?.connection_name;
+  const url = (props.data.step.config as { url?: string })?.url;
+  const method = (props.data.step.config as { method?: string })?.method || 'POST';
+  const styles = nodeColorStyles.webhook;
+  
+  // Determine display text - prefer connection name, fallback to URL
+  const displayTarget = connectionName 
+    ? `Connection: ${connectionName}`
+    : url 
+      ? url.length > 30 ? url.slice(0, 27) + '...' : url
+      : 'Not configured';
+  
+  return (
+    <Card className={`${baseNodeClass} ${styles.card} ${props.selected ? `ring-2 ${styles.ring}` : ''}`}>
+      <Handle type="target" position={Position.Top} className="!bg-slate-400 dark:!bg-slate-500" />
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className={`${nodeTextStyles.title} flex items-center gap-2`}>
+          <Globe className={`h-4 w-4 ${styles.icon}`} />
+          {props.data.step.name || 'Webhook'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 pt-0 space-y-1">
+        <Badge variant="outline" className="text-xs dark:border-orange-400/50 dark:text-orange-200">
+          {method}
+        </Badge>
+        <p className={`${nodeTextStyles.description} truncate`} title={connectionName || url}>
+          {displayTarget}
+        </p>
+        {!connectionName && !url && (
+          <div className="text-xs text-amber-600 dark:text-amber-400">
+            Configure URL or Connection
+          </div>
+        )}
+      </CardContent>
+      <Handle type="source" position={Position.Bottom} id="pass" className="!bg-green-500 dark:!bg-green-400" style={{ left: '30%' }} />
+      <Handle type="source" position={Position.Bottom} id="fail" className="!bg-red-500 dark:!bg-red-400" style={{ left: '70%' }} />
+    </Card>
+  );
+});
+
+WebhookNode.displayName = 'WebhookNode';

@@ -335,7 +335,8 @@
       "fail": "Fallido",
       "policy_check": "Verificación de política",
       "delivery": "Entrega",
-      "create_asset_review": "Crear revisión de activo"
+      "create_asset_review": "Crear revisión de activo",
+      "webhook": "Webhook"
     }
   }
 }
