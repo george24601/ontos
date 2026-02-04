@@ -893,6 +893,9 @@ class SemanticModelsManager:
                         ?concept rdfs:label ?someLabel .
                         ?concept rdfs:comment ?someComment .
                     }
+                    # Filter out blank nodes (anonymous classes, restrictions, etc.)
+                    FILTER(!isBlank(?concept))
+                    
                     # Filter out basic RDF/RDFS/SKOS/OWL vocabulary terms
                     FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/1999/02/22-rdf-syntax-ns#"))
                     FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/2000/01/rdf-schema#"))
@@ -1560,6 +1563,9 @@ class SemanticModelsManager:
                 OPTIONAL { ?concept rdfs:comment ?rdfs_comment }
                 BIND(COALESCE(STR(?skos_definition), STR(?rdfs_comment)) AS ?comment)
 
+                # Filter out blank nodes (anonymous classes, restrictions, etc.)
+                FILTER(!isBlank(?concept))
+                
                 # Filter out basic RDF/RDFS/SKOS/OWL vocabulary terms
                 FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/1999/02/22-rdf-syntax-ns#"))
                 FILTER(!STRSTARTS(STR(?concept), "http://www.w3.org/2000/01/rdf-schema#"))
@@ -1599,6 +1605,24 @@ class SemanticModelsManager:
                         continue
 
                     concept_uri = URIRef(concept_iri)
+
+                    # Build labels dictionary from all available labels with language tags
+                    labels = {}
+                    # Get skos:prefLabel values (preferred)
+                    for label_literal in context.objects(concept_uri, SKOS.prefLabel):
+                        lang = getattr(label_literal, 'language', None) or ""
+                        labels[lang] = str(label_literal)
+                    # Get rdfs:label values (fallback, don't overwrite prefLabel)
+                    for label_literal in context.objects(concept_uri, RDFS.label):
+                        lang = getattr(label_literal, 'language', None) or ""
+                        if lang not in labels:
+                            labels[lang] = str(label_literal)
+                    
+                    # Compute primary label with fallback chain: en > "" (no lang) > any > IRI local name
+                    primary_label = labels.get('en') or labels.get('') or (list(labels.values())[0] if labels else None)
+                    if not primary_label:
+                        # Extract local name from IRI (after last # or /)
+                        primary_label = concept_iri.split('#')[-1].split('/')[-1]
 
                     # Determine concept type
                     if (concept_uri, RDF.type, RDFS.Class) in context:
@@ -1646,7 +1670,8 @@ class SemanticModelsManager:
 
                     concepts.append(OntologyConcept(
                         iri=concept_iri,
-                        label=label,
+                        label=primary_label,
+                        labels=labels,
                         comment=comment,
                         concept_type=concept_type,
                         source_context=source_context,

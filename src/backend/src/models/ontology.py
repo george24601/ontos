@@ -122,7 +122,8 @@ class OntologyProperty(BaseModel):
 
 class OntologyConcept(BaseModel):
     iri: str
-    label: Optional[str] = None
+    label: Optional[str] = None  # Primary label (computed from labels dict)
+    labels: Dict[str, str] = {}  # Multi-language labels: {"en": "Dataset", "ja": "データセット"}
     comment: Optional[str] = None
     concept_type: str  # 'class' | 'concept' | 'individual' | 'term'
     source_context: Optional[str] = None  # The taxonomy/ontology source (collection IRI)

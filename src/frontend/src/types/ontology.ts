@@ -80,7 +80,8 @@ export interface OntologyProperty {
 
 export interface OntologyConcept {
   iri: string;
-  label?: string;
+  label?: string;  // Primary label (computed from labels dict)
+  labels?: Record<string, string>;  // Multi-language labels: {"en": "Dataset", "ja": "データセット"}
   comment?: string;
   concept_type: 'class' | 'concept' | 'individual' | 'property' | 'term';
   source_context?: string;

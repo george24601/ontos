@@ -8,6 +8,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -26,6 +33,7 @@ import {
   ExternalLink,
   Filter,
   FolderTree,
+  Languages,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -35,6 +43,7 @@ import type {
 } from '@/types/ontology';
 import { NodeLinksPanel } from '@/components/knowledge/node-links-panel';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
+import { resolveLabel, getAvailableLanguages, getLanguageDisplayName } from '@/lib/ontology-utils';
 
 interface ConceptsTabProps {
   collections: KnowledgeCollection[];
@@ -79,14 +88,6 @@ const typeColors: Record<string, string> = {
   term: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
 };
 
-// Helper to extract readable label from IRI
-const getDisplayLabel = (concept: OntologyConcept): string => {
-  if (concept.label && concept.label !== concept.iri) {
-    return concept.label;
-  }
-  // Extract local name from IRI (after last # or /)
-  return concept.iri.split(/[/#]/).pop() || concept.iri;
-};
 
 export const ConceptsTab: React.FC<ConceptsTabProps> = ({
   collections,
@@ -114,9 +115,17 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
   onSetGroupByDomain,
   onSetFilterExpanded,
 }) => {
-  const { t } = useTranslation(['semantic-models', 'common']);
+  const { t, i18n } = useTranslation(['semantic-models', 'common']);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['root']));
+  
+  // Language selection for concept labels - defaults to UI language
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(i18n.language.split('-')[0] || 'en');
+  
+  // Compute available languages from all concepts
+  const availableLanguages = useMemo(() => {
+    return getAvailableLanguages(filteredConcepts);
+  }, [filteredConcepts]);
   
   // Build tree data structure from concepts
   const treeData = useMemo(() => {
@@ -315,7 +324,7 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
     
     const displayName = isSourceGroup 
       ? itemId 
-      : (concept?.label || concept?.iri.split(/[/#]/).pop() || itemId);
+      : (concept ? resolveLabel(concept, selectedLanguage) : itemId);
     
     return (
       <div key={itemId}>
@@ -512,6 +521,28 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
                     />
                   </div>
                 )}
+                
+                {/* Label Language Selector */}
+                {availableLanguages.length > 0 && (
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <Label htmlFor="label-language" className="text-sm flex items-center gap-2 cursor-pointer">
+                      <Languages className="h-4 w-4" />
+                      {t('semantic-models:filters.labelLanguage', 'Label Language')}
+                    </Label>
+                    <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                      <SelectTrigger id="label-language" className="w-28 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableLanguages.map((lang) => (
+                          <SelectItem key={lang} value={lang}>
+                            {getLanguageDisplayName(lang)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -557,7 +588,7 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
                   <div className="flex items-center gap-3">
                     {typeIcons[selectedConcept.concept_type]}
                     <h2 className="text-2xl font-bold">
-                      {getDisplayLabel(selectedConcept)}
+                      {resolveLabel(selectedConcept, selectedLanguage)}
                     </h2>
                     <Badge className={typeColors[selectedConcept.concept_type]}>
                       {t(`semantic-models:types.${selectedConcept.concept_type}`)}
