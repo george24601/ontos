@@ -348,9 +348,10 @@ class IndustryOntologyManager:
                 )
             
             # Create the semantic model
+            # Note: SemanticFormat only allows 'rdfs' or 'skos', use 'rdfs' for OWL/RDF imports
             create_data = SemanticModelCreate(
                 name=model_name,
-                format="turtle",
+                format="rdfs",
                 content_text=turtle_content,
                 original_filename=f"{ontology.id}_import.ttl",
                 size_bytes=str(len(turtle_content.encode('utf-8'))),
