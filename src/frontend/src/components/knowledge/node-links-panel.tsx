@@ -36,6 +36,10 @@ interface LinkInfo {
   relationshipType: string;
   direction: 'outgoing' | 'incoming';
   concept?: OntologyConcept;
+  // For property domain/range links, show the other end
+  otherEndIri?: string;
+  otherEndLabel?: string;
+  otherEndConcept?: OntologyConcept;
 }
 
 const relationshipColors: Record<string, string> = {
@@ -182,25 +186,33 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
         });
       }
       
-      // Other property has this as domain
+      // Other property has this as domain → show range as "other end"
       if (other.concept_type === 'property' && other.domain === concept.iri) {
+        const rangeConcept = other.range ? conceptMap.get(other.range) : undefined;
         links.push({
           iri: other.iri,
           label: getLabel(other, other.iri),
           relationshipType: 'domain',
           direction: 'incoming',
           concept: other,
+          otherEndIri: other.range,
+          otherEndLabel: other.range ? getLabel(rangeConcept, other.range) : undefined,
+          otherEndConcept: rangeConcept,
         });
       }
       
-      // Other property has this as range
+      // Other property has this as range → show domain as "other end"
       if (other.concept_type === 'property' && other.range === concept.iri) {
+        const domainConcept = other.domain ? conceptMap.get(other.domain) : undefined;
         links.push({
           iri: other.iri,
           label: getLabel(other, other.iri),
           relationshipType: 'range',
           direction: 'incoming',
           concept: other,
+          otherEndIri: other.domain,
+          otherEndLabel: other.domain ? getLabel(domainConcept, other.domain) : undefined,
+          otherEndConcept: domainConcept,
         });
       }
     });
@@ -321,17 +333,32 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       )}
       
       <button
-        className="text-sm text-primary hover:underline flex-1 text-left truncate"
+        className="text-sm text-primary hover:underline text-left truncate"
         onClick={() => link.concept && onSelectConcept(link.concept)}
       >
         {link.label}
       </button>
       
+      {/* Show the other end of property relationships */}
+      {link.otherEndLabel && (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span>(</span>
+          <span>{link.relationshipType === 'range' ? 'from' : 'to'}</span>
+          <button
+            className="text-primary hover:underline truncate"
+            onClick={() => link.otherEndConcept && onSelectConcept(link.otherEndConcept)}
+          >
+            {link.otherEndLabel}
+          </button>
+          <span>)</span>
+        </span>
+      )}
+      
       {canEdit && (
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
           onClick={() => handleRemoveLink(link)}
         >
           <X className="h-3 w-3" />
