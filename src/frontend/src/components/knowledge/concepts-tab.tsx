@@ -752,6 +752,7 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
                 onSelectConcept={onSelectConcept}
                 onRefresh={onRefresh}
                 canEdit={isConceptEditable(selectedConcept)}
+                selectedLanguage={selectedLanguage}
               />
               
               {/* Owners */}

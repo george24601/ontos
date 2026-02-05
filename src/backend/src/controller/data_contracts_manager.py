@@ -4193,6 +4193,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             ValueError: If contract not found
         """
         from src.utils.contract_cloner import ContractCloner
+        from sqlalchemy import or_
         
         # Get the source contract
         source_contract = data_contract_repo.get(db, id=contract_id)
@@ -4201,17 +4202,24 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         
         # Get base_name (either from field or extract from name)
         base_name = source_contract.base_name
+        extracted_base_name = None
         if not base_name:
             # Extract from name if not set
             cloner = ContractCloner()
-            base_name = cloner._extract_base_name(source_contract.name, source_contract.version or "1.0.0")
+            extracted_base_name = cloner._extract_base_name(source_contract.name, source_contract.version or "1.0.0")
+            base_name = extracted_base_name
         
-        # Find all contracts with same base_name
+        # Find all contracts with same base_name (from DB column)
+        # OR same name (for legacy contracts without base_name set)
         contracts = db.query(DataContractDb).filter(
-            DataContractDb.base_name == base_name
+            or_(
+                DataContractDb.base_name == base_name,
+                # Also match by name for contracts without base_name set
+                DataContractDb.name == (extracted_base_name or source_contract.name)
+            )
         ).order_by(DataContractDb.created_at.desc()).all()
         
-        # If no base_name matches, fall back to parent_contract_id relationships
+        # If no matches, fall back to parent_contract_id relationships
         if not contracts:
             # Build version tree by following parent relationships
             contracts = [source_contract]
@@ -5380,7 +5388,8 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         db,
         domain_id: Optional[str] = None,
         project_id: Optional[str] = None,
-        is_admin: bool = False
+        is_admin: bool = False,
+        latest_only: bool = True
     ):
         """List data contracts from database with optional filtering.
 
@@ -5389,6 +5398,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             domain_id: Optional domain ID filter
             project_id: Optional project ID filter (ignored if is_admin=True)
             is_admin: If True, return all contracts regardless of project_id
+            latest_only: If True, return only the latest version per contract family (grouped by base_name)
 
         Returns:
             List of DataContractRead API models
@@ -5413,6 +5423,19 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 project_id=project_id,
                 is_admin=is_admin
             )
+
+        # Filter to latest version per contract family if requested
+        if latest_only:
+            # Group by base_name (or name if base_name is null for legacy contracts)
+            # and keep only the contract with the highest created_at per group
+            original_count = len(contracts)
+            seen_base_names: dict = {}
+            for c in contracts:
+                key = c.base_name or c.name  # Fallback for legacy contracts without base_name
+                if key not in seen_base_names or c.created_at > seen_base_names[key].created_at:
+                    seen_base_names[key] = c
+            contracts = list(seen_base_names.values())
+            logger.info(f"Filtered from {original_count} to {len(contracts)} latest versions (grouped by base_name)")
 
         # Build API models for each contract
         return [self._build_contract_api_model(db, c) for c in contracts]

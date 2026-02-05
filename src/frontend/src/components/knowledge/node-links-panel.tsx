@@ -18,6 +18,7 @@ import {
 import type { OntologyConcept, KnowledgeCollection } from '@/types/ontology';
 import { LinkEditorDialog } from './link-editor-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { resolveLabel } from '@/lib/ontology-utils';
 
 interface NodeLinksPanelProps {
   concept: OntologyConcept;
@@ -26,6 +27,7 @@ interface NodeLinksPanelProps {
   onSelectConcept: (concept: OntologyConcept) => void;
   onRefresh: () => Promise<void>;
   canEdit: boolean;
+  selectedLanguage?: string;
 }
 
 interface LinkInfo {
@@ -52,6 +54,7 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
   onSelectConcept,
   onRefresh,
   canEdit,
+  selectedLanguage = 'en',
 }) => {
   const { t } = useTranslation(['semantic-models', 'common']);
   const { toast } = useToast();
@@ -65,6 +68,12 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
     return new Map(allConcepts.map(c => [c.iri, c]));
   }, [allConcepts]);
   
+  // Helper to get label with language resolution
+  const getLabel = (c: OntologyConcept | undefined, iri: string): string => {
+    if (c) return resolveLabel(c, selectedLanguage);
+    return iri.split(/[/#]/).pop() || iri;
+  };
+  
   // Calculate outgoing links (this concept points TO others)
   const outgoingLinks = useMemo((): LinkInfo[] => {
     const links: LinkInfo[] = [];
@@ -72,56 +81,61 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
     // Parent (broader) - this concept IS BROADER than parent? No, parent is broader.
     // Actually: parent_concepts = concepts this is NARROWER than (parents are broader)
     concept.parent_concepts?.forEach(iri => {
+      const c = conceptMap.get(iri);
       links.push({
         iri,
-        label: conceptMap.get(iri)?.label || iri.split(/[/#]/).pop() || iri,
+        label: getLabel(c, iri),
         relationshipType: 'broader',
         direction: 'outgoing',
-        concept: conceptMap.get(iri),
+        concept: c,
       });
     });
     
     // Child (narrower) - this concept has narrower children
     concept.child_concepts?.forEach(iri => {
+      const c = conceptMap.get(iri);
       links.push({
         iri,
-        label: conceptMap.get(iri)?.label || iri.split(/[/#]/).pop() || iri,
+        label: getLabel(c, iri),
         relationshipType: 'narrower',
         direction: 'outgoing',
-        concept: conceptMap.get(iri),
+        concept: c,
       });
     });
     
     // Related
     concept.related_concepts?.forEach(iri => {
+      const c = conceptMap.get(iri);
       links.push({
         iri,
-        label: conceptMap.get(iri)?.label || iri.split(/[/#]/).pop() || iri,
+        label: getLabel(c, iri),
         relationshipType: 'related',
         direction: 'outgoing',
-        concept: conceptMap.get(iri),
+        concept: c,
       });
     });
     
     // Domain (for properties)
     if (concept.concept_type === 'property' && concept.domain) {
+      const c = conceptMap.get(concept.domain);
       links.push({
         iri: concept.domain,
-        label: conceptMap.get(concept.domain)?.label || concept.domain.split(/[/#]/).pop() || concept.domain,
+        label: getLabel(c, concept.domain),
         relationshipType: 'domain',
         direction: 'outgoing',
-        concept: conceptMap.get(concept.domain),
+        concept: c,
       });
     }
     
     // Range (for properties)
     if (concept.concept_type === 'property' && concept.range) {
+      const c = conceptMap.get(concept.range);
       links.push({
         iri: concept.range,
-        label: conceptMap.get(concept.range)?.label || concept.range.split(/[/#]/).pop() || concept.range,
+        label: getLabel(c, concept.range),
         relationshipType: 'range',
         direction: 'outgoing',
-        concept: conceptMap.get(concept.range),
+        concept: c,
       });
     }
     
@@ -139,7 +153,7 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       if (other.parent_concepts?.includes(concept.iri)) {
         links.push({
           iri: other.iri,
-          label: other.label || other.iri.split(/[/#]/).pop() || other.iri,
+          label: getLabel(other, other.iri),
           relationshipType: 'narrower',
           direction: 'incoming',
           concept: other,
@@ -150,7 +164,7 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       if (other.child_concepts?.includes(concept.iri)) {
         links.push({
           iri: other.iri,
-          label: other.label || other.iri.split(/[/#]/).pop() || other.iri,
+          label: getLabel(other, other.iri),
           relationshipType: 'broader',
           direction: 'incoming',
           concept: other,
@@ -161,7 +175,7 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       if (other.related_concepts?.includes(concept.iri)) {
         links.push({
           iri: other.iri,
-          label: other.label || other.iri.split(/[/#]/).pop() || other.iri,
+          label: getLabel(other, other.iri),
           relationshipType: 'related',
           direction: 'incoming',
           concept: other,
@@ -172,7 +186,7 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       if (other.concept_type === 'property' && other.domain === concept.iri) {
         links.push({
           iri: other.iri,
-          label: other.label || other.iri.split(/[/#]/).pop() || other.iri,
+          label: getLabel(other, other.iri),
           relationshipType: 'domain',
           direction: 'incoming',
           concept: other,
@@ -183,7 +197,7 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       if (other.concept_type === 'property' && other.range === concept.iri) {
         links.push({
           iri: other.iri,
-          label: other.label || other.iri.split(/[/#]/).pop() || other.iri,
+          label: getLabel(other, other.iri),
           relationshipType: 'range',
           direction: 'incoming',
           concept: other,
