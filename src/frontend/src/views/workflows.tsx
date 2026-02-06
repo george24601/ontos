@@ -28,6 +28,8 @@ import {
   ChevronDown,
   XCircle,
   RotateCcw,
+  Power,
+  PowerOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -465,6 +467,269 @@ export default function Workflows() {
     }
   };
 
+  // Bulk action handlers for workflows
+  const handleBulkToggleWorkflows = async (workflows: ProcessWorkflow[], enable: boolean) => {
+    if (!canEdit) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to modify workflows.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const toUpdate = workflows.filter(w => w.is_active !== enable);
+    if (toUpdate.length === 0) {
+      toast({
+        title: 'No Changes',
+        description: `All selected workflows are already ${enable ? 'enabled' : 'disabled'}.`,
+      });
+      return;
+    }
+
+    try {
+      const results = await Promise.allSettled(
+        toUpdate.map(w => 
+          apiPost<ProcessWorkflow>(`/api/workflows/${w.id}/toggle-active?is_active=${enable}`, {})
+        )
+      );
+      const successes = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results.filter(r => r.status === 'rejected').length;
+
+      if (successes > 0) {
+        toast({
+          title: t('common:toast.success'),
+          description: `${successes} workflow(s) ${enable ? 'enabled' : 'disabled'}.`,
+        });
+        loadWorkflows();
+      }
+      if (failures > 0) {
+        toast({
+          title: t('common:toast.error'),
+          description: `${failures} workflow(s) failed to update.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common:toast.error'),
+        description: 'Failed to update workflows',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleBulkDeleteWorkflows = async (workflows: ProcessWorkflow[]) => {
+    if (!canEdit) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to delete workflows.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const deletable = workflows.filter(w => !w.is_default);
+    const skipped = workflows.length - deletable.length;
+
+    if (deletable.length === 0) {
+      toast({
+        title: 'Cannot Delete',
+        description: 'All selected workflows are defaults and cannot be deleted.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${deletable.length} workflow(s)?${skipped > 0 ? ` (${skipped} default workflow(s) will be skipped)` : ''}`)) {
+      return;
+    }
+
+    try {
+      const results = await Promise.allSettled(
+        deletable.map(w => apiDeleteApi(`/api/workflows/${w.id}`))
+      );
+      const successes = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results.filter(r => r.status === 'rejected').length;
+
+      if (successes > 0) {
+        toast({
+          title: t('common:toast.success'),
+          description: `${successes} workflow(s) deleted.`,
+        });
+        loadWorkflows();
+      }
+      if (failures > 0) {
+        toast({
+          title: t('common:toast.error'),
+          description: `${failures} workflow(s) failed to delete.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common:toast.error'),
+        description: 'Failed to delete workflows',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Bulk action handlers for executions
+  const handleBulkCancelExecutions = async (executions: WorkflowExecution[]) => {
+    if (!canEdit) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to cancel executions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const cancellable = executions.filter(e => e.status === 'running' || e.status === 'paused');
+    if (cancellable.length === 0) {
+      toast({
+        title: 'No Cancellable Executions',
+        description: 'None of the selected executions can be cancelled.',
+      });
+      return;
+    }
+
+    try {
+      const results = await Promise.allSettled(
+        cancellable.map(e => apiPost<{ message: string }>(`/api/workflows/executions/${e.id}/cancel`, {}))
+      );
+      const successes = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results.filter(r => r.status === 'rejected').length;
+
+      if (successes > 0) {
+        toast({
+          title: t('common:toast.success'),
+          description: `${successes} execution(s) cancelled.`,
+        });
+        loadExecutions();
+      }
+      if (failures > 0) {
+        toast({
+          title: t('common:toast.error'),
+          description: `${failures} execution(s) failed to cancel.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common:toast.error'),
+        description: 'Failed to cancel executions',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleBulkRetryExecutions = async (executions: WorkflowExecution[]) => {
+    if (!canEdit) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to retry executions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const retriable = executions.filter(e => e.status === 'failed' || e.status === 'cancelled');
+    if (retriable.length === 0) {
+      toast({
+        title: 'No Retriable Executions',
+        description: 'None of the selected executions can be retried.',
+      });
+      return;
+    }
+
+    try {
+      const results = await Promise.allSettled(
+        retriable.map(e => apiPost<{ message: string }>(`/api/workflows/executions/${e.id}/retry`, {}))
+      );
+      const successes = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results.filter(r => r.status === 'rejected').length;
+
+      if (successes > 0) {
+        toast({
+          title: t('common:toast.success'),
+          description: `${successes} execution(s) retry started.`,
+        });
+        loadExecutions();
+      }
+      if (failures > 0) {
+        toast({
+          title: t('common:toast.error'),
+          description: `${failures} execution(s) failed to retry.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common:toast.error'),
+        description: 'Failed to retry executions',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleBulkDeleteExecutions = async (executions: WorkflowExecution[]) => {
+    if (!canEdit) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to delete executions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const deletable = executions.filter(e => e.status !== 'running' && e.status !== 'paused');
+    const skipped = executions.length - deletable.length;
+
+    if (deletable.length === 0) {
+      toast({
+        title: 'Cannot Delete',
+        description: 'Running or paused executions cannot be deleted.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${deletable.length} execution(s)?${skipped > 0 ? ` (${skipped} running/paused execution(s) will be skipped)` : ''}`)) {
+      return;
+    }
+
+    try {
+      const results = await Promise.allSettled(
+        deletable.map(e => apiDeleteApi(`/api/workflows/executions/${e.id}`))
+      );
+      const successes = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results.filter(r => r.status === 'rejected').length;
+
+      if (successes > 0) {
+        toast({
+          title: t('common:toast.success'),
+          description: `${successes} execution(s) deleted.`,
+        });
+        loadExecutions();
+      }
+      if (failures > 0) {
+        toast({
+          title: t('common:toast.error'),
+          description: `${failures} execution(s) failed to delete.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common:toast.error'),
+        description: 'Failed to delete executions',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const workflowColumns: ColumnDef<ProcessWorkflow>[] = [
     {
       accessorKey: 'name',
@@ -887,6 +1152,37 @@ export default function Workflows() {
               data={workflows}
               searchColumn="name"
               storageKey="workflows-sort"
+              bulkActions={canEdit ? (selectedRows) => (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1"
+                    onClick={() => handleBulkToggleWorkflows(selectedRows, true)}
+                  >
+                    <Power className="w-4 h-4 mr-1" />
+                    Enable ({selectedRows.length})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1"
+                    onClick={() => handleBulkToggleWorkflows(selectedRows, false)}
+                  >
+                    <PowerOff className="w-4 h-4 mr-1" />
+                    Disable ({selectedRows.length})
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-9 gap-1"
+                    onClick={() => handleBulkDeleteWorkflows(selectedRows)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete ({selectedRows.length})
+                  </Button>
+                </>
+              ) : undefined}
             />
           )}
         </CardContent>
@@ -926,6 +1222,37 @@ export default function Workflows() {
                 setSelectedExecution(row.original);
                 setExecutionDialogOpen(true);
               }}
+              bulkActions={canEdit ? (selectedRows) => (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1"
+                    onClick={() => handleBulkCancelExecutions(selectedRows)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" />
+                    Cancel ({selectedRows.filter(e => e.status === 'running' || e.status === 'paused').length})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1"
+                    onClick={() => handleBulkRetryExecutions(selectedRows)}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    Retry ({selectedRows.filter(e => e.status === 'failed' || e.status === 'cancelled').length})
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-9 gap-1"
+                    onClick={() => handleBulkDeleteExecutions(selectedRows)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete ({selectedRows.filter(e => e.status !== 'running' && e.status !== 'paused').length})
+                  </Button>
+                </>
+              ) : undefined}
             />
           )}
         </CardContent>
