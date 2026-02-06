@@ -4,7 +4,7 @@ This table stores all RDF triples from ontologies, taxonomies, and semantic link
 making the database the source of truth for the knowledge graph.
 """
 import uuid
-from sqlalchemy import Column, String, Text, Boolean, TIMESTAMP, UniqueConstraint
+from sqlalchemy import Column, String, Text, Boolean, TIMESTAMP, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.sql import func
 
@@ -17,7 +17,9 @@ class RdfTripleDb(Base):
     Each row represents a single RDF triple (subject, predicate, object) with
     optional context (named graph) and metadata about its source.
     
-    The unique constraint ensures no duplicate triples exist within a context.
+    Uniqueness is enforced by a PostgreSQL index with NULLS NOT DISTINCT
+    to properly handle NULL values in object_language and object_datatype.
+    The index is created/managed by Alembic migration u1688q502ss5.
     """
     __tablename__ = "rdf_triples"
 
@@ -44,13 +46,17 @@ class RdfTripleDb(Base):
     created_by = Column(String, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
 
+    # NOTE: The actual unique index is created via Alembic migration with:
+    #   CREATE UNIQUE INDEX uq_rdf_triple_nulls_not_distinct ON rdf_triples (...)
+    #   NULLS NOT DISTINCT
+    # This is required because PostgreSQL treats NULL != NULL for uniqueness,
+    # which would allow duplicate triples when object_language/object_datatype are NULL.
+    # SQLAlchemy's UniqueConstraint/Index don't support NULLS NOT DISTINCT yet,
+    # so we document it here for reference. The index name used in ON CONFLICT
+    # operations in the repository is 'uq_rdf_triple_nulls_not_distinct'.
     __table_args__ = (
-        # Ensure unique triples within a context (language and datatype matter for literals)
-        UniqueConstraint(
-            'subject_uri', 'predicate_uri', 'object_value',
-            'object_language', 'object_datatype', 'context_name',
-            name='uq_rdf_triple'
-        ),
+        # Composite index for SPO lookups (created by Alembic)
+        Index('ix_rdf_triples_spo', 'subject_uri', 'predicate_uri', 'object_value'),
     )
 
     def __repr__(self):

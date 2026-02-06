@@ -56,7 +56,8 @@ class RdfTriplesRepository(CRUDBase[RdfTripleDb, dict, dict]):
             source_identifier=source_identifier,
             created_by=created_by,
         ).on_conflict_do_nothing(
-            constraint='uq_rdf_triple'
+            index_elements=['subject_uri', 'predicate_uri', 'object_value', 
+                           'object_language', 'object_datatype', 'context_name']
         ).returning(RdfTripleDb.id)
         
         result = db.execute(stmt)
@@ -103,7 +104,8 @@ class RdfTriplesRepository(CRUDBase[RdfTripleDb, dict, dict]):
                     triple['id'] = uuid.uuid4()
             
             stmt = insert(RdfTripleDb).values(batch).on_conflict_do_nothing(
-                constraint='uq_rdf_triple'
+                index_elements=['subject_uri', 'predicate_uri', 'object_value', 
+                               'object_language', 'object_datatype', 'context_name']
             )
             
             result = db.execute(stmt)
