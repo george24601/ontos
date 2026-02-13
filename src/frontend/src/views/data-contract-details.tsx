@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -821,6 +821,29 @@ export default function DataContractDetails() {
     await updateContract({ schema: updatedSchemas })
     setEditingSchemaIndex(null)
   }
+
+  // Enrich schema with property-level semantic links from propertyLinks so the Edit Schema dialog loads them
+  const schemaFormInitial = useMemo(() => {
+    if (editingSchemaIndex === null || !contract?.schema?.[editingSchemaIndex]) return undefined
+    const baseSchema = contract.schema[editingSchemaIndex]
+    const SEMANTIC_ASSIGNMENT_TYPE = 'http://databricks.com/ontology/uc/semanticAssignment'
+    const enrichedProperties = (baseSchema.properties || []).map((prop: any) => {
+      const propertyKey = `${baseSchema.name}#${prop.name}`
+      const links: EntitySemanticLink[] = propertyLinks[propertyKey] || []
+      const authoritativeDefinitions = links.length > 0
+        ? links.map(l => ({ url: l.iri, type: SEMANTIC_ASSIGNMENT_TYPE }))
+        : (prop.authoritativeDefinitions || [])
+      const semanticConcepts = links.length > 0
+        ? links.map(l => ({ iri: l.iri, label: l.label }))
+        : ((prop as any).semanticConcepts || (prop.authoritativeDefinitions || []).map((d: { url: string }) => ({ iri: d.url })))
+      return {
+        ...prop,
+        authoritativeDefinitions: authoritativeDefinitions.length > 0 ? authoritativeDefinitions : undefined,
+        semanticConcepts: semanticConcepts.length > 0 ? semanticConcepts : undefined,
+      }
+    })
+    return { ...baseSchema, properties: enrichedProperties }
+  }, [contract, editingSchemaIndex, propertyLinks])
 
   const handleDeleteSchema = async (index: number) => {
     if (!contract) return
@@ -2878,7 +2901,7 @@ export default function DataContractDetails() {
       <SchemaFormDialog
         isOpen={isSchemaFormOpen}
         onOpenChange={setIsSchemaFormOpen}
-        initial={editingSchemaIndex !== null ? contract.schema?.[editingSchemaIndex] : undefined}
+        initial={schemaFormInitial}
         onSubmit={editingSchemaIndex !== null ? handleUpdateSchema : handleAddSchema}
       />
 
