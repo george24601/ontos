@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Info, AlertCircle, CheckCircle2, X, CheckSquare, Loader2, Check, XCircle } from 'lucide-react';
+import { Bell, Info, AlertCircle, CheckCircle2, X, CheckSquare, Loader2 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './button';
@@ -13,6 +13,7 @@ import HandleAccessGrantDialog from '@/components/access/handle-access-grant-dia
 import HandleStewardReviewDialog from '@/components/data-contracts/handle-steward-review-dialog';
 import HandlePublishRequestDialog from '@/components/data-contracts/handle-publish-request-dialog';
 import HandleDeployRequestDialog from '@/components/data-contracts/handle-deploy-request-dialog';
+import WorkflowApprovalResponseDialog from '@/components/workflows/workflow-approval-response-dialog';
 import { useNotificationsStore } from '@/stores/notifications-store';
 import { NotificationType } from '@/types/notification';
 
@@ -36,7 +37,12 @@ export default function NotificationBell() {
   const [selectedDeployPayload, setSelectedDeployPayload] = useState<Record<string, any> | null>(null);
   const [isAccessGrantDialogOpen, setIsAccessGrantDialogOpen] = useState(false);
   const [selectedAccessGrantPayload, setSelectedAccessGrantPayload] = useState<Record<string, any> | null>(null);
-  const [workflowApprovalLoading, setWorkflowApprovalLoading] = useState<string | null>(null);
+  const [isWorkflowApprovalDialogOpen, setIsWorkflowApprovalDialogOpen] = useState(false);
+  const [selectedWorkflowApprovalPayload, setSelectedWorkflowApprovalPayload] = useState<{
+    execution_id: string;
+    entity_name?: string;
+  } | null>(null);
+  const [workflowApprovalNotificationId, setWorkflowApprovalNotificationId] = useState<string | null>(null);
   
   const api = useApi();
   const { toast } = useToast();
@@ -96,50 +102,22 @@ export default function NotificationBell() {
     }
   };
 
-  const handleWorkflowApproval = async (
-    notificationId: string,
-    executionId: string,
-    approved: boolean,
-    entityName?: string
-  ) => {
-    setWorkflowApprovalLoading(`${notificationId}-${approved ? 'approve' : 'reject'}`);
-    try {
-      const response = await api.post('/api/workflows/handle-approval', {
-        execution_id: executionId,
-        approved,
-        message: approved ? 'Approved via notification' : 'Rejected via notification',
-      });
-      
-      // Check for error in response (useApi doesn't throw on HTTP errors)
-      if (response.error) {
-        console.error('Failed to handle workflow approval:', response.error);
-        toast({
-          title: 'Error',
-          description: response.error || 'Failed to process approval. Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      
-      toast({
-        title: approved ? 'Approved' : 'Rejected',
-        description: `${entityName || 'Request'} has been ${approved ? 'approved' : 'rejected'}.`,
-        variant: approved ? 'default' : 'destructive',
-      });
-      
-      // Mark notification as read and refresh
-      await markAsRead(notificationId);
-      fetchNotifications();
-    } catch (error) {
-      console.error('Failed to handle workflow approval:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to process approval. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setWorkflowApprovalLoading(null);
+  const handleOpenWorkflowApprovalDialog = (payload: { execution_id: string; entity_name?: string } | undefined, notificationId: string) => {
+    if (payload?.execution_id) {
+      setSelectedWorkflowApprovalPayload({ execution_id: payload.execution_id, entity_name: payload.entity_name });
+      setWorkflowApprovalNotificationId(notificationId);
+      setIsWorkflowApprovalDialogOpen(true);
     }
+  };
+
+  const handleWorkflowApprovalDecisionMade = () => {
+    if (workflowApprovalNotificationId) {
+      markAsRead(workflowApprovalNotificationId);
+      setWorkflowApprovalNotificationId(null);
+    }
+    setSelectedWorkflowApprovalPayload(null);
+    setIsWorkflowApprovalDialogOpen(false);
+    fetchNotifications();
   };
 
   const handleDecisionMade = () => {
@@ -335,52 +313,18 @@ export default function NotificationBell() {
                         {notification.action_payload?.decision === 'approved' ? '✓ Approved' : '✗ Rejected'}
                       </div>
                     ) : (
-                      <div className="flex gap-1 mt-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                          disabled={workflowApprovalLoading !== null}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWorkflowApproval(
-                              notification.id,
-                              notification.action_payload?.execution_id,
-                              true,
-                              notification.action_payload?.entity_name
-                            );
-                          }}
-                        >
-                          {workflowApprovalLoading === `${notification.id}-approve` ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Check className="h-3.5 w-3.5" />
-                          )}
-                          Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1"
-                          disabled={workflowApprovalLoading !== null}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWorkflowApproval(
-                              notification.id,
-                              notification.action_payload?.execution_id,
-                              false,
-                              notification.action_payload?.entity_name
-                            );
-                          }}
-                        >
-                          {workflowApprovalLoading === `${notification.id}-reject` ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <XCircle className="h-3.5 w-3.5" />
-                          )}
-                          Reject
-                        </Button>
-                      </div>
+                      <Button
+                        variant={notification.read ? 'outline' : 'default'}
+                        size="sm"
+                        className="mt-2 h-7 px-2 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenWorkflowApprovalDialog(notification.action_payload, notification.id);
+                        }}
+                      >
+                        <CheckSquare className="h-3.5 w-3.5" />
+                        {notification.read ? 'View / Respond' : 'Approve/Deny'}
+                      </Button>
                     )
                   )}
                   {(notification.type === 'job_progress' || notification.action_type === 'job_progress') && (notification.data || notification.action_payload) && (
@@ -486,6 +430,15 @@ export default function NotificationBell() {
           created_at: selectedAccessGrantPayload.created_at ?? new Date().toISOString(),
         }}
         onDecisionMade={handleDecisionMade}
+      />
+    )}
+    {isWorkflowApprovalDialogOpen && (
+      <WorkflowApprovalResponseDialog
+        isOpen={isWorkflowApprovalDialogOpen}
+        onOpenChange={setIsWorkflowApprovalDialogOpen}
+        payload={selectedWorkflowApprovalPayload}
+        notificationId={workflowApprovalNotificationId ?? undefined}
+        onDecisionMade={handleWorkflowApprovalDecisionMade}
       />
     )}
     </>

@@ -20,6 +20,8 @@ import { useViewModeStore } from '@/stores/view-mode-store';
 import { cn } from '@/lib/utils';
 import EntityInfoDialog from '@/components/metadata/entity-info-dialog';
 import SubscribeDialog from '@/components/data-products/subscribe-dialog';
+import ApprovalWizardDialog from '@/components/workflows/approval-wizard-dialog';
+import { useApi } from '@/hooks/use-api';
 import { DataDomainMiniGraph } from '@/components/data-domains/data-domain-mini-graph';
 import { RatingBadge } from '@/components/ratings';
 
@@ -92,8 +94,11 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
   const [selectedProduct, setSelectedProduct] = useState<DataProduct | null>(null);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [subscribeDialogOpen, setSubscribeDialogOpen] = useState(false);
+  const [subscriptionWizardOpen, setSubscriptionWizardOpen] = useState(false);
+  const [subscriptionWorkflowId, setSubscriptionWorkflowId] = useState<string | null>(null);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [productIsSubscribed, setProductIsSubscribed] = useState(false);
+  const api = useApi();
 
   // Fetch published products
   useEffect(() => {
@@ -414,22 +419,41 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
     setCheckingSubscription(false);
   };
 
-  // Handle subscribe button in info dialog
-  const handleSubscribeClick = () => {
+  // Handle subscribe button in info dialog: try approval wizard (subscription workflow), fallback to old dialog
+  const handleSubscribeClick = async () => {
     setInfoDialogOpen(false);
-    setSubscribeDialogOpen(true);
+    try {
+      const res = await api.get<{ workflow_id: string }>('/api/approvals/default-subscription-workflow');
+      if (res.data?.workflow_id) {
+        setSubscriptionWorkflowId(res.data.workflow_id);
+        setSubscriptionWizardOpen(true);
+      } else {
+        setSubscribeDialogOpen(true);
+      }
+    } catch {
+      setSubscribeDialogOpen(true);
+    }
   };
 
-  // Handle successful product subscription
+  // Handle successful product subscription (from wizard or old dialog)
   const handleProductSubscriptionSuccess = () => {
     loadSubscribedProducts();
     setSubscribeDialogOpen(false);
+    setSubscriptionWizardOpen(false);
+    setSubscriptionWorkflowId(null);
     setSelectedProduct(null);
   };
 
-  // Handle successful dataset subscription
+  // Handle successful dataset subscription (from wizard or old dialog)
   const handleDatasetSubscriptionSuccess = async () => {
-    // Call the dataset subscribe API
+    if (subscriptionWizardOpen) {
+      loadSubscribedDatasets();
+      setDatasetIsSubscribed(true);
+      setSubscriptionWizardOpen(false);
+      setSubscriptionWorkflowId(null);
+      setSelectedDataset(null);
+      return;
+    }
     if (selectedDataset) {
       try {
         const resp = await fetch(`/api/datasets/${selectedDataset.id}/subscribe`, {
@@ -1032,7 +1056,31 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
         />
       )}
 
-      {/* Subscribe Dialog - Products */}
+      {/* Subscription wizard (approval workflow with completion_action=subscribe) */}
+      {(selectedProduct || selectedDataset) && subscriptionWizardOpen && subscriptionWorkflowId && (
+        <ApprovalWizardDialog
+          isOpen={subscriptionWizardOpen}
+          onOpenChange={(open) => {
+            setSubscriptionWizardOpen(open);
+            if (!open) {
+              setSubscriptionWorkflowId(null);
+              setSelectedProduct(null);
+              setSelectedDataset(null);
+            }
+          }}
+          entityType={selectedProduct ? 'data_product' : 'dataset'}
+          entityId={selectedProduct?.id || selectedDataset?.id || ''}
+          preselectedWorkflowId={subscriptionWorkflowId}
+          completionAction="subscribe"
+          autoStartWithPreselected
+          onComplete={() => {
+            if (selectedProduct) handleProductSubscriptionSuccess();
+            else handleDatasetSubscriptionSuccess();
+          }}
+        />
+      )}
+
+      {/* Subscribe Dialog - Products (fallback when no subscription workflow) */}
       {selectedProduct && (
         <SubscribeDialog
           open={subscribeDialogOpen}
@@ -1046,7 +1094,7 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
         />
       )}
 
-      {/* Subscribe Dialog - Datasets */}
+      {/* Subscribe Dialog - Datasets (fallback when no subscription workflow) */}
       {selectedDataset && subscribeDialogOpen && (
         <SubscribeDialog
           open={subscribeDialogOpen}

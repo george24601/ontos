@@ -9,17 +9,18 @@ This guide provides comprehensive documentation for the **Process Workflows** sy
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Workflow Definitions](#workflow-definitions)
-4. [Trigger System](#trigger-system)
-5. [Step Types and Handlers](#step-types-and-handlers)
-6. [Execution Tracking](#execution-tracking)
-7. [Compliance DSL Integration](#compliance-dsl-integration)
-8. [Visual Workflow Designer](#visual-workflow-designer)
-9. [Default Workflows](#default-workflows)
-10. [API Reference](#api-reference)
-11. [Examples](#examples)
-12. [Best Practices](#best-practices)
+2. [Process vs Approval Workflows](#process-vs-approval-workflows)
+3. [Architecture](#architecture)
+4. [Workflow Definitions](#workflow-definitions)
+5. [Trigger System](#trigger-system)
+6. [Step Types and Handlers](#step-types-and-handlers)
+7. [Execution Tracking](#execution-tracking)
+8. [Compliance DSL Integration](#compliance-dsl-integration)
+9. [Visual Workflow Designer](#visual-workflow-designer)
+10. [Default Workflows](#default-workflows)
+11. [API Reference](#api-reference)
+12. [Examples](#examples)
+13. [Best Practices](#best-practices)
 
 ---
 
@@ -47,6 +48,64 @@ Process workflows are configurable, automated sequences of actions that execute 
 | **PII Detection** | Automatically tag tables containing sensitive data |
 | **Subscription Notifications** | Notify consumers when subscribed datasets are updated |
 | **Compliance Auditing** | Verify entities meet governance requirements |
+
+---
+
+## Process vs Approval Workflows
+
+Workflows are stored in the same tables (`process_workflows`, `workflow_steps`) and distinguished by **workflow_type**:
+
+| | Process workflows | Approval workflows |
+|--|-------------------|---------------------|
+| **What** | Event-driven automation (validation, notifications, blocking approval, tags). | Multi-step wizard in one session; agreement record; optional PDF. |
+| **Runtime** | `WorkflowExecutor` (triggers, pause/resume). | Wizard runtime (session, submit step, complete/abort). |
+| **Examples** | "Data Contract Review Request", "Naming Convention Validation". | "Sign data contract", "Promote Business Term". |
+| **UI** | Settings → Workflows: list/edit **Process workflows** only (filter by `workflow_type=process`). | Approvals area or entity action "Sign contract" / "Start approval": list **Approval workflows** only; run wizard. |
+
+- **Process workflows** (`workflow_type: process`): Triggered by events (on_create, on_status_change, etc.). Can pause for async approval; when an approver responds, the app uses the **default approval workflow** (e.g. "Enter a reason" + Approve/Reject) instead of a hardcoded dialog; completion calls the existing resume endpoint.
+- **Approval workflows** (`workflow_type: approval`): User runs a multi-step wizard (Next/Back). On completion an **agreement** record is created and optionally a **PDF** (if the workflow includes a `generate_pdf` step). The flow is always recorded in the **entity change log** with a link to the agreement.
+
+List APIs accept `?workflow_type=process` or `?workflow_type=approval`. The frontend Workflows page offers tabs "Process workflows" and "Approval workflows".
+
+### Example approval workflow YAML
+
+```yaml
+workflows:
+  - id: "sign-data-contract"
+    name: "Sign data contract"
+    description: "Multi-step wizard: acknowledge terms, enter reason, optional PDF."
+    workflow_type: "approval"
+    trigger:
+      type: "manual"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: false
+    steps:
+      - id: "terms"
+        name: "Acknowledge terms"
+        type: "user_action"
+        config:
+          title: "Terms and conditions"
+          description: "Review and acknowledge the data contract terms."
+          required_acceptances:
+            - id: "accepted_terms"
+              label: "I have read and accept the terms"
+              type: "checkbox"
+          required_fields:
+            - id: "reason"
+              label: "Reason for signing"
+              type: "text"
+              required: true
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+```
+
+The **default approval response** workflow (used when an approver responds to a process-workflow approval request) is named "Approval response" and is loaded from `default_workflows.yaml`; it has one `user_action` step with a required "reason" field and Approve/Reject is handled by the resume endpoint.
 
 ---
 

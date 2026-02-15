@@ -40,6 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ColumnDef, Column } from "@tanstack/react-table";
 import { useApi } from '@/hooks/use-api';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
@@ -106,6 +107,8 @@ export default function Workflows() {
   // Check if user has admin access
   const canEdit = hasPermission('process-workflows', FeatureAccessLevel.ADMIN);
   
+  // Workflow type filter: process (event-driven) | approval (wizard-driven)
+  const [workflowTypeFilter, setWorkflowTypeFilter] = useState<'process' | 'approval'>('process');
   // Workflow state
   const [workflows, setWorkflows] = useState<ProcessWorkflow[]>([]);
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(true);
@@ -130,7 +133,9 @@ export default function Workflows() {
   const loadWorkflows = useCallback(async () => {
     setIsLoadingWorkflows(true);
     try {
-      const response = await apiGet<WorkflowListResponse>('/api/workflows');
+      const params = new URLSearchParams();
+      params.set('workflow_type', workflowTypeFilter);
+      const response = await apiGet<WorkflowListResponse>(`/api/workflows?${params.toString()}`);
       if (response.data) {
         setWorkflows(response.data.workflows || []);
       }
@@ -143,7 +148,7 @@ export default function Workflows() {
     } finally {
       setIsLoadingWorkflows(false);
     }
-  }, [apiGet, toast, t]);
+  }, [apiGet, toast, t, workflowTypeFilter]);
 
   const loadExecutions = useCallback(async () => {
     setIsLoadingExecutions(true);
@@ -1041,10 +1046,18 @@ export default function Workflows() {
   return (
     <div className="py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <GitBranch className="w-8 h-8" />
-          Process Workflows
-        </h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <GitBranch className="w-8 h-8" />
+            Workflows
+          </h1>
+          <Tabs value={workflowTypeFilter} onValueChange={(v) => setWorkflowTypeFilter(v as 'process' | 'approval')}>
+            <TabsList>
+              <TabsTrigger value="process">Process workflows</TabsTrigger>
+              <TabsTrigger value="approval">Approval workflows</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         {canEdit && (
           <div className="flex items-center gap-2">
             <DropdownMenu>
