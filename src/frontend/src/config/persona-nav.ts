@@ -40,6 +40,17 @@ import {
   Globe,
   Database,
   Box,
+  Settings,
+  Truck,
+  Info,
+  Factory,
+  Crown,
+  Scale,
+  Landmark,
+  ShieldCheck,
+  Brain,
+  BookMarked,
+  Wrench,
 } from 'lucide-react';
 
 export interface PersonaNavItem {
@@ -121,6 +132,7 @@ export const PERSONA_NAV: Record<PersonaId, PersonaNavItem[]> = {
     { id: 'properties', labelKey: 'personaNav.properties', path: '/ontology/properties', icon: Columns2, featureId: 'semantic-models' },
     { id: 'ontologies', labelKey: 'personaNav.ontologies', path: '/ontology/ontologies', icon: Network, featureId: 'semantic-models' },
     { id: 'knowledge-graph', labelKey: 'personaNav.knowledgeGraph', path: '/ontology/kg', icon: Globe2, featureId: 'semantic-models' },
+    { id: 'semantic-models-settings', labelKey: 'personaNav.semanticModelsSettings', path: '/ontology/semantic-models-settings', icon: Settings, featureId: 'settings' },
   ],
   business_term_owner: [
     { id: 'home', labelKey: 'personaNav.home', path: '/terms', icon: Home },
@@ -129,16 +141,20 @@ export const PERSONA_NAV: Record<PersonaId, PersonaNavItem[]> = {
   ],
   administrator: [
     { id: 'home', labelKey: 'personaNav.home', path: '/admin', icon: Home },
+    { id: 'general', labelKey: 'personaNav.general', path: '/admin/general', icon: Settings, featureId: 'settings' },
     { id: 'git', labelKey: 'personaNav.git', path: '/admin/git', icon: GitBranch, featureId: 'settings' },
+    { id: 'delivery-modes', labelKey: 'personaNav.deliveryModes', path: '/admin/delivery', icon: Truck, featureId: 'settings' },
     { id: 'jobs', labelKey: 'personaNav.jobs', path: '/admin/jobs', icon: Briefcase, featureId: 'settings' },
     { id: 'app-roles', labelKey: 'personaNav.appRoles', path: '/admin/roles', icon: Shield, featureId: 'settings' },
+    { id: 'tags', labelKey: 'personaNav.tags', path: '/admin/tags', icon: Tag, featureId: 'settings' },
     { id: 'business-roles', labelKey: 'personaNav.businessRoles', path: '/admin/business-roles', icon: Briefcase, featureId: 'business-roles' },
     { id: 'business-owners', labelKey: 'personaNav.businessOwners', path: '/admin/business-owners', icon: Users2, featureId: 'business-owners' },
     { id: 'search-settings', labelKey: 'personaNav.searchSettings', path: '/admin/search', icon: Search, featureId: 'settings' },
     { id: 'mcp-settings', labelKey: 'personaNav.mcpSettings', path: '/admin/mcp', icon: Cpu, featureId: 'settings' },
     { id: 'ui-customization', labelKey: 'personaNav.uiCustomization', path: '/admin/ui', icon: Palette, featureId: 'settings' },
-    { id: 'audit', labelKey: 'personaNav.audit', path: '/admin/audit', icon: ScrollText, featureId: 'audit' },
     { id: 'connectors', labelKey: 'personaNav.connectors', path: '/admin/connectors', icon: Plug, featureId: 'settings' },
+    { id: 'audit', labelKey: 'personaNav.audit', path: '/admin/audit', icon: ScrollText, featureId: 'audit' },
+    { id: 'about', labelKey: 'personaNav.about', path: '/admin/about', icon: Info },
   ],
 };
 
@@ -153,4 +169,72 @@ export const PERSONA_LABEL_KEYS: Record<PersonaId, string> = {
   ontology_engineer: 'personas.ontology_engineer',
   business_term_owner: 'personas.business_term_owner',
   administrator: 'personas.administrator',
+};
+
+/** Visual identity per persona: icon, Tailwind color classes, and description i18n key. */
+export interface PersonaMeta {
+  icon: LucideIcon;
+  /** Subtle background for the icon circle */
+  bgClass: string;
+  /** Icon/text color */
+  textClass: string;
+  /** i18n key for a short description shown in the switcher popover */
+  descriptionKey: string;
+}
+
+export const PERSONA_META: Record<PersonaId, PersonaMeta> = {
+  data_consumer: {
+    icon: ShoppingCart,
+    bgClass: 'bg-blue-500/15 dark:bg-blue-500/20',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    descriptionKey: 'personaDescriptions.data_consumer',
+  },
+  data_producer: {
+    icon: Factory,
+    bgClass: 'bg-emerald-500/15 dark:bg-emerald-500/20',
+    textClass: 'text-emerald-600 dark:text-emerald-400',
+    descriptionKey: 'personaDescriptions.data_producer',
+  },
+  data_product_owner: {
+    icon: Crown,
+    bgClass: 'bg-orange-500/15 dark:bg-orange-500/20',
+    textClass: 'text-orange-600 dark:text-orange-400',
+    descriptionKey: 'personaDescriptions.data_product_owner',
+  },
+  data_steward: {
+    icon: Scale,
+    bgClass: 'bg-amber-500/15 dark:bg-amber-500/20',
+    textClass: 'text-amber-600 dark:text-amber-400',
+    descriptionKey: 'personaDescriptions.data_steward',
+  },
+  data_governance_officer: {
+    icon: Landmark,
+    bgClass: 'bg-purple-500/15 dark:bg-purple-500/20',
+    textClass: 'text-purple-600 dark:text-purple-400',
+    descriptionKey: 'personaDescriptions.data_governance_officer',
+  },
+  security_officer: {
+    icon: ShieldCheck,
+    bgClass: 'bg-red-500/15 dark:bg-red-500/20',
+    textClass: 'text-red-600 dark:text-red-400',
+    descriptionKey: 'personaDescriptions.security_officer',
+  },
+  ontology_engineer: {
+    icon: Brain,
+    bgClass: 'bg-teal-500/15 dark:bg-teal-500/20',
+    textClass: 'text-teal-600 dark:text-teal-400',
+    descriptionKey: 'personaDescriptions.ontology_engineer',
+  },
+  business_term_owner: {
+    icon: BookMarked,
+    bgClass: 'bg-pink-500/15 dark:bg-pink-500/20',
+    textClass: 'text-pink-600 dark:text-pink-400',
+    descriptionKey: 'personaDescriptions.business_term_owner',
+  },
+  administrator: {
+    icon: Wrench,
+    bgClass: 'bg-slate-500/15 dark:bg-slate-500/20',
+    textClass: 'text-slate-600 dark:text-slate-400',
+    descriptionKey: 'personaDescriptions.administrator',
+  },
 };

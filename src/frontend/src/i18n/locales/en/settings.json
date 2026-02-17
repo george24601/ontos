@@ -32,8 +32,12 @@
     "searchSettings": "Search Settings",
     "mcpSettings": "MCP Settings",
     "uiCustomization": "UI Customization",
+    "general": "General",
+    "deliveryModes": "Delivery Modes",
+    "semanticModelsSettings": "Semantic Models",
     "audit": "Audit",
     "connectors": "Connectors",
+    "about": "About",
     "securityFeatures": "Security Features",
     "entitlements": "Entitlements",
     "entitlementsSync": "Entitlements Sync",
@@ -55,11 +59,27 @@
     "business_term_owner": "Business Term Owner",
     "administrator": "Administrator"
   },
+  "personaDescriptions": {
+    "data_consumer": "Browse & subscribe to products",
+    "data_producer": "Build & publish data products",
+    "data_product_owner": "Manage product lifecycle",
+    "data_steward": "Curate & ensure data quality",
+    "data_governance_officer": "Policies, domains & compliance",
+    "security_officer": "Access control & security",
+    "ontology_engineer": "Ontologies & knowledge graphs",
+    "business_term_owner": "Maintain business glossaries",
+    "administrator": "System configuration"
+  },
+  "personaSwitcher": {
+    "switchPersona": "Switch Persona",
+    "currentPersona": "Current persona"
+  },
   "title": "Settings",
   "tabs": {
     "general": "General",
     "databricks": "Databricks",
     "git": "Git",
+    "delivery": "Delivery Modes",
     "jobs": "Jobs & Workflows",
     "roles": "Roles",
     "semanticModels": "Semantic Models",

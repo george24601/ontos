@@ -37,6 +37,16 @@ import DataCatalogDetails from './views/data-catalog-details';
 import CatalogCommander from './views/catalog-commander';
 import Settings from './views/settings';
 import About from './views/about';
+import SettingsGeneralView from './views/settings-general';
+import SettingsGitView from './views/settings-git';
+import SettingsDeliveryView from './views/settings-delivery';
+import SettingsJobsView from './views/settings-jobs';
+import SettingsRolesView from './views/settings-roles';
+import SettingsTagsView from './views/settings-tags';
+import SettingsSemanticModelsView from './views/settings-semantic-models';
+import SettingsSearchView from './views/settings-search';
+import SettingsMcpView from './views/settings-mcp';
+import SettingsUiView from './views/settings-ui';
 import UserGuide from './views/user-guide';
 import DocumentationViewer from './views/documentation-viewer';
 import DatabaseSchema from './views/database-schema';
@@ -130,7 +140,7 @@ export default function App() {
               <Route path="/governance/policies" element={<PoliciesView />} />
               <Route path="/governance/asset-types" element={<AssetTypesView />} />
               <Route path="/governance/assets" element={<AssetsView />} />
-              <Route path="/governance/tags" element={<Settings />} />
+              <Route path="/governance/tags" element={<SettingsTagsView />} />
               <Route path="/governance/workflows" element={<Workflows />} />
               <Route path="/governance/master-data" element={<MasterDataManagement />} />
               <Route path="/governance/estates" element={<EstateManager />} />
@@ -150,6 +160,7 @@ export default function App() {
               <Route path="/ontology/properties" element={<OntologySearchView />} />
               <Route path="/ontology/ontologies" element={<CollectionsView />} />
               <Route path="/ontology/kg" element={<OntologySearchView />} />
+              <Route path="/ontology/semantic-models-settings" element={<SettingsSemanticModelsView />} />
 
               {/* === Persona: Business Term Owner /terms === */}
               <Route path="/terms" element={<Home />} />
@@ -158,16 +169,20 @@ export default function App() {
 
               {/* === Persona: Administrator /admin === */}
               <Route path="/admin" element={<Home />} />
-              <Route path="/admin/git" element={<Settings />} />
-              <Route path="/admin/jobs" element={<Settings />} />
-              <Route path="/admin/roles" element={<Settings />} />
+              <Route path="/admin/general" element={<SettingsGeneralView />} />
+              <Route path="/admin/git" element={<SettingsGitView />} />
+              <Route path="/admin/delivery" element={<SettingsDeliveryView />} />
+              <Route path="/admin/jobs" element={<SettingsJobsView />} />
+              <Route path="/admin/roles" element={<SettingsRolesView />} />
+              <Route path="/admin/tags" element={<SettingsTagsView />} />
               <Route path="/admin/business-roles" element={<BusinessRolesView />} />
               <Route path="/admin/business-owners" element={<BusinessOwnersView />} />
-              <Route path="/admin/search" element={<Settings />} />
-              <Route path="/admin/mcp" element={<Settings />} />
-              <Route path="/admin/ui" element={<Settings />} />
+              <Route path="/admin/search" element={<SettingsSearchView />} />
+              <Route path="/admin/mcp" element={<SettingsMcpView />} />
+              <Route path="/admin/ui" element={<SettingsUiView />} />
+              <Route path="/admin/connectors" element={<SettingsGeneralView />} />
               <Route path="/admin/audit" element={<AuditTrail />} />
-              <Route path="/admin/connectors" element={<Settings />} />
+              <Route path="/admin/about" element={<About />} />
 
               {/* === Canonical (non-persona) routes === */}
               <Route path="/my-products" element={<MyProducts />} />
