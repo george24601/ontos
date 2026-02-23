@@ -87,6 +87,7 @@ Tags are organized using namespaces with a slash (`/`) separator:
 ## Guidelines
 
 - Always search for relevant data products or glossary terms before attempting analytics queries
+- When users ask about a concept, topic, or term you don't immediately recognize as a data product or catalog item, always try search_glossary_terms first -- it searches loaded ontologies and taxonomies that may contain the concept (e.g., domain-specific terms like "pizza", "customer", "transaction")
 - When executing analytics queries, first get the table schema to understand available columns
 - Use explore_catalog_schema to discover tables in a database before suggesting semantic models
 - Explain your reasoning and cite the data sources you used
@@ -389,7 +390,8 @@ class LLMSearchManager:
         self,
         user_message: str,
         user_id: str,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        debug: bool = False
     ) -> ChatResponse:
         """
         Process a chat message and return the assistant's response.
@@ -401,6 +403,7 @@ class LLMSearchManager:
             user_message: The user's message
             user_id: ID of the user
             session_id: Optional session ID to continue conversation
+            debug: When true, include debug info in the response
             
         Returns:
             ChatResponse with the assistant's message
@@ -435,8 +438,8 @@ class LLMSearchManager:
         
         # Process with LLM
         try:
-            response_content, tool_calls_executed, sources = await self._process_with_llm(
-                session
+            response_content, tool_calls_executed, sources, debug_info = await self._process_with_llm(
+                session, collect_debug=debug
             )
             
             # Add assistant response to database
@@ -448,7 +451,8 @@ class LLMSearchManager:
                 session_id=session.id,
                 message=assistant_msg,
                 tool_calls_executed=tool_calls_executed,
-                sources=sources
+                sources=sources,
+                debug=debug_info if debug else None
             )
             
         except Exception as e:
@@ -513,19 +517,29 @@ class LLMSearchManager:
     
     async def _process_with_llm(
         self,
-        session: ConversationSession
-    ) -> Tuple[str, int, List[Dict[str, Any]]]:
+        session: ConversationSession,
+        collect_debug: bool = False
+    ) -> Tuple[str, int, List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Process conversation with LLM, handling tool calls.
         
         Returns:
-            Tuple of (response_content, tool_calls_count, sources)
+            Tuple of (response_content, tool_calls_count, sources, debug_info)
         """
+        import time
+        
+        process_start = time.time()
         client = self._get_openai_client()
         total_tool_calls = 0
         sources: List[Dict[str, Any]] = []
-        max_iterations = 10  # Prevent infinite loops (increased for complex multi-tool queries)
-        session_id = session.id  # Save session ID for re-fetching
+        max_iterations = 10
+        session_id = session.id
+        
+        # Debug info collection
+        debug_info: Optional[Dict[str, Any]] = {
+            "iterations": [],
+            "tool_executions": [],
+        } if collect_debug else None
         
         # Get the latest user message for query classification
         from src.tools.query_classifier import classify_query
@@ -534,9 +548,30 @@ class LLMSearchManager:
         
         # Get filtered tool definitions based on query categories
         tool_definitions = self._tool_registry.get_openai_definitions_filtered(categories)
+        tool_names = [td["function"]["name"] for td in tool_definitions]
         logger.info(f"Using {len(tool_definitions)} tools for categories: {categories}")
         
+        if debug_info is not None:
+            debug_info["query_classification"] = {
+                "user_query": user_query,
+                "categories": categories,
+                "tools_provided": tool_names,
+                "tools_count": len(tool_definitions),
+            }
+            debug_info["model"] = self._settings.LLM_ENDPOINT
+            debug_info["system_prompt_length"] = len(SYSTEM_PROMPT)
+            # Count prior messages to show if the LLM has conversation context
+            prior_msgs = session.messages[:-1]  # exclude the just-added user message
+            prior_tool_msgs = [m for m in prior_msgs if m.role == MessageRole.TOOL]
+            debug_info["session_context"] = {
+                "prior_messages": len(prior_msgs),
+                "prior_tool_results": len(prior_tool_msgs),
+                "is_follow_up": len(prior_msgs) > 0,
+            }
+        
         for iteration in range(max_iterations):
+            iter_start = time.time()
+            
             # Re-fetch session from cache to ensure we have latest messages
             current_session = self._session_store.get(self._db, session_id)
             if not current_session:
@@ -560,7 +595,20 @@ class LLMSearchManager:
                 logger.error(f"LLM API call failed: {llm_error}", exc_info=True)
                 raise RuntimeError(f"Failed to connect to LLM endpoint: {llm_error}")
             
+            llm_elapsed_ms = int((time.time() - iter_start) * 1000)
             assistant_message = response.choices[0].message
+            
+            # Collect iteration debug info
+            iter_debug = None
+            if debug_info is not None:
+                iter_debug = {
+                    "iteration": iteration + 1,
+                    "llm_call_ms": llm_elapsed_ms,
+                    "messages_sent": len(messages),
+                    "has_tool_calls": bool(assistant_message.tool_calls),
+                    "tool_calls": [],
+                    "response_preview": (assistant_message.content or "")[:200] if not assistant_message.tool_calls else None,
+                }
             
             # Check if LLM wants to call tools
             if assistant_message.tool_calls:
@@ -573,16 +621,13 @@ class LLMSearchManager:
                     )
                     for tc in assistant_message.tool_calls
                 ]
-                # Persist tool call message to database (also updates in-memory cache)
                 self._session_store.add_message(
                     self._db, session_id, MessageRole.ASSISTANT,
                     content=None, tool_calls=tool_calls
                 )
                 
-                # Create tool context for this batch of tool calls
                 ctx = self._create_tool_context()
                 
-                # Execute each tool call via the registry
                 for tc in assistant_message.tool_calls:
                     total_tool_calls += 1
                     tool_name = tc.function.name
@@ -590,11 +635,11 @@ class LLMSearchManager:
                     
                     logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
                     
-                    # Execute tool via registry
+                    tool_start = time.time()
                     result = await self._tool_registry.execute(tool_name, ctx, tool_args)
+                    tool_elapsed_ms = int((time.time() - tool_start) * 1000)
                     result_dict = result.to_dict()
                     
-                    # Log the result summary
                     if not result.success:
                         logger.warning(f"Tool {tool_name} returned error: {result.error}")
                         sources.append({
@@ -612,18 +657,46 @@ class LLMSearchManager:
                             "success": True
                         })
                     
-                    # Persist tool result to database (also updates in-memory cache)
+                    # Collect per-tool debug info
+                    if debug_info is not None:
+                        result_str = json.dumps(result_dict, default=str)
+                        tool_debug = {
+                            "tool_call_id": tc.id,
+                            "tool": tool_name,
+                            "arguments": tool_args,
+                            "success": result.success,
+                            "error": result.error,
+                            "result": result_dict if len(result_str) <= 4000 else {"_truncated": True, "_length": len(result_str), "_preview": result_str[:2000]},
+                            "execution_ms": tool_elapsed_ms,
+                        }
+                        debug_info["tool_executions"].append(tool_debug)
+                        if iter_debug is not None:
+                            iter_debug["tool_calls"].append({"tool": tool_name, "arguments": tool_args})
+                    
                     self._session_store.add_message(
                         self._db, session_id, MessageRole.TOOL,
                         content=json.dumps(result_dict), tool_call_id=tc.id
                     )
             else:
-                # No tool calls - return the response
-                return assistant_message.content or "", total_tool_calls, sources
+                if debug_info is not None:
+                    if iter_debug is not None:
+                        debug_info["iterations"].append(iter_debug)
+                    debug_info["total_tool_calls"] = total_tool_calls
+                    debug_info["total_iterations"] = iteration + 1
+                    debug_info["total_elapsed_ms"] = int((time.time() - process_start) * 1000)
+                return assistant_message.content or "", total_tool_calls, sources, debug_info
+            
+            if debug_info is not None and iter_debug is not None:
+                debug_info["iterations"].append(iter_debug)
         
         # Max iterations reached
         logger.warning(f"Max LLM iterations ({max_iterations}) reached after {total_tool_calls} tool calls")
-        return f"I apologize, but I reached the maximum number of steps ({max_iterations}) while processing your request. I made {total_tool_calls} tool calls. Please try a simpler question or break it into smaller parts.", total_tool_calls, sources
+        if debug_info is not None:
+            debug_info["total_tool_calls"] = total_tool_calls
+            debug_info["total_iterations"] = max_iterations
+            debug_info["total_elapsed_ms"] = int((time.time() - process_start) * 1000)
+            debug_info["max_iterations_reached"] = True
+        return f"I apologize, but I reached the maximum number of steps ({max_iterations}) while processing your request. I made {total_tool_calls} tool calls. Please try a simpler question or break it into smaller parts.", total_tool_calls, sources, debug_info
     
     def _get_openai_client(self):
         """Get OpenAI client for Databricks LLM serving endpoint.

@@ -54,7 +54,7 @@ CATEGORY_KEYWORDS = {
 ALWAYS_INCLUDED_CATEGORIES = ["discovery"]
 
 # Default categories when no specific match is found
-DEFAULT_CATEGORIES = ["discovery", "data_products", "unity_catalog"]
+DEFAULT_CATEGORIES = ["discovery", "data_products", "semantic", "unity_catalog"]
 
 
 def classify_query(query: str) -> List[str]:

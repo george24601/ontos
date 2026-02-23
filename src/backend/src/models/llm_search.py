@@ -176,6 +176,7 @@ class ChatMessageCreate(BaseModel):
     """Request model for creating a new user message."""
     content: str = Field(..., min_length=1, max_length=4000, description="User's message content")
     session_id: Optional[str] = Field(None, description="Session ID for continuing a conversation")
+    debug: bool = Field(False, description="When true, include debug info (tool calls, categories, timing) in response")
 
 
 # ============================================================================
@@ -274,6 +275,7 @@ class ChatResponse(BaseModel):
     message: ChatMessage = Field(..., description="The assistant's response message")
     tool_calls_executed: int = Field(0, description="Number of tool calls made to generate this response")
     sources: List[Dict[str, Any]] = Field(default_factory=list, description="Data sources used in the response")
+    debug: Optional[Dict[str, Any]] = Field(None, description="Debug info with tool calls, categories, and timing (only when debug=true)")
 
 
 class LLMSearchStatus(BaseModel):
