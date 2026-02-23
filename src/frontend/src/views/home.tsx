@@ -19,11 +19,9 @@ import QuickActions from '@/components/home/quick-actions';
 import RecentActivity from '@/components/home/recent-activity';
 import MarketplaceView from '@/components/home/marketplace-view';
 import ProducerHome from '@/components/home/producer-home';
-import OwnerHome from '@/components/home/owner-home';
 import StewardHome from '@/components/home/steward-home';
 import GovernanceHome from '@/components/home/governance-home';
 import SecurityHome from '@/components/home/security-home';
-import TermOwnerHome from '@/components/home/term-owner-home';
 import AdminHome from '@/components/home/admin-home';
 import { useUserStore } from '@/stores/user-store';
 import { useViewModeStore, ViewMode } from '@/stores/view-mode-store';
@@ -378,11 +376,9 @@ export default function Home() {
 
   const PERSONA_HOME_MAP: Partial<Record<PersonaId, React.ComponentType>> = {
     data_producer: ProducerHome,
-    data_product_owner: OwnerHome,
     data_steward: StewardHome,
     data_governance_officer: GovernanceHome,
     security_officer: SecurityHome,
-    business_term_owner: TermOwnerHome,
     administrator: AdminHome,
   };
 

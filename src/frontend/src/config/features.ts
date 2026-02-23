@@ -287,7 +287,7 @@ import {
     const direct = features.find((f) => f.path === path);
     if (direct) return direct;
     // Strip persona prefix and try again
-    const personaPrefixes = ['/consumer', '/producer', '/owner', '/steward', '/governance', '/security', '/ontology', '/terms', '/admin'];
+    const personaPrefixes = ['/consumer', '/producer', '/steward', '/governance', '/security', '/admin'];
     for (const prefix of personaPrefixes) {
       if (path.startsWith(prefix + '/') || path === prefix) {
         const stripped = path.slice(prefix.length) || '/';

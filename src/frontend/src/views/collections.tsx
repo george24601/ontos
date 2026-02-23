@@ -46,8 +46,8 @@ export default function CollectionsView() {
 
   useEffect(() => {
     setStaticSegments([
-      { label: t('semantic-models:title'), path: '/ontology' },
-      { label: t('semantic-models:tabs.collections'), path: '/ontology/collections' },
+      { label: t('semantic-models:title'), path: '/governance/ontology' },
+      { label: t('semantic-models:tabs.collections'), path: '/governance/ontology' },
     ]);
   }, [setStaticSegments, t]);
 

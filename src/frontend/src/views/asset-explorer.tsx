@@ -36,13 +36,10 @@ import { cn } from '@/lib/utils';
 
 const PERSONA_TO_ONTOLOGY_TAG: Record<string, string[]> = {
   data_consumer: ['consumer'],
-  data_producer: ['producer'],
-  data_product_owner: ['producer', 'steward'],
+  data_producer: ['producer', 'steward'],
   data_steward: ['steward'],
   data_governance_officer: ['steward', 'admin'],
   security_officer: ['admin'],
-  ontology_engineer: ['admin'],
-  business_term_owner: ['steward'],
   administrator: ['admin'],
 };
 

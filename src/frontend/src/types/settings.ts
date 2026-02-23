@@ -40,14 +40,18 @@ export const NO_ROLE_SENTINEL = '__NO_ROLE__';
 export const ALL_PERSONA_IDS = [
     'data_consumer',
     'data_producer',
-    'data_product_owner',
     'data_steward',
     'data_governance_officer',
     'security_officer',
-    'ontology_engineer',
-    'business_term_owner',
     'administrator',
 ] as const;
+
+/** Legacy persona IDs that are mapped to surviving personas. */
+export const PERSONA_MIGRATION_MAP: Record<string, PersonaId> = {
+    data_product_owner: 'data_producer',
+    ontology_engineer: 'data_governance_officer',
+    business_term_owner: 'data_steward',
+};
 
 export type PersonaId = typeof ALL_PERSONA_IDS[number];
 

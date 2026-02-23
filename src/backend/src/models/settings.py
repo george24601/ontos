@@ -39,14 +39,18 @@ class ApprovalEntity(str, Enum):
 ALL_PERSONA_IDS = [
     "data_consumer",
     "data_producer",
-    "data_product_owner",
     "data_steward",
     "data_governance_officer",
     "security_officer",
-    "ontology_engineer",
-    "business_term_owner",
     "administrator",
 ]
+
+# Legacy persona IDs mapped to their consolidated equivalents
+PERSONA_MIGRATION_MAP = {
+    "data_product_owner": "data_producer",
+    "ontology_engineer": "data_governance_officer",
+    "business_term_owner": "data_steward",
+}
 
 # Deployment policy for catalog/schema restrictions
 class DeploymentPolicy(BaseModel):

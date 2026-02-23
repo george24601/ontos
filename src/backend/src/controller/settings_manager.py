@@ -323,6 +323,20 @@ class SettingsManager:
             raise ValueError(f"Role with id '{role_id}' not found")
         return role.feature_permissions or {}
 
+    @staticmethod
+    def _migrate_persona_ids(persona_ids: List[str]) -> List[str]:
+        """Map legacy persona IDs to their consolidated equivalents and deduplicate."""
+        from src.models.settings import PERSONA_MIGRATION_MAP, ALL_PERSONA_IDS
+        valid = set(ALL_PERSONA_IDS)
+        result: List[str] = []
+        seen: set = set()
+        for pid in persona_ids:
+            mapped = PERSONA_MIGRATION_MAP.get(pid, pid)
+            if mapped in valid and mapped not in seen:
+                seen.add(mapped)
+                result.append(mapped)
+        return result
+
     def get_allowed_personas_for_user(
         self, user_groups: Optional[List[str]], user_email: Optional[str] = None
     ) -> List[str]:
@@ -333,7 +347,7 @@ class SettingsManager:
             if override_id:
                 role = self.get_app_role(override_id)
                 if role and role.allowed_personas:
-                    return list(role.allowed_personas)
+                    return self._migrate_persona_ids(list(role.allowed_personas))
                 if role:
                     return []
         # Otherwise union allowed_personas from all roles that match user's groups
@@ -351,7 +365,7 @@ class SettingsManager:
                 if pid and pid not in seen:
                     seen.add(pid)
                     result.append(pid)
-        return result
+        return self._migrate_persona_ids(result)
 
     def get_canonical_role_for_groups(self, user_groups: Optional[List[str]]) -> Optional[AppRole]:
         """Map a user's groups to the closest configured AppRole.
@@ -665,7 +679,7 @@ class SettingsManager:
                         if role_name == "Data Consumer":
                             role_data["allowed_personas"] = ["data_consumer"]
                         elif role_name == "Data Producer":
-                            role_data["allowed_personas"] = ["data_producer", "data_product_owner"]
+                            role_data["allowed_personas"] = ["data_producer"]
                         elif role_name == "Data Steward":
                             role_data["allowed_personas"] = ["data_steward"]
                         elif role_name == "Data Governance Officer":
@@ -1686,7 +1700,7 @@ class SettingsManager:
                     elif name == "Data Consumer":
                         default_personas = ["data_consumer"]
                     elif name == "Data Producer":
-                        default_personas = ["data_producer", "data_product_owner"]
+                        default_personas = ["data_producer"]
                     elif name == "Data Steward":
                         default_personas = ["data_steward"]
                     elif name == "Data Governance Officer":

@@ -1,9 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { PersonaId } from '@/types/settings';
-
-const ALLOWED_PERSONAS_STORAGE_KEY = 'persona-allowed';
-const CURRENT_PERSONA_STORAGE_KEY = 'persona-current';
+import { ALL_PERSONA_IDS, PERSONA_MIGRATION_MAP } from '@/types/settings';
 
 interface PersonaState {
   /** Persona IDs the user is allowed to use (from API). */
@@ -19,20 +17,17 @@ interface PersonaState {
   ensureCurrentPersonaValid: () => void;
 }
 
-const VALID_PERSONA_IDS = new Set<string>([
-  'data_consumer',
-  'data_producer',
-  'data_product_owner',
-  'data_steward',
-  'data_governance_officer',
-  'security_officer',
-  'ontology_engineer',
-  'business_term_owner',
-  'administrator',
-]);
+const VALID_PERSONA_IDS = new Set<string>(ALL_PERSONA_IDS);
+
+/** Map legacy persona IDs to their consolidated equivalents. */
+function migratePersonaId(id: string): string {
+  return PERSONA_MIGRATION_MAP[id] ?? id;
+}
 
 function sanitizePersonas(personas: string[]): PersonaId[] {
-  return personas.filter((p): p is PersonaId => typeof p === 'string' && VALID_PERSONA_IDS.has(p));
+  const migrated = personas.map(migratePersonaId);
+  const unique = [...new Set(migrated)];
+  return unique.filter((p): p is PersonaId => VALID_PERSONA_IDS.has(p));
 }
 
 export const usePersonaStore = create<PersonaState>()(
@@ -79,6 +74,14 @@ export const usePersonaStore = create<PersonaState>()(
     {
       name: 'persona-storage',
       partialize: (state) => ({ currentPersona: state.currentPersona }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.currentPersona) {
+          const migrated = migratePersonaId(state.currentPersona);
+          if (migrated !== state.currentPersona && VALID_PERSONA_IDS.has(migrated)) {
+            state.currentPersona = migrated as PersonaId;
+          }
+        }
+      },
     }
   )
 );
