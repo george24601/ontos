@@ -154,6 +154,7 @@ Ontos implements and integrates with these standards:
 - **[ODCS](https://github.com/bitol-io/open-data-contract-standard)** - Open Data Contract Standard (v3.0.2)
 - **[ODPS](https://github.com/bitol-io/open-data-product-standard)** - Open Data Product Specification
 - **[MCP](https://modelcontextprotocol.io/)** - Model Context Protocol for AI integration
+- **[RDF](https://www.w3.org/RDF/)** - Resource Description Framework for ontology-driven asset modeling
 
 ## Contributing
 
