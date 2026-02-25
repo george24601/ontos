@@ -80,6 +80,7 @@ interface AssetImportExportDialogProps {
   selectedAssetTypeId?: string | null;
   selectedAssetTypeName?: string | null;
   selectedAssetIds?: string[];
+  canImport?: boolean;
   currentFilters?: {
     platform?: string;
     domain_id?: string;
@@ -101,6 +102,7 @@ export default function AssetImportExportDialog({
   selectedAssetTypeId,
   selectedAssetTypeName,
   selectedAssetIds = [],
+  canImport = false,
   currentFilters,
   onImportComplete,
 }: AssetImportExportDialogProps) {
@@ -289,23 +291,27 @@ export default function AssetImportExportDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Asset Import / Export
+            {canImport ? 'Asset Import / Export' : 'Asset Export'}
           </DialogTitle>
           <DialogDescription>
-            Export assets to CSV/Excel for offline editing, or import assets from a file.
+            {canImport
+              ? 'Export assets to CSV/Excel for offline editing, or import assets from a file.'
+              : 'Export assets to CSV/Excel for offline viewing.'}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="export" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={canImport ? "grid w-full grid-cols-2" : "grid w-full grid-cols-1"}>
             <TabsTrigger value="export" className="flex items-center gap-2">
               <Download className="h-4 w-4" />
               Export
             </TabsTrigger>
-            <TabsTrigger value="import" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              Import
-            </TabsTrigger>
+            {canImport && (
+              <TabsTrigger value="import" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Import
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ============================================================ */}
@@ -359,9 +365,9 @@ export default function AssetImportExportDialog({
           </TabsContent>
 
           {/* ============================================================ */}
-          {/* Import Tab */}
+          {/* Import Tab (only for users with write access) */}
           {/* ============================================================ */}
-          <TabsContent value="import" className="flex-1 flex flex-col min-h-0 space-y-3 mt-4">
+          {canImport && <TabsContent value="import" className="flex-1 flex flex-col min-h-0 space-y-3 mt-4">
             {/* File selection */}
             <div className="rounded-lg border p-4 space-y-3">
               <div className="text-sm font-medium">Select File</div>
@@ -481,14 +487,14 @@ export default function AssetImportExportDialog({
                 </AlertDescription>
               </Alert>
             )}
-          </TabsContent>
+          </TabsContent>}
         </Tabs>
 
         <DialogFooter className="flex justify-between sm:justify-between">
           <Button variant="outline" onClick={() => { onOpenChange(false); resetImportState(); }}>
             Close
           </Button>
-          {preview && !importResult && importableCount > 0 && (
+          {canImport && preview && !importResult && importableCount > 0 && (
             <Button onClick={handleImport} disabled={isImporting}>
               {isImporting
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing...</>

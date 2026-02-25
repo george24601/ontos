@@ -600,6 +600,7 @@ export default function AssetExplorerView() {
         selectedAssetTypeId={selectedTypeId}
         selectedAssetTypeName={selectedType?.name}
         selectedAssetIds={selectedAssetIds}
+        canImport={canWrite}
         onImportComplete={() => {
           fetchAssets(selectedTypeId);
           fetchAssetTypes();
