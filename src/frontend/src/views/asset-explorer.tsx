@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import {
   Box, ChevronDown, MoreHorizontal, PlusCircle, AlertCircle, Loader2, Search,
@@ -82,9 +82,9 @@ export default function AssetExplorerView() {
   const [ontologyTypes, setOntologyTypes] = useState<EntityTypeDefinition[]>([]);
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const didInitialSelect = useRef(false);
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -100,6 +100,19 @@ export default function AssetExplorerView() {
   const selectedAssetIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
   const hasSelection = selectedAssetIds.length > 0;
 
+  const selectType = useCallback((typeId: string | null, typeName?: string) => {
+    setSelectedTypeId(typeId);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (typeId && typeName) {
+        next.set('type', typeName);
+      } else {
+        next.delete('type');
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const fetchAssetTypes = useCallback(async () => {
     if (!canRead && !permissionsLoading) return;
     try {
@@ -107,16 +120,18 @@ export default function AssetExplorerView() {
       if (response.error) throw new Error(response.error);
       const types = Array.isArray(response.data) ? response.data : [];
       setAssetTypes(types);
-      if (!didInitialSelect.current && types.length > 0) {
-        didInitialSelect.current = true;
-        const firstWithAssets = types.find(t => t.asset_count > 0) || types[0];
-        setSelectedTypeId(firstWithAssets.id);
+      if (selectedTypeId === null && types.length > 0) {
+        const urlType = searchParams.get('type');
+        if (urlType) {
+          const match = types.find(t => t.name === urlType);
+          if (match) setSelectedTypeId(match.id);
+        }
       }
     } catch (err: any) {
       setComponentError(err.message || 'Failed to load asset types');
       toast({ variant: 'destructive', title: 'Error', description: err.message });
     }
-  }, [canRead, permissionsLoading, apiGet, toast]);
+  }, [canRead, permissionsLoading, apiGet, toast, searchParams, selectedTypeId]);
 
   const fetchAssets = useCallback(async (typeId: string | null) => {
     setAssetsLoading(true);
@@ -158,10 +173,8 @@ export default function AssetExplorerView() {
   }, [fetchAssetTypes, fetchOntologyTypes, setStaticSegments, setDynamicTitle]);
 
   useEffect(() => {
-    if (didInitialSelect.current) {
-      fetchAssets(selectedTypeId);
-      setRowSelection({});
-    }
+    fetchAssets(selectedTypeId);
+    setRowSelection({});
   }, [selectedTypeId, fetchAssets]);
 
   const selectedType = useMemo(
@@ -229,7 +242,8 @@ export default function AssetExplorerView() {
     }
   };
 
-  const columns = useMemo<ColumnDef<AssetRead>[]>(() => [
+  const columns = useMemo<ColumnDef<AssetRead>[]>(() => {
+    const cols: ColumnDef<AssetRead>[] = [
     {
       accessorKey: 'name',
       header: ({ column }) => (
@@ -246,6 +260,15 @@ export default function AssetExplorerView() {
         </div>
       ),
     },
+    ...(!selectedTypeId ? [{
+      accessorKey: 'asset_type_name',
+      header: 'Type',
+      cell: ({ row }: { row: any }) => (
+        <Badge variant="outline" className="text-xs">
+          {row.original.asset_type_name || '-'}
+        </Badge>
+      ),
+    } as ColumnDef<AssetRead>] : []),
     {
       accessorKey: 'platform',
       header: 'Platform',
@@ -333,7 +356,9 @@ export default function AssetExplorerView() {
         </DropdownMenu>
       ),
     },
-  ], [canWrite, canAdmin, navigate]);
+    ];
+    return cols;
+  }, [canWrite, canAdmin, navigate, selectedTypeId]);
 
   if (apiIsLoading && assetTypes.length === 0) {
     return (
@@ -390,7 +415,7 @@ export default function AssetExplorerView() {
                 <div className="px-2 pb-2">
                   {/* "All" option */}
                   <button
-                    onClick={() => setSelectedTypeId(null)}
+                    onClick={() => selectType(null)}
                     className={cn(
                       'w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors mb-1',
                       !selectedTypeId
@@ -427,7 +452,7 @@ export default function AssetExplorerView() {
                             return (
                               <button
                                 key={assetType.id}
-                                onClick={() => setSelectedTypeId(assetType.id)}
+                                onClick={() => selectType(assetType.id, assetType.name)}
                                 className={cn(
                                   'w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                                   isSelected
