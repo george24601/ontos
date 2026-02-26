@@ -56,11 +56,12 @@ def process_contract_semantic_links(
         url, type_ = _extract_url_and_type(auth_def)
         if type_ == SEMANTIC_ASSIGNMENT_TYPE and url:
             try:
+                iri_tail = url.split('#')[-1].split('/')[-1]
                 semantic_link = EntitySemanticLinkCreate(
                     entity_id=contract_id,
                     entity_type='data_contract',
                     iri=url,
-                    label=None  # Will be resolved by business glossary
+                    label=iri_tail.replace('_', ' ') if iri_tail else None
                 )
                 semantic_manager.add(semantic_link, created_by=created_by)
                 created_count += 1
@@ -98,11 +99,12 @@ def process_schema_semantic_links(
         if type_ == SEMANTIC_ASSIGNMENT_TYPE and url:
             try:
                 entity_id = f"{contract_id}#{schema_name}"
+                iri_tail = url.split('#')[-1].split('/')[-1]
                 semantic_link = EntitySemanticLinkCreate(
                     entity_id=entity_id,
                     entity_type='data_contract_schema',
                     iri=url,
-                    label=None
+                    label=iri_tail.replace('_', ' ') if iri_tail else None
                 )
                 semantic_manager.add(semantic_link, created_by=created_by)
                 created_count += 1
@@ -142,11 +144,12 @@ def process_property_semantic_links(
         if type_ == SEMANTIC_ASSIGNMENT_TYPE and url:
             try:
                 entity_id = f"{contract_id}#{schema_name}#{property_name}"
+                iri_tail = url.split('#')[-1].split('/')[-1]
                 semantic_link = EntitySemanticLinkCreate(
                     entity_id=entity_id,
                     entity_type='data_contract_property',
                     iri=url,
-                    label=None
+                    label=iri_tail.replace('_', ' ') if iri_tail else None
                 )
                 semantic_manager.add(semantic_link, created_by=created_by)
                 created_count += 1

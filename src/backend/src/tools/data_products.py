@@ -181,6 +181,7 @@ class SearchDataProductsTool(BaseTool):
         try:
             # Query database directly using the session
             from src.db_models.data_products import DataProductDb
+            from src.db_models.semantic_links import EntitySemanticLinkDb
             
             products_db = ctx.db.query(DataProductDb).limit(500).all()
             logger.debug(f"[search_data_products] Found {len(products_db)} total products in database")
@@ -195,6 +196,23 @@ class SearchDataProductsTool(BaseTool):
             # Filter by query (name, description, domain)
             query_lower = query.lower() if query and query != '*' else ''
             filtered = []
+            
+            # Build set of product IDs that match via semantic links
+            semantic_product_ids: set = set()
+            if query_lower:
+                try:
+                    sem_links = ctx.db.query(EntitySemanticLinkDb).filter(
+                        EntitySemanticLinkDb.entity_type == 'data_product'
+                    ).all()
+                    for sl in sem_links:
+                        iri_tail = (sl.iri.split('#')[-1].split('/')[-1]).lower()
+                        label_lower = (sl.label or '').lower()
+                        if query_lower in iri_tail or query_lower in label_lower:
+                            semantic_product_ids.add(sl.entity_id)
+                    if semantic_product_ids:
+                        logger.debug(f"[search_data_products] {len(semantic_product_ids)} products matched via semantic links")
+                except Exception as e:
+                    logger.warning(f"[search_data_products] Semantic link lookup failed: {e}")
             
             for p in products_db:
                 # If query is empty or '*', include all products
@@ -218,7 +236,10 @@ class SearchDataProductsTool(BaseTool):
                     # Match on domain
                     domain_match = query_lower in (p.domain or "").lower()
                     
-                    include = name_match or desc_match or domain_match
+                    # Match via semantic links (ontology concepts)
+                    semantic_match = str(p.id) in semantic_product_ids
+                    
+                    include = name_match or desc_match or domain_match or semantic_match
                 
                 if include:
                     # Apply filters
