@@ -4,6 +4,8 @@ import {
   ColumnFiltersState,
   SortingState,
   VisibilityState,
+  PaginationState,
+  OnChangeFn,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -11,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
   RowSelectionState,
-  Row, // Import Row type
+  Row,
 } from "@tanstack/react-table";
 
 import { ChevronDown, Loader2 } from "lucide-react";
@@ -46,16 +48,21 @@ const ChevronsRight = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  searchColumn?: string; // String key for the primary search filter placeholder
-  toolbarActions?: React.ReactNode; // Optional: Actions for the toolbar (e.g., Create button)
-  bulkActions?: (selectedRows: TData[]) => React.ReactNode; // Optional: Actions for selected rows
-  onRowClick?: (row: Row<TData>) => void; // Optional: Handler for row click
-  storageKey?: string; // Unique key for localStorage persistence (e.g., "data-contracts-sort")
-  defaultSortColumn?: string; // Column ID to sort by default (auto-detected if not provided)
-  defaultSortDirection?: 'asc' | 'desc'; // Default sort direction (default: 'asc')
-  isLoading?: boolean; // Optional: Show loading state
-  rowSelection?: RowSelectionState; // Optional: Controlled row selection state
-  onRowSelectionChange?: (rowSelection: RowSelectionState) => void; // Optional: Callback when selection changes
+  searchColumn?: string;
+  toolbarActions?: React.ReactNode;
+  bulkActions?: (selectedRows: TData[]) => React.ReactNode;
+  onRowClick?: (row: Row<TData>) => void;
+  storageKey?: string;
+  defaultSortColumn?: string;
+  defaultSortDirection?: 'asc' | 'desc';
+  isLoading?: boolean;
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: (rowSelection: RowSelectionState) => void;
+  // Server-side pagination
+  manualPagination?: boolean;
+  pageCount?: number;
+  paginationState?: PaginationState;
+  onPaginationChange?: OnChangeFn<PaginationState>;
 }
 
 export function DataTable<TData, TValue>({
@@ -71,6 +78,10 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   rowSelection: controlledRowSelection,
   onRowSelectionChange,
+  manualPagination = false,
+  pageCount,
+  paginationState,
+  onPaginationChange,
 }: DataTableProps<TData, TValue>) {
   const { t } = useTranslation('data-table');
   
@@ -179,25 +190,30 @@ export function DataTable<TData, TValue>({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(manualPagination
+      ? { manualPagination: true, pageCount: pageCount ?? -1 }
+      : { getPaginationRowModel: getPaginationRowModel() }),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
-    // Provide a default getRowId function if your data has a unique 'id' property
     getRowId: (row: TData) => (row as any).id ?? undefined,
+    ...(manualPagination && onPaginationChange
+      ? { onPaginationChange }
+      : {}),
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
       globalFilter,
+      ...(manualPagination && paginationState ? { pagination: paginationState } : {}),
     },
     initialState: {
-        pagination: {
-            pageSize: 10, // Default page size
-        },
+      pagination: {
+        pageSize: paginationState?.pageSize ?? 10,
+      },
     },
   });
 

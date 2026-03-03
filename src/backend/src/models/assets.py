@@ -658,3 +658,11 @@ class AssetSummary(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedAssetSummary(BaseModel):
+    """Paginated wrapper for asset summaries."""
+    items: List[AssetSummary]
+    total: int
+    skip: int
+    limit: int

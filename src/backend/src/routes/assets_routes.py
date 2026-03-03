@@ -7,6 +7,7 @@ from src.models.assets import (
     AssetTypeCreate, AssetTypeUpdate, AssetTypeRead, AssetTypeSummary,
     AssetCreate, AssetUpdate, AssetRead, AssetSummary,
     AssetRelationshipCreate, AssetRelationshipRead,
+    PaginatedAssetSummary,
 )
 from src.controller.assets_manager import assets_manager
 from src.common.authorization import PermissionChecker
@@ -251,7 +252,7 @@ def create_asset(
 
 @assets_router.get(
     "",
-    response_model=List[AssetSummary],
+    response_model=PaginatedAssetSummary,
     dependencies=[Depends(PermissionChecker(FEATURE_ID, FeatureAccessLevel.READ_ONLY))],
 )
 def get_all_assets(
@@ -264,7 +265,7 @@ def get_all_assets(
     domain_id: Optional[str] = Query(None),
     asset_status: Optional[str] = Query(None, alias="status"),
 ):
-    """Lists all assets with optional filters."""
+    """Lists all assets with optional filters. Returns paginated results."""
     return manager.get_all_assets(
         db=db, skip=skip, limit=limit,
         asset_type_id=asset_type_id, platform=platform,

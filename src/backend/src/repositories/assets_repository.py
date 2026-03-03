@@ -80,6 +80,18 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
             db.rollback()
             raise
 
+    def _apply_filters(self, query, *, asset_type_id=None, platform=None, domain_id=None, status=None):
+        """Apply common filter predicates to a query."""
+        if asset_type_id:
+            query = query.filter(self.model.asset_type_id == asset_type_id)
+        if platform:
+            query = query.filter(self.model.platform == platform)
+        if domain_id:
+            query = query.filter(self.model.domain_id == domain_id)
+        if status:
+            query = query.filter(self.model.status == status)
+        return query
+
     def get_multi_filtered(
         self, db: Session, *, skip: int = 0, limit: int = 100,
         asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
@@ -96,17 +108,32 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
                 )
                 .order_by(self.model.name)
             )
-            if asset_type_id:
-                query = query.filter(self.model.asset_type_id == asset_type_id)
-            if platform:
-                query = query.filter(self.model.platform == platform)
-            if domain_id:
-                query = query.filter(self.model.domain_id == domain_id)
-            if status:
-                query = query.filter(self.model.status == status)
+            query = self._apply_filters(
+                query, asset_type_id=asset_type_id, platform=platform,
+                domain_id=domain_id, status=status,
+            )
             return query.offset(skip).limit(limit).all()
         except SQLAlchemyError as e:
             logger.error(f"Database error fetching assets: {e}", exc_info=True)
+            db.rollback()
+            raise
+
+    def count_filtered(
+        self, db: Session, *,
+        asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
+        domain_id: Optional[str] = None, status: Optional[str] = None,
+    ) -> int:
+        """Returns the total count of assets matching the given filters."""
+        try:
+            from sqlalchemy import func
+            query = db.query(func.count(self.model.id))
+            query = self._apply_filters(
+                query, asset_type_id=asset_type_id, platform=platform,
+                domain_id=domain_id, status=status,
+            )
+            return query.scalar() or 0
+        except SQLAlchemyError as e:
+            logger.error(f"Database error counting assets: {e}", exc_info=True)
             db.rollback()
             raise
 

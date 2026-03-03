@@ -9,6 +9,7 @@ from src.models.assets import (
     AssetTypeCreate, AssetTypeUpdate, AssetTypeRead, AssetTypeSummary,
     AssetCreate, AssetUpdate, AssetRead, AssetSummary,
     AssetRelationshipCreate, AssetRelationshipRead,
+    PaginatedAssetSummary,
 )
 from src.db_models.assets import AssetTypeDb, AssetDb, AssetRelationshipDb
 from src.common.errors import ConflictError, NotFoundError, ValidationError
@@ -229,14 +230,22 @@ class AssetsManager(SearchableAsset):
         self, db: Session, *, skip: int = 0, limit: int = 100,
         asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
         domain_id: Optional[str] = None, status: Optional[str] = None
-    ) -> List[AssetSummary]:
-        """Gets all assets as summaries (lightweight)."""
-        db_assets = self._asset_repo.get_multi_filtered(
-            db, skip=skip, limit=limit,
+    ) -> PaginatedAssetSummary:
+        """Gets a paginated page of asset summaries."""
+        filter_kwargs = dict(
             asset_type_id=asset_type_id, platform=platform,
             domain_id=domain_id, status=status,
         )
-        return [self._asset_to_summary(a) for a in db_assets]
+        db_assets = self._asset_repo.get_multi_filtered(
+            db, skip=skip, limit=limit, **filter_kwargs,
+        )
+        total = self._asset_repo.count_filtered(db, **filter_kwargs)
+        return PaginatedAssetSummary(
+            items=[self._asset_to_summary(a) for a in db_assets],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
 
     def update_asset(self, db: Session, *, asset_id: UUID, asset_in: AssetUpdate, current_user_id: str) -> AssetRead:
         db_asset = self._asset_repo.get(db, asset_id)

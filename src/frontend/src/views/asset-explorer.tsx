@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ColumnDef, RowSelectionState } from '@tanstack/react-table';
+import { ColumnDef, RowSelectionState, PaginationState } from '@tanstack/react-table';
 import {
   Box, ChevronDown, MoreHorizontal, PlusCircle, AlertCircle, Loader2, Search,
   Table2, Eye, Columns2, LayoutDashboard, Globe, FileCode, Brain, Activity,
@@ -83,6 +83,8 @@ export default function AssetExplorerView() {
   const [ontologyTypes, setOntologyTypes] = useState<EntityTypeDefinition[]>([]);
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [assetsTotal, setAssetsTotal] = useState(0);
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -134,15 +136,27 @@ export default function AssetExplorerView() {
     }
   }, [canRead, permissionsLoading, apiGet, toast, searchParams, selectedTypeId]);
 
-  const fetchAssets = useCallback(async (typeId: string | null) => {
+  interface PaginatedResponse {
+    items: AssetRead[];
+    total: number;
+    skip: number;
+    limit: number;
+  }
+
+  const fetchAssets = useCallback(async (typeId: string | null, page: PaginationState) => {
     setAssetsLoading(true);
     try {
-      const url = typeId ? `/api/assets?asset_type_id=${typeId}` : '/api/assets';
-      const response = await apiGet<AssetRead[]>(url);
+      const skip = page.pageIndex * page.pageSize;
+      const params = new URLSearchParams({ skip: String(skip), limit: String(page.pageSize) });
+      if (typeId) params.set('asset_type_id', typeId);
+      const response = await apiGet<PaginatedResponse>(`/api/assets?${params}`);
       if (response.error) throw new Error(response.error);
-      setAssets(Array.isArray(response.data) ? response.data : []);
+      const data = response.data;
+      setAssets(data?.items ?? []);
+      setAssetsTotal(data?.total ?? 0);
     } catch (err: any) {
       setAssets([]);
+      setAssetsTotal(0);
       toast({ variant: 'destructive', title: 'Error loading assets', description: err.message });
     } finally {
       setAssetsLoading(false);
@@ -174,9 +188,14 @@ export default function AssetExplorerView() {
   }, [fetchAssetTypes, fetchOntologyTypes, setStaticSegments, setDynamicTitle]);
 
   useEffect(() => {
-    fetchAssets(selectedTypeId);
+    fetchAssets(selectedTypeId, pagination);
     setRowSelection({});
-  }, [selectedTypeId, fetchAssets]);
+  }, [selectedTypeId, pagination, fetchAssets]);
+
+  const handleTypeChange = useCallback((typeId: string | null, typeName?: string) => {
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    selectType(typeId, typeName);
+  }, [selectType]);
 
   const selectedType = useMemo(
     () => assetTypes.find(t => t.id === selectedTypeId),
@@ -233,7 +252,7 @@ export default function AssetExplorerView() {
       const response = await apiDelete(`/api/assets/${deletingId}`);
       if (response.error) throw new Error(response.error);
       toast({ title: 'Asset deleted' });
-      fetchAssets(selectedTypeId);
+      fetchAssets(selectedTypeId, pagination);
       fetchAssetTypes();
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error', description: err.message });
@@ -442,7 +461,7 @@ export default function AssetExplorerView() {
                 <div className="px-2 pb-2">
                   {/* "All" option */}
                   <button
-                    onClick={() => selectType(null)}
+                    onClick={() => handleTypeChange(null)}
                     className={cn(
                       'w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors mb-1',
                       !selectedTypeId
@@ -479,7 +498,7 @@ export default function AssetExplorerView() {
                             return (
                               <button
                                 key={assetType.id}
-                                onClick={() => selectType(assetType.id, assetType.name)}
+                                onClick={() => handleTypeChange(assetType.id, assetType.name)}
                                 className={cn(
                                   'w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                                   isSelected
@@ -534,7 +553,7 @@ export default function AssetExplorerView() {
                       {CATEGORY_META[selectedType.category]?.label || selectedType.category}
                     </Badge>
                   )}
-                  <Badge variant="secondary">{assets.length} assets</Badge>
+                  <Badge variant="secondary">{selectedType ? selectedType.asset_count : totalAssetCount} assets</Badge>
                 </div>
               </div>
             </CardHeader>
@@ -579,6 +598,10 @@ export default function AssetExplorerView() {
                   onRowClick={(row) => navigate(`/governance/assets/${row.id}`)}
                   rowSelection={rowSelection}
                   onRowSelectionChange={setRowSelection}
+                  manualPagination
+                  pageCount={Math.ceil(assetsTotal / pagination.pageSize)}
+                  paginationState={pagination}
+                  onPaginationChange={setPagination}
                   toolbarActions={
                     <div className="flex items-center gap-2">
                       {canRead && (
@@ -616,7 +639,7 @@ export default function AssetExplorerView() {
           isOpen={isFormOpen}
           onOpenChange={(open) => { setIsFormOpen(open); if (!open) setEditingAsset(null); }}
           onSuccess={() => {
-            fetchAssets(selectedTypeId);
+            fetchAssets(selectedTypeId, pagination);
             fetchAssetTypes();
           }}
           assetTypeId={selectedType.id}
@@ -654,7 +677,7 @@ export default function AssetExplorerView() {
         selectedAssetIds={selectedAssetIds}
         canImport={canWrite}
         onImportComplete={() => {
-          fetchAssets(selectedTypeId);
+          fetchAssets(selectedTypeId, pagination);
           fetchAssetTypes();
           setRowSelection({});
         }}
