@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -10,10 +10,14 @@ import {
   Box,
   FolderOpen,
   Braces,
+  X,
+  Search,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApi } from '@/hooks/use-api';
+import { parseSearchQuery, matchesSegment } from '@/lib/uc-search-parser';
 import type { BrowseNode } from '@/types/schema-import';
 
 interface TreeNode extends BrowseNode {
@@ -47,6 +51,32 @@ function getNodeIcon(nodeType: string) {
   return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />;
 }
 
+/** Container node types that are navigational, not leaf assets */
+const CONTAINER_TYPES = new Set(['catalog', 'schema', 'database', 'dataset', 'project']);
+
+function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | undefined {
+  for (const n of nodes) {
+    if (n.path === path) return n;
+    if (n.children) {
+      const found = findNodeByPath(n.children, path);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function updateNode(
+  nodes: TreeNode[],
+  path: string,
+  updater: (n: TreeNode) => TreeNode,
+): TreeNode[] {
+  return nodes.map((n) => {
+    if (n.path === path) return updater(n);
+    if (n.children) return { ...n, children: updateNode(n.children, path, updater) };
+    return n;
+  });
+}
+
 export default function SchemaBrowser({
   connectionId,
   selectedPaths,
@@ -55,8 +85,14 @@ export default function SchemaBrowser({
   const { get: apiGet } = useApi();
   const [roots, setRoots] = useState<TreeNode[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
   const apiGetRef = useRef(apiGet);
   apiGetRef.current = apiGet;
+  const rootsRef = useRef(roots);
+  rootsRef.current = roots;
+  const searchVersionRef = useRef(0);
+  const lastProcessedSearchRef = useRef('');
 
   const loadChildren = useCallback(
     async (connId: string, path: string | null): Promise<TreeNode[]> => {
@@ -84,6 +120,8 @@ export default function SchemaBrowser({
     }
     let cancelled = false;
     setIsInitialLoading(true);
+    setSearch('');
+    setHighlightedPath(null);
     loadChildren(connectionId, null)
       .then((nodes) => {
         if (!cancelled) setRoots(nodes);
@@ -101,76 +139,172 @@ export default function SchemaBrowser({
     async (path: string) => {
       if (!connectionId) return;
 
-      const findNode = (nodes: TreeNode[]): TreeNode | undefined => {
-        for (const n of nodes) {
-          if (n.path === path) return n;
-          if (n.children) {
-            const found = findNode(n.children);
-            if (found) return found;
-          }
-        }
-        return undefined;
-      };
-
-      // Check if we need to load children before updating state
       setRoots((prev) => {
-        const node = findNode(prev);
+        const node = findNodeByPath(prev, path);
         if (!node) return prev;
-        if (node.isExpanded) {
-          // Collapse
-          const collapse = (nodes: TreeNode[]): TreeNode[] =>
-            nodes.map((n) => {
-              if (n.path === path) return { ...n, isExpanded: false };
-              if (n.children) return { ...n, children: collapse(n.children) };
-              return n;
-            });
-          return collapse(prev);
-        }
-        if (node.children) {
-          // Already loaded — just expand
-          const expand = (nodes: TreeNode[]): TreeNode[] =>
-            nodes.map((n) => {
-              if (n.path === path) return { ...n, isExpanded: true };
-              if (n.children) return { ...n, children: expand(n.children) };
-              return n;
-            });
-          return expand(prev);
-        }
-        // Need to load — set loading flag
-        const setLoading = (nodes: TreeNode[]): TreeNode[] =>
-          nodes.map((n) => {
-            if (n.path === path) return { ...n, isLoading: true };
-            if (n.children) return { ...n, children: setLoading(n.children) };
-            return n;
-          });
-        return setLoading(prev);
+        if (node.isExpanded) return updateNode(prev, path, (n) => ({ ...n, isExpanded: false }));
+        if (node.children) return updateNode(prev, path, (n) => ({ ...n, isExpanded: true }));
+        return updateNode(prev, path, (n) => ({ ...n, isLoading: true }));
       });
 
-      // Check current state to see if we need to fetch
-      const currentNode = findNode(roots);
+      const currentNode = findNodeByPath(rootsRef.current, path);
       if (currentNode && !currentNode.children && currentNode.has_children && !currentNode.isExpanded) {
         try {
           const children = await loadChildren(connectionId, path);
-          const applyChildren = (nodes: TreeNode[]): TreeNode[] =>
-            nodes.map((n) => {
-              if (n.path === path) return { ...n, children, isExpanded: true, isLoading: false };
-              if (n.children) return { ...n, children: applyChildren(n.children) };
-              return n;
-            });
-          setRoots((prev) => applyChildren(prev));
+          setRoots((prev) =>
+            updateNode(prev, path, (n) => ({ ...n, children, isExpanded: true, isLoading: false })),
+          );
         } catch {
-          const clearLoading = (nodes: TreeNode[]): TreeNode[] =>
-            nodes.map((n) => {
-              if (n.path === path) return { ...n, isLoading: false };
-              if (n.children) return { ...n, children: clearLoading(n.children) };
-              return n;
-            });
-          setRoots((prev) => clearLoading(prev));
+          setRoots((prev) => updateNode(prev, path, (n) => ({ ...n, isLoading: false })));
         }
       }
     },
-    [connectionId, roots, loadChildren],
+    [connectionId, loadChildren],
   );
+
+  /**
+   * Ensure a node is expanded and its children are loaded.
+   * Returns the updated tree and the children of that node.
+   */
+  const ensureExpanded = useCallback(
+    async (connId: string, tree: TreeNode[], nodePath: string): Promise<[TreeNode[], TreeNode[]]> => {
+      const node = findNodeByPath(tree, nodePath);
+      if (!node) return [tree, []];
+
+      if (node.children && node.children.length > 0) {
+        const updated = updateNode(tree, nodePath, (n) => ({ ...n, isExpanded: true }));
+        return [updated, node.children];
+      }
+
+      if (!node.has_children) return [tree, []];
+
+      // Mark loading
+      let updated = updateNode(tree, nodePath, (n) => ({ ...n, isLoading: true }));
+      setRoots(updated);
+
+      try {
+        const children = await loadChildren(connId, nodePath);
+        updated = updateNode(updated, nodePath, (n) => ({
+          ...n,
+          children,
+          isExpanded: true,
+          isLoading: false,
+        }));
+        setRoots(updated);
+        rootsRef.current = updated;
+        return [updated, children];
+      } catch {
+        updated = updateNode(updated, nodePath, (n) => ({ ...n, isLoading: false }));
+        setRoots(updated);
+        rootsRef.current = updated;
+        return [updated, []];
+      }
+    },
+    [loadChildren],
+  );
+
+  // Debounced auto-expand search
+  useEffect(() => {
+    if (!connectionId || !search.trim()) {
+      setHighlightedPath(null);
+      lastProcessedSearchRef.current = '';
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (search === lastProcessedSearchRef.current) return;
+      lastProcessedSearchRef.current = search;
+
+      const thisVersion = ++searchVersionRef.current;
+      const isCurrent = () => searchVersionRef.current === thisVersion;
+      const parsed = parseSearchQuery(search);
+      const { segments, endsWithDot } = parsed;
+
+      if (segments.length === 0) {
+        setHighlightedPath(null);
+        return;
+      }
+
+      const processSearch = async () => {
+        let currentTree = rootsRef.current;
+
+        // Level 0: find matching root (catalog)
+        const matchingRoot = currentTree.find((c) =>
+          matchesSegment(c.name, segments[0]),
+        );
+        if (!matchingRoot) {
+          if (isCurrent()) setHighlightedPath(null);
+          return;
+        }
+
+        const goDeeper = segments.length > 1 || endsWithDot;
+        if (!goDeeper) {
+          if (isCurrent()) setHighlightedPath(matchingRoot.path);
+          return;
+        }
+
+        // Expand catalog
+        const [treeAfterCatalog, schemas] = await ensureExpanded(
+          connectionId,
+          currentTree,
+          matchingRoot.path,
+        );
+        if (!isCurrent()) return;
+        currentTree = treeAfterCatalog;
+
+        if (schemas.length === 0) {
+          if (isCurrent()) setHighlightedPath(matchingRoot.path);
+          return;
+        }
+
+        // Level 1: find matching schema
+        const schemaSegment = segments[1] || '';
+        const matchingSchema = schemaSegment
+          ? schemas.find((s) => matchesSegment(s.name, schemaSegment))
+          : schemas[0];
+        if (!matchingSchema) {
+          if (isCurrent()) setHighlightedPath(matchingRoot.path);
+          return;
+        }
+
+        const goToObjects = segments.length > 2 || (segments.length >= 2 && endsWithDot);
+        if (!goToObjects) {
+          if (isCurrent()) setHighlightedPath(matchingSchema.path);
+          return;
+        }
+
+        // Expand schema
+        const [treeAfterSchema, objects] = await ensureExpanded(
+          connectionId,
+          currentTree,
+          matchingSchema.path,
+        );
+        if (!isCurrent()) return;
+        currentTree = treeAfterSchema;
+
+        if (objects.length === 0) {
+          if (isCurrent()) setHighlightedPath(matchingSchema.path);
+          return;
+        }
+
+        // Level 2: find matching object
+        const objectSegment = segments[2] || '';
+        const matchingObject = objectSegment
+          ? objects.find((o) => matchesSegment(o.name, objectSegment))
+          : objects[0];
+        if (!matchingObject) {
+          if (isCurrent()) setHighlightedPath(matchingSchema.path);
+          return;
+        }
+
+        if (isCurrent()) setHighlightedPath(matchingObject.path);
+      };
+
+      processSearch().catch(console.error);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search, connectionId, ensureExpanded]);
 
   const toggleSelect = useCallback(
     (path: string) => {
@@ -185,14 +319,56 @@ export default function SchemaBrowser({
     [selectedPaths, onSelectionChange],
   );
 
+  // Client-side filtering of loaded nodes
+  const parsed = useMemo(() => parseSearchQuery(search), [search]);
+
+  const filterTree = useCallback(
+    (nodes: TreeNode[], level: number): TreeNode[] => {
+      const { segments, typeFilter } = parsed;
+      if (segments.length === 0 && !typeFilter) return nodes;
+
+      return nodes.reduce<TreeNode[]>((acc, node) => {
+        const segment = segments[level];
+        const nameMatch = !segment || matchesSegment(node.name, segment);
+
+        // Type filter applies only to non-container leaf nodes
+        const isContainer = CONTAINER_TYPES.has(node.node_type.toLowerCase());
+        const typeMatch =
+          !typeFilter || isContainer || node.node_type.toLowerCase() === typeFilter;
+
+        if (!nameMatch) return acc;
+
+        if (node.children && node.isExpanded) {
+          const filteredChildren = filterTree(node.children, level + 1);
+          // Keep container if it has matching children or matches the current segment
+          if (filteredChildren.length > 0 || isContainer) {
+            acc.push({ ...node, children: filteredChildren });
+          }
+        } else if (typeMatch) {
+          acc.push(node);
+        } else if (isContainer) {
+          acc.push(node);
+        }
+
+        return acc;
+      }, []);
+    },
+    [parsed],
+  );
+
+  const visibleRoots = useMemo(() => filterTree(roots, 0), [filterTree, roots]);
+
   const renderNode = (node: TreeNode) => {
     const indent = node.level * 20;
     const isSelected = selectedPaths.has(node.path);
+    const isHighlighted = highlightedPath === node.path;
 
     return (
       <div key={node.path}>
         <div
-          className="flex items-center gap-1.5 py-1 px-2 hover:bg-muted/50 rounded-sm cursor-pointer group"
+          className={`flex items-center gap-1.5 py-1 px-2 hover:bg-muted/50 rounded-sm cursor-pointer group ${
+            isHighlighted ? 'bg-primary/10 ring-1 ring-primary/30' : ''
+          }`}
           style={{ paddingLeft: `${indent + 8}px` }}
         >
           {/* Expand/collapse toggle */}
@@ -265,8 +441,41 @@ export default function SchemaBrowser({
   }
 
   return (
-    <ScrollArea className="h-[500px] border rounded-md">
-      <div className="p-1">{roots.map(renderNode)}</div>
-    </ScrollArea>
+    <div className="space-y-2">
+      {/* Search input */}
+      <div className="space-y-1">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            className="h-9 text-sm pl-8 pr-8"
+            placeholder="Search: t:catalog.schema.table"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setHighlightedPath(null); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-muted-foreground px-1">
+          Type prefix for filtering: t:table, v:view, f:function, m:model, vol:volume
+        </p>
+      </div>
+
+      {/* Tree */}
+      {visibleRoots.length === 0 ? (
+        <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-md">
+          No matches found
+        </div>
+      ) : (
+        <ScrollArea className="h-[460px] border rounded-md">
+          <div className="p-1">{visibleRoots.map(renderNode)}</div>
+        </ScrollArea>
+      )}
+    </div>
   );
 }

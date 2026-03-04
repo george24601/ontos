@@ -147,6 +147,14 @@ class ConnectionsManager:
         connector_type = db_obj.connector_type
         config_dict = dict(db_obj.config or {})
 
+        # Pre-registered instances (e.g. Databricks) are returned directly
+        if connector_type in registry._connector_instances:
+            return registry._connector_instances[connector_type]
+
+        # Lazy-init via factory
+        if connector_type in registry._connector_factories:
+            return registry.get_connector(connector_type)
+
         # Inject workspace client for connectors that need it
         if connector_type == "bigquery" and self._ws_client:
             config_dict["workspace_client"] = self._ws_client
