@@ -46,6 +46,7 @@ import { EntityRelationshipPanel } from '@/components/common/entity-relationship
 import { BusinessLineageGraph } from '@/components/common/business-lineage-graph';
 import { ReadinessChecklist } from '@/components/data-products/readiness-checklist';
 import { LineageEditor } from '@/components/common/lineage-editor';
+import { useCopilotContext } from '@/hooks/use-copilot-context';
 
 /**
  * ODPS v1.0.0 Data Product Details View
@@ -149,6 +150,12 @@ export default function DataProductDetails() {
 
   // Combined permission check: can write AND can edit in place (or is personal draft)
   const canModify = canWrite && (canEditInPlace || isPersonalDraft);
+
+  useCopilotContext(
+    'Data Product Details',
+    `/data-products/${productId}`,
+    product ? { type: 'data_product', name: product.name || 'Unnamed', id: productId || '' } : null,
+  );
 
   const formatDate = (dateString: string | undefined, fallback: string = 'N/A'): string => {
     if (!dateString) return fallback;

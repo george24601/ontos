@@ -46,6 +46,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useCopilotContext } from '@/hooks/use-copilot-context';
 
 interface CatalogItem {
   id: string;
@@ -136,6 +137,16 @@ const CatalogCommander: React.FC = () => {
 
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
+
+  const selectedNodeForContext = React.useMemo(() => {
+    if (!selectedObjectInfo) return null;
+    const node = sourceItems.find(i => i.id === selectedObjectInfo.id) ||
+                 targetItems.find(i => i.id === selectedObjectInfo.id);
+    if (!node) return null;
+    return { type: node.type, name: node.name, id: node.id };
+  }, [selectedObjectInfo, sourceItems, targetItems]);
+
+  useCopilotContext('Catalog Commander', '/catalog-commander', selectedNodeForContext);
 
   const fetchDatasetPage = useCallback(async (path: string, limit: number, offset: number) => {
     setLoadingData(true);

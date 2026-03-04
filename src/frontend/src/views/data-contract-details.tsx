@@ -51,6 +51,7 @@ import type { DataProduct } from '@/types/data-product'
 import type { DataProfilingRun } from '@/types/data-contract'
 import type { DatasetListItem } from '@/types/dataset'
 import { DATASET_STATUS_LABELS, DATASET_STATUS_COLORS } from '@/types/dataset'
+import { useCopilotContext } from '@/hooks/use-copilot-context'
 
 // Status-based editability constants
 // Only draft/proposed contracts can be edited in place
@@ -295,6 +296,12 @@ export default function DataContractDetails() {
   const [editingQualityRuleIndex, setEditingQualityRuleIndex] = useState<number | null>(null)
   const [editingTeamMemberIndex, setEditingTeamMemberIndex] = useState<number | null>(null)
   const [editingServerIndex, setEditingServerIndex] = useState<number | null>(null)
+
+  useCopilotContext(
+    'Data Contract Details',
+    `/data-contracts/${contractId}`,
+    contract ? { type: 'data_contract', name: contract.name || 'Unnamed', id: contractId || '' } : null,
+  )
 
   const fetchLinkedProducts = async () => {
     if (!contractId) return

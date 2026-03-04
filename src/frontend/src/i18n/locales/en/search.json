@@ -172,6 +172,36 @@
       "deleteSessionFailed": "Failed to delete session",
       "loadFailed": "Failed to load LLM search. Please try again later."
     }
+  },
+  "copilot": {
+    "title": "Ask Ontos",
+    "subtitle": "AI-powered assistant",
+    "button": "Ask Ontos",
+    "welcome": "Welcome to Ask Ontos!",
+    "welcomeDescription": "Get help with modeling, mappings, product creation, and health insights. Try one of the suggested prompts below or type your own question.",
+    "askingAbout": "Asking about:",
+    "inputPlaceholder": "Ask Ontos anything...",
+    "messageSendFailed": "Failed to send message",
+    "categories": {
+      "modeling": "Modeling",
+      "mappings": "Mappings",
+      "dataProducts": "Data Products",
+      "healthGovernance": "Health & Governance"
+    },
+    "prompts": {
+      "modeling1": "Help me define a vocabulary for our Retail Customer domain.",
+      "modeling2": "What concepts should I create for a Supply Chain model?",
+      "modeling3": "Explain the difference between a concept and a property.",
+      "mappings1": "Suggest concepts for unmapped Finance tables.",
+      "mappings2": "How do I map columns to semantic properties?",
+      "mappings3": "Show me tables that need semantic mappings.",
+      "dataProducts1": "Draft a Customer 360 data product from existing tables.",
+      "dataProducts2": "What contracts should I create for my sales data?",
+      "dataProducts3": "Help me package analytics tables as a data product.",
+      "healthGovernance1": "Explain why semantic coverage dropped last week.",
+      "healthGovernance2": "Show me data products with failing compliance checks.",
+      "healthGovernance3": "What domains are ready for agent use?"
+    }
   }
 }
 
