@@ -264,12 +264,13 @@ def get_all_assets(
     platform: Optional[str] = Query(None),
     domain_id: Optional[str] = Query(None),
     asset_status: Optional[str] = Query(None, alias="status"),
+    name: Optional[str] = Query(None),
 ):
     """Lists all assets with optional filters. Returns paginated results."""
     return manager.get_all_assets(
         db=db, skip=skip, limit=limit,
         asset_type_id=asset_type_id, platform=platform,
-        domain_id=domain_id, status=asset_status,
+        domain_id=domain_id, status=asset_status, name=name,
     )
 
 

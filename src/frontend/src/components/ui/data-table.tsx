@@ -63,6 +63,9 @@ interface DataTableProps<TData, TValue> {
   pageCount?: number;
   paginationState?: PaginationState;
   onPaginationChange?: OnChangeFn<PaginationState>;
+  // Controlled search (for server-side filtering)
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -82,6 +85,8 @@ export function DataTable<TData, TValue>({
   pageCount,
   paginationState,
   onPaginationChange,
+  searchValue,
+  onSearchChange,
 }: DataTableProps<TData, TValue>) {
   const { t } = useTranslation('data-table');
   
@@ -240,8 +245,12 @@ export function DataTable<TData, TValue>({
         <div className="flex items-center gap-2">
           <Input
             placeholder={`${t('filter')} ${searchColumn ? formatColumnId(searchColumn).toLowerCase() + 's' : t('items')}...`}
-            value={globalFilter ?? ""}
-            onChange={(event) => setGlobalFilter(event.target.value)}
+            value={onSearchChange ? (searchValue ?? "") : (globalFilter ?? "")}
+            onChange={(event) =>
+              onSearchChange
+                ? onSearchChange(event.target.value)
+                : setGlobalFilter(event.target.value)
+            }
             className="max-w-sm h-9"
           />
           <DropdownMenu>

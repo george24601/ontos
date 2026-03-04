@@ -72,6 +72,13 @@ class AssetsManager(SearchableAsset):
 
     # --- JSON Schema validation ---
 
+    # Fields that live on the Asset model itself and should not be required
+    # inside the free-form ``properties`` dict.
+    _TOP_LEVEL_ASSET_FIELDS = frozenset({
+        "name", "description", "status", "platform", "location",
+        "domain_id", "tags",
+    })
+
     def _validate_properties(self, db: Session, asset_type_id: UUID, properties: Optional[Dict[str, Any]]) -> None:
         """Validate asset properties against ontology-derived JSON Schema."""
         if not self._ontology or not properties:
@@ -94,9 +101,13 @@ class AssetsManager(SearchableAsset):
         if not json_schema:
             return
 
+        import copy
+        schema = copy.deepcopy(json_schema)
+        schema.pop("required", None)
+
         try:
             import jsonschema
-            jsonschema.validate(instance=properties, schema=json_schema)
+            jsonschema.validate(instance=properties, schema=schema)
         except jsonschema.ValidationError as e:
             raise ValidationError(
                 f"Asset properties validation failed for type '{db_type.name}': {e.message}"
@@ -229,12 +240,13 @@ class AssetsManager(SearchableAsset):
     def get_all_assets(
         self, db: Session, *, skip: int = 0, limit: int = 100,
         asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
-        domain_id: Optional[str] = None, status: Optional[str] = None
+        domain_id: Optional[str] = None, status: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> PaginatedAssetSummary:
         """Gets a paginated page of asset summaries."""
         filter_kwargs = dict(
             asset_type_id=asset_type_id, platform=platform,
-            domain_id=domain_id, status=status,
+            domain_id=domain_id, status=status, name=name,
         )
         db_assets = self._asset_repo.get_multi_filtered(
             db, skip=skip, limit=limit, **filter_kwargs,

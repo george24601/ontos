@@ -80,7 +80,7 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
             db.rollback()
             raise
 
-    def _apply_filters(self, query, *, asset_type_id=None, platform=None, domain_id=None, status=None):
+    def _apply_filters(self, query, *, asset_type_id=None, platform=None, domain_id=None, status=None, name=None):
         """Apply common filter predicates to a query."""
         if asset_type_id:
             query = query.filter(self.model.asset_type_id == asset_type_id)
@@ -90,12 +90,15 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
             query = query.filter(self.model.domain_id == domain_id)
         if status:
             query = query.filter(self.model.status == status)
+        if name:
+            query = query.filter(self.model.name.ilike(f"%{name}%"))
         return query
 
     def get_multi_filtered(
         self, db: Session, *, skip: int = 0, limit: int = 100,
         asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
-        domain_id: Optional[str] = None, status: Optional[str] = None
+        domain_id: Optional[str] = None, status: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> List[AssetDb]:
         """Gets multiple assets with optional filters."""
         try:
@@ -110,7 +113,7 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
             )
             query = self._apply_filters(
                 query, asset_type_id=asset_type_id, platform=platform,
-                domain_id=domain_id, status=status,
+                domain_id=domain_id, status=status, name=name,
             )
             return query.offset(skip).limit(limit).all()
         except SQLAlchemyError as e:
@@ -122,6 +125,7 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
         self, db: Session, *,
         asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
         domain_id: Optional[str] = None, status: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> int:
         """Returns the total count of assets matching the given filters."""
         try:
@@ -129,7 +133,7 @@ class AssetRepository(CRUDBase[AssetDb, AssetCreate, AssetUpdate]):
             query = db.query(func.count(self.model.id))
             query = self._apply_filters(
                 query, asset_type_id=asset_type_id, platform=platform,
-                domain_id=domain_id, status=status,
+                domain_id=domain_id, status=status, name=name,
             )
             return query.scalar() or 0
         except SQLAlchemyError as e:

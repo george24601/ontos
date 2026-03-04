@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ColumnDef, RowSelectionState, PaginationState } from '@tanstack/react-table';
 import {
-  Box, ChevronDown, MoreHorizontal, PlusCircle, AlertCircle, Loader2, Search,
+  Box, ChevronDown, MoreHorizontal, PlusCircle, AlertCircle, Loader2,
   Table2, Eye, Columns2, LayoutDashboard, Globe, FileCode, Brain, Activity,
-  Server, Shield, BookOpen, Database, FolderOpen, Shapes, FileSpreadsheet,
+  Server, Shield, BookOpen, Database, FolderOpen, Shapes, FileSpreadsheet, FileInput,
 } from 'lucide-react';
 import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Button } from '@/components/ui/button';
@@ -75,6 +75,8 @@ export default function AssetExplorerView() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [assetsTotal, setAssetsTotal] = useState(0);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
+  const [nameFilter, setNameFilter] = useState('');
+  const [debouncedNameFilter, setDebouncedNameFilter] = useState('');
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -132,12 +134,13 @@ export default function AssetExplorerView() {
     limit: number;
   }
 
-  const fetchAssets = useCallback(async (typeId: string | null, page: PaginationState) => {
+  const fetchAssets = useCallback(async (typeId: string | null, page: PaginationState, nameSearch?: string) => {
     setAssetsLoading(true);
     try {
       const skip = page.pageIndex * page.pageSize;
       const params = new URLSearchParams({ skip: String(skip), limit: String(page.pageSize) });
       if (typeId) params.set('asset_type_id', typeId);
+      if (nameSearch) params.set('name', nameSearch);
       const response = await apiGet<PaginatedResponse>(`/api/assets?${params}`);
       if (response.error) throw new Error(response.error);
       const data = response.data;
@@ -177,9 +180,18 @@ export default function AssetExplorerView() {
   }, [fetchAssetTypes, fetchOntologyTypes, setStaticSegments, setDynamicTitle]);
 
   useEffect(() => {
-    fetchAssets(selectedTypeId, pagination);
+    const timer = setTimeout(() => setDebouncedNameFilter(nameFilter), 300);
+    return () => clearTimeout(timer);
+  }, [nameFilter]);
+
+  useEffect(() => {
+    setPagination(prev => prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 });
+  }, [debouncedNameFilter]);
+
+  useEffect(() => {
+    fetchAssets(selectedTypeId, pagination, debouncedNameFilter);
     setRowSelection({});
-  }, [selectedTypeId, pagination, fetchAssets]);
+  }, [selectedTypeId, pagination, debouncedNameFilter, fetchAssets]);
 
   const handleTypeChange = useCallback((typeId: string | null, typeName?: string) => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
@@ -224,7 +236,7 @@ export default function AssetExplorerView() {
       const response = await apiDelete(`/api/assets/${deletingId}`);
       if (response.error) throw new Error(response.error);
       toast({ title: 'Asset deleted' });
-      fetchAssets(selectedTypeId, pagination);
+      fetchAssets(selectedTypeId, pagination, debouncedNameFilter);
       fetchAssetTypes();
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error', description: err.message });
@@ -566,6 +578,8 @@ export default function AssetExplorerView() {
                   columns={columns}
                   data={assets}
                   searchColumn="name"
+                  searchValue={nameFilter}
+                  onSearchChange={setNameFilter}
                   storageKey={`asset-explorer-${selectedTypeId || 'all'}`}
                   onRowClick={(row) => navigate(`/assets/${row.id}`)}
                   rowSelection={rowSelection}
@@ -576,6 +590,17 @@ export default function AssetExplorerView() {
                   onPaginationChange={setPagination}
                   toolbarActions={
                     <div className="flex items-center gap-2">
+                      {canWrite && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9"
+                          onClick={() => navigate('/schema-importer')}
+                        >
+                          <FileInput className="mr-2 h-4 w-4" />
+                          Schema Importer
+                        </Button>
+                      )}
                       {canRead && (
                         <Button
                           size="sm"
@@ -611,7 +636,7 @@ export default function AssetExplorerView() {
           isOpen={isFormOpen}
           onOpenChange={(open) => { setIsFormOpen(open); if (!open) setEditingAsset(null); }}
           onSuccess={() => {
-            fetchAssets(selectedTypeId, pagination);
+            fetchAssets(selectedTypeId, pagination, debouncedNameFilter);
             fetchAssetTypes();
           }}
           assetTypeId={selectedType.id}
@@ -649,7 +674,7 @@ export default function AssetExplorerView() {
         selectedAssetIds={selectedAssetIds}
         canImport={canWrite}
         onImportComplete={() => {
-          fetchAssets(selectedTypeId, pagination);
+          fetchAssets(selectedTypeId, pagination, debouncedNameFilter);
           fetchAssetTypes();
           setRowSelection({});
         }}
