@@ -24,13 +24,21 @@ interface CopilotState {
   };
 }
 
+const VISITED_KEY = 'copilot-sidebar-visited';
+
 export const useCopilotStore = create<CopilotState>()((set) => ({
-  isOpen: false,
+  isOpen: localStorage.getItem(VISITED_KEY) !== 'true',
   pageContext: null,
   actions: {
-    togglePanel: () => set((state) => ({ isOpen: !state.isOpen })),
+    togglePanel: () => set((state) => {
+      if (state.isOpen) localStorage.setItem(VISITED_KEY, 'true');
+      return { isOpen: !state.isOpen };
+    }),
     openPanel: () => set({ isOpen: true }),
-    closePanel: () => set({ isOpen: false }),
+    closePanel: () => {
+      localStorage.setItem(VISITED_KEY, 'true');
+      set({ isOpen: false });
+    },
     setContext: (pageName, pageUrl, selectedEntity) =>
       set({ pageContext: { pageName, pageUrl, selectedEntity } }),
     clearContext: () => set({ pageContext: null }),

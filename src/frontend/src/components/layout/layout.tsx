@@ -1,10 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { MessageSquareText } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLayoutStore } from '@/stores/layout-store';
 import { useCopilotStore } from '@/stores/copilot-store';
@@ -36,16 +35,22 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      {/* Floating Ask Ontos button */}
+      {/* Right-edge Ask Ontos tab */}
       {!isCopilotOpen && (
-        <Button
+        <button
           onClick={togglePanel}
-          className="fixed bottom-6 right-6 z-40 gap-2 shadow-lg"
-          size="sm"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40
+            flex flex-col items-center gap-2 px-1.5 py-4
+            bg-gradient-to-b from-violet-500 to-purple-600
+            text-white rounded-l-xl shadow-lg
+            hover:px-2.5 hover:shadow-violet-500/25 hover:shadow-xl
+            transition-all duration-200"
         >
-          <MessageSquareText className="h-4 w-4" />
-          {t('search:copilot.button')}
-        </Button>
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span className="text-xs font-medium [writing-mode:vertical-rl] rotate-180">
+            {t('search:copilot.button')}
+          </span>
+        </button>
       )}
 
       <CopilotPanel />
