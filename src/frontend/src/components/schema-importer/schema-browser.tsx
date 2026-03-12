@@ -12,13 +12,20 @@ import {
   Braces,
   X,
   Search,
+  AlertCircle,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useApi } from '@/hooks/use-api';
 import { parseSearchQuery, matchesSegment } from '@/lib/uc-search-parser';
-import type { BrowseNode } from '@/types/schema-import';
+import type { BrowseNode, BrowseResponse } from '@/types/schema-import';
 
 interface TreeNode extends BrowseNode {
   children?: TreeNode[];
@@ -31,6 +38,12 @@ interface SchemaBrowserProps {
   connectionId: string | null;
   selectedPaths: Set<string>;
   onSelectionChange: (paths: Set<string>) => void;
+}
+
+interface LoadResult {
+  nodes: TreeNode[];
+  error?: string | null;
+  errorDetail?: string | null;
 }
 
 const nodeIconMap: Record<string, typeof Database> = {
@@ -85,6 +98,8 @@ export default function SchemaBrowser({
   const { get: apiGet } = useApi();
   const [roots, setRoots] = useState<TreeNode[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const [browseErrorDetail, setBrowseErrorDetail] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
   const apiGetRef = useRef(apiGet);
@@ -95,19 +110,26 @@ export default function SchemaBrowser({
   const lastProcessedSearchRef = useRef('');
 
   const loadChildren = useCallback(
-    async (connId: string, path: string | null): Promise<TreeNode[]> => {
+    async (connId: string, path: string | null): Promise<LoadResult> => {
       const url = path
         ? `/api/schema-import/browse/${connId}?path=${encodeURIComponent(path)}`
         : `/api/schema-import/browse/${connId}`;
-      const resp = await apiGetRef.current<{ nodes: BrowseNode[] }>(url);
-      if (!resp.data?.nodes) return [];
-      return resp.data.nodes.map((n) => ({
+      const resp = await apiGetRef.current<BrowseResponse>(url);
+      if (resp.error) {
+        return { nodes: [], error: resp.error, errorDetail: resp.error };
+      }
+      const nodes = (resp.data?.nodes ?? []).map((n) => ({
         ...n,
         children: undefined,
         isExpanded: false,
         isLoading: false,
         level: path ? path.split('.').length : 0,
       }));
+      return {
+        nodes,
+        error: resp.data?.error,
+        errorDetail: resp.data?.error_detail,
+      };
     },
     [],
   );
@@ -116,15 +138,23 @@ export default function SchemaBrowser({
   useEffect(() => {
     if (!connectionId) {
       setRoots([]);
+      setBrowseError(null);
+      setBrowseErrorDetail(null);
       return;
     }
     let cancelled = false;
     setIsInitialLoading(true);
+    setBrowseError(null);
+    setBrowseErrorDetail(null);
     setSearch('');
     setHighlightedPath(null);
     loadChildren(connectionId, null)
-      .then((nodes) => {
-        if (!cancelled) setRoots(nodes);
+      .then((result) => {
+        if (!cancelled) {
+          setRoots(result.nodes);
+          setBrowseError(result.error ?? null);
+          setBrowseErrorDetail(result.errorDetail ?? null);
+        }
       })
       .catch((err) => {
         if (!cancelled) console.error('Failed to load root nodes:', err);
@@ -150,9 +180,9 @@ export default function SchemaBrowser({
       const currentNode = findNodeByPath(rootsRef.current, path);
       if (currentNode && !currentNode.children && currentNode.has_children && !currentNode.isExpanded) {
         try {
-          const children = await loadChildren(connectionId, path);
+          const result = await loadChildren(connectionId, path);
           setRoots((prev) =>
-            updateNode(prev, path, (n) => ({ ...n, children, isExpanded: true, isLoading: false })),
+            updateNode(prev, path, (n) => ({ ...n, children: result.nodes, isExpanded: true, isLoading: false })),
           );
         } catch {
           setRoots((prev) => updateNode(prev, path, (n) => ({ ...n, isLoading: false })));
@@ -183,16 +213,16 @@ export default function SchemaBrowser({
       setRoots(updated);
 
       try {
-        const children = await loadChildren(connId, nodePath);
+        const result = await loadChildren(connId, nodePath);
         updated = updateNode(updated, nodePath, (n) => ({
           ...n,
-          children,
+          children: result.nodes,
           isExpanded: true,
           isLoading: false,
         }));
         setRoots(updated);
         rootsRef.current = updated;
-        return [updated, children];
+        return [updated, result.nodes];
       } catch {
         updated = updateNode(updated, nodePath, (n) => ({ ...n, isLoading: false }));
         setRoots(updated);
@@ -433,6 +463,31 @@ export default function SchemaBrowser({
   }
 
   if (roots.length === 0) {
+    if (browseError) {
+      return (
+        <div className="flex items-center justify-center h-64 px-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Connection Error</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>{browseError}</p>
+              {browseErrorDetail && (
+                <Collapsible>
+                  <CollapsibleTrigger className="text-xs underline cursor-pointer">
+                    Show details
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <pre className="text-xs mt-2 p-2 bg-muted rounded whitespace-pre-wrap break-all">
+                      {browseErrorDetail}
+                    </pre>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
         No resources found for this connection

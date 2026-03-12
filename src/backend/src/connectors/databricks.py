@@ -965,6 +965,7 @@ class DatabricksConnector(AssetConnector):
                     })
         except Exception as e:
             logger.warning(f"Error listing containers for {parent_path}: {e}")
+            raise ConnectorConnectionError(f"Failed to list resources: {e}") from e
         
         return containers
     

@@ -124,9 +124,18 @@ class SchemaImportManager:
             raise ValueError(f"Connection '{connection_id}' not found or connector unavailable")
 
         nodes: List[BrowseNode] = []
+        browse_error = None
+        browse_error_detail = None
 
         # Use list_containers for top-level / container navigation
-        containers = connector.list_containers(parent_path=path)
+        try:
+            containers = connector.list_containers(parent_path=path)
+        except Exception as exc:
+            logger.warning(f"Connector error browsing {connection_id}: {exc}")
+            browse_error = "Connection error"
+            browse_error_detail = str(exc)
+            containers = []
+
         for c in containers:
             nodes.append(BrowseNode(
                 name=c.get("name", ""),
@@ -161,6 +170,8 @@ class SchemaImportManager:
             connection_id=connection_id,
             path=path,
             nodes=nodes,
+            error=browse_error,
+            error_detail=browse_error_detail,
         )
 
     # ------------------------------------------------------------------

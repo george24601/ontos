@@ -33,6 +33,8 @@ class BrowseResponse(BaseModel):
     connection_id: UUID
     path: Optional[str] = None
     nodes: List[BrowseNode] = Field(default_factory=list)
+    error: Optional[str] = Field(None, description="Short error message if browsing failed")
+    error_detail: Optional[str] = Field(None, description="Full error details for debugging")
 
 
 # ---------------------------------------------------------------------------

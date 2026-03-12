@@ -12,6 +12,8 @@ export interface BrowseResponse {
   connection_id: string;
   path: string | null;
   nodes: BrowseNode[];
+  error?: string | null;
+  error_detail?: string | null;
 }
 
 export type ImportDepth = 'selected_only' | 'one_level' | 'full_recursive';

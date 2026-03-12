@@ -885,6 +885,7 @@ class BigQueryConnector(AssetConnector):
                     })
         except Exception as exc:
             logger.warning(f"Error listing containers for {parent_path}: {exc}")
+            raise ConnectorConnectionError(f"Failed to list resources: {exc}") from exc
 
         return containers
 
