@@ -7,7 +7,6 @@ business questions about data products, glossary terms, costs, and analytics.
 """
 
 import json
-import os
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
@@ -718,59 +717,12 @@ class LLMSearchManager:
             debug_info["max_iterations_reached"] = True
         return f"I apologize, but I reached the maximum number of steps ({max_iterations}) while processing your request. I made {total_tool_calls} tool calls. Please try a simpler question or break it into smaller parts.", total_tool_calls, sources, debug_info
     
-    def _get_openai_client(self):
-        """Get OpenAI client for Databricks LLM serving endpoint.
-        
-        Authentication priority:
-        1. DATABRICKS_TOKEN from settings/.env (for local development)
-        2. Databricks SDK default config (OBO token in Databricks Apps)
-        
-        Note: We check .env settings first so local development uses the configured
-        workspace, not ~/.databrickscfg. In Databricks Apps, DATABRICKS_TOKEN is
-        typically not set, so it falls through to SDK config (OBO).
+    def _get_openai_client(self, user_token: Optional[str] = None):
+        """Get OpenAI client via the shared factory.
+
+        Args:
+            user_token: Per-user OBO token (optional, for Databricks Apps context).
         """
-        try:
-            from openai import OpenAI
-            
-            token = None
-            
-            # First try explicit token from settings/.env (local development)
-            token = self._settings.DATABRICKS_TOKEN or os.environ.get('DATABRICKS_TOKEN')
-            if token:
-                logger.info("Using token from settings/environment (PAT)")
-            
-            # Fall back to Databricks SDK config (OBO in Apps, ~/.databrickscfg locally)
-            if not token:
-                try:
-                    from databricks.sdk.core import Config
-                    config = Config()
-                    headers = config.authenticate()
-                    if headers and 'Authorization' in headers:
-                        auth_header = headers['Authorization']
-                        if auth_header.startswith('Bearer '):
-                            token = auth_header[7:]
-                            logger.info("Using token from Databricks SDK (user credentials)")
-                except Exception as sdk_err:
-                    logger.debug(f"Could not get token from SDK config: {sdk_err}")
-            
-            if not token:
-                raise RuntimeError("No authentication token available. Ensure the app has access to a serving endpoint or set DATABRICKS_TOKEN.")
-            
-            # Determine base URL
-            base_url = self._settings.LLM_BASE_URL
-            if not base_url and self._settings.DATABRICKS_HOST:
-                host = self._settings.DATABRICKS_HOST.rstrip('/')
-                # Ensure the URL has a protocol
-                if not host.startswith('http://') and not host.startswith('https://'):
-                    host = f"https://{host}"
-                base_url = f"{host}/serving-endpoints"
-            
-            if not base_url:
-                raise RuntimeError("LLM_BASE_URL not configured. Set LLM_BASE_URL or DATABRICKS_HOST.")
-            
-            logger.info(f"Creating OpenAI client for base_url={base_url}, endpoint={self._settings.LLM_ENDPOINT}")
-            return OpenAI(api_key=token, base_url=base_url)
-            
-        except Exception as e:
-            logger.error(f"Failed to create OpenAI client: {e}", exc_info=True)
-            raise RuntimeError(f"LLM connection failed: {e}")
+        from src.common.llm_client import create_openai_client
+
+        return create_openai_client(self._settings, user_token=user_token)

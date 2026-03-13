@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/theme';
 import Layout from './components/layout/layout';
@@ -61,6 +61,10 @@ import CollectionsView from './views/collections';
 import HierarchyBrowserView from './views/hierarchy-browser';
 import SchemaImporterView from './views/schema-importer';
 import OwnerConsumersView from './views/owner-consumers';
+import OntologyGeneratorView from './views/ontology-generator';
+
+// Dev/prototype components
+const DevLineageView = lazy(() => import('./components/lineage/dev-lineage-route'));
 
 // Concepts layout
 import ConceptsLayout from './components/concepts/concepts-layout';
@@ -132,6 +136,7 @@ export default function App() {
               <Route path="/business-roles" element={<Navigate to="/settings/business-roles" replace />} />
               <Route path="/business-owners" element={<BusinessOwnersView />} />
               <Route path="/schema-importer" element={<SchemaImporterView />} />
+              <Route path="/ontology-generator" element={<Navigate to="/concepts/generator" replace />} />
               <Route path="/data-asset-reviews" element={<DataAssetReviews />} />
               <Route path="/data-asset-reviews/:requestId" element={<DataAssetReviewDetails />} />
               <Route path="/data-catalog" element={<DataCatalog />} />
@@ -145,6 +150,7 @@ export default function App() {
                 <Route path="search" element={<OntologySearchView />} />
                 <Route path="graph" element={<OntologyHomeView />} />
                 <Route path="hierarchy" element={<HierarchyBrowserView />} />
+                <Route path="generator" element={<OntologyGeneratorView />} />
               </Route>
               {/* Backward compat: redirect old concept paths */}
               <Route path="/semantic-models" element={<Navigate to="/concepts/browser" replace />} />
@@ -205,6 +211,9 @@ export default function App() {
               <Route path="/user-guide" element={<UserGuide />} />
               <Route path="/database-schema" element={<DatabaseSchema />} />
               <Route path="/user-docs/:docName" element={<DocumentationViewer />} />
+
+              {/* Temporary dev route for lineage column view prototype */}
+              <Route path="/dev/lineage" element={<Suspense fallback={<div className="flex items-center justify-center h-96">Loading…</div>}><DevLineageView /></Suspense>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

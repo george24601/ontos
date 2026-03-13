@@ -7,6 +7,7 @@ import {
   Brain,
   Globe2,
   TreePine,
+  Wand2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -23,6 +24,7 @@ const conceptsNavItems: ConceptsNavItem[] = [
   { path: '/concepts/search', labelKey: 'concepts:nav.search', defaultLabel: 'Search', icon: Brain },
   { path: '/concepts/graph', labelKey: 'concepts:nav.graph', defaultLabel: 'Graph', icon: Globe2 },
   { path: '/concepts/hierarchy', labelKey: 'concepts:nav.hierarchy', defaultLabel: 'Hierarchy', icon: TreePine },
+  { path: '/concepts/generator', labelKey: 'concepts:nav.generator', defaultLabel: 'Generator', icon: Wand2 },
 ];
 
 export default function ConceptsLayout() {

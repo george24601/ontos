@@ -66,6 +66,7 @@ from src.routes import (
     business_roles_routes,
     business_owners_routes,
     ontology_schema_routes,
+    ontology_generator_routes,
     entity_relationship_routes,
     entity_subscription_routes,
     business_lineage_routes,
@@ -227,6 +228,7 @@ openapi_tags = [
     {"name": "Semantic Models", "description": "Manage semantic models and ontologies"},
     {"name": "Semantic Links", "description": "Manage semantic links between entities"},
     {"name": "Industry Ontologies", "description": "Industry Ontology Library for importing standard ontologies"},
+    {"name": "Ontology Generator", "description": "LLM-based ontology generation from table metadata"},
     
     # Operations - Monitoring and technical management
     {"name": "Estates", "description": "Manage data estates"},
@@ -321,6 +323,7 @@ semantic_models_routes.register_routes(app)
 semantic_links_routes.register_routes(app)
 industry_ontology_routes.register_routes(app)  # Industry Ontology Library
 ontology_schema_routes.register_routes(app)
+ontology_generator_routes.register_routes(app)
 entity_relationship_routes.register_routes(app)
 entity_subscription_routes.register_routes(app)
 business_lineage_routes.register_routes(app)

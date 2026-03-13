@@ -340,6 +340,14 @@ def initialize_managers(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to initialize OntologySchemaManager: {e}", exc_info=True)
 
+        # --- OntologyGeneratorManager ---
+        try:
+            from src.controller.ontology_generator_manager import OntologyGeneratorManager
+            app.state.ontology_generator_manager = OntologyGeneratorManager(settings=settings)
+            logger.info("OntologyGeneratorManager initialized.")
+        except Exception as e:
+            logger.error(f"Failed to initialize OntologyGeneratorManager: {e}", exc_info=True)
+
         # --- EntityRelationshipsManager ---
         try:
             from src.controller.entity_relationships_manager import EntityRelationshipsManager

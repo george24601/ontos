@@ -11,7 +11,6 @@ All interactions use the OpenAI SDK with Databricks endpoints.
 from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
-import os
 
 from src.common.config import Settings, get_settings
 from src.common.logging import get_logger
@@ -48,51 +47,17 @@ class LLMService:
         self.settings = settings
 
     def _get_openai_client(self, user_token: Optional[str] = None):
-        """
-        Create OpenAI client for Databricks with proper authentication.
-
-        In Databricks Apps: Uses user_token from x-forwarded-access-token header
-        In local dev: Falls back to DATABRICKS_TOKEN from settings/env
+        """Create OpenAI client via the shared factory.
 
         Args:
             user_token: Per-user access token from request header (Databricks Apps context)
 
         Returns:
             Configured OpenAI client instance
-
-        Note: Creates new client instance each time (not cached) because each user
-        has a different token in Databricks Apps context.
         """
-        try:
-            from openai import OpenAI
+        from src.common.llm_client import create_openai_client
 
-            # Use user token (Databricks Apps) or fall back to global token (local dev)
-            token = user_token or self.settings.DATABRICKS_TOKEN or os.environ.get('DATABRICKS_TOKEN')
-            if not token:
-                raise RuntimeError("No authentication token available (user_token or DATABRICKS_TOKEN)")
-
-            # Derive base URL from explicit config or DATABRICKS_HOST
-            base_url = self.settings.LLM_BASE_URL
-            if not base_url and self.settings.DATABRICKS_HOST:
-                # Use same host as workspace client + /serving-endpoints suffix
-                base_url = f"{self.settings.DATABRICKS_HOST.rstrip('/')}/serving-endpoints"
-
-            if not base_url:
-                raise RuntimeError("LLM_BASE_URL not configured and cannot be derived from DATABRICKS_HOST")
-
-            # Create new client instance (don't cache - each user has different token)
-            client = OpenAI(
-                api_key=token,
-                base_url=base_url
-            )
-
-            token_source = "user_token" if user_token else "DATABRICKS_TOKEN"
-            logger.info(f"OpenAI client created for Databricks at {base_url} (auth: {token_source})")
-            return client
-
-        except Exception as e:
-            logger.error(f"Failed to create OpenAI client: {e}")
-            raise RuntimeError(f"OpenAI client initialization failed: {e}")
+        return create_openai_client(self.settings, user_token=user_token)
 
     def is_enabled(self) -> bool:
         """Check if LLM functionality is enabled."""
