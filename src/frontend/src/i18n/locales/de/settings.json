@@ -12,7 +12,7 @@
     "teams": "Teams",
     "projects": "Projekte",
     "roles": "Rollen",
-    "semanticModels": "Semantische Modelle",
+    "rdfSources": "RDF-Quellen",
     "tags": "Tags",
     "search": "Suche",
     "mcpTokens": "MCP-Token",

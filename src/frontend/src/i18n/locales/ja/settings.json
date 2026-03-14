@@ -12,7 +12,7 @@
     "teams": "チーム",
     "projects": "プロジェクト",
     "roles": "ロール",
-    "semanticModels": "セマンティックモデル",
+    "rdfSources": "RDFソース",
     "tags": "タグ",
     "search": "検索",
     "mcpTokens": "MCPトークン",

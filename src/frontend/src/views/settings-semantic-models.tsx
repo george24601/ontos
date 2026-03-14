@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 export default function SettingsSemanticModelsView() {
   const { t } = useTranslation(['settings']);
   return (
-    <SettingsPageWrapper title={t('settings:tabs.semanticModels', 'Semantic Models')}>
+    <SettingsPageWrapper title={t('settings:tabs.rdfSources', 'RDF Sources')}>
       <SemanticModelsSettings />
     </SettingsPageWrapper>
   );
