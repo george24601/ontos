@@ -21,7 +21,9 @@ CATEGORY_KEYWORDS = {
     ],
     "data_products": [
         "data product", "product", "products", "output port", "output table",
-        "create product", "draft product", "publish"
+        "create product", "draft product", "publish",
+        "find data", "search data", "discover data", "data about", "where is data",
+        "help me find", "looking for data", "available data", "what data"
     ],
     "data_contracts": [
         "contract", "contracts", "data contract", "agreement", "sla",
@@ -54,7 +56,7 @@ CATEGORY_KEYWORDS = {
 ALWAYS_INCLUDED_CATEGORIES = ["discovery"]
 
 # Default categories when no specific match is found
-DEFAULT_CATEGORIES = ["discovery", "data_products", "unity_catalog"]
+DEFAULT_CATEGORIES = ["discovery", "data_products", "data_contracts", "semantic"]
 
 
 def classify_query(query: str) -> List[str]:

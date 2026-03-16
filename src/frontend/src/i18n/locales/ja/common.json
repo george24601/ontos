@@ -110,7 +110,7 @@
     "columns": "列",
     "tables": "テーブル",
     "relationships": "リレーション",
-    "conceptGraph": "コンセプトグラフ",
+    "viewGraph": "グラフを表示",
     "concepts": "概念",
     "securableId": "セキュリティ対象ID",
     "securableType": "セキュリティ対象タイプ",
@@ -266,6 +266,8 @@
   "userMenu": {
     "role": "ロール",
     "profile": "プロフィール",
+    "settings": "設定",
+    "about": "情報",
     "applyRoleOverride": "ロールオーバーライドを適用",
     "featurePreviews": "機能プレビュー",
     "showBetaFeatures": "ベータ機能を表示",

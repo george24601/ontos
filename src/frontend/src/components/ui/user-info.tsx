@@ -13,7 +13,7 @@ import {
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, User as UserIcon, FlaskConical, Beaker, Users as UsersIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, FlaskConical, Beaker, Users as UsersIcon, Settings, Info } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useFeatureVisibilityStore } from '@/stores/feature-visibility-store';
 import { usePermissions } from '@/stores/permissions-store';
@@ -22,7 +22,6 @@ import { ACCESS_LEVEL_ORDER } from '../../lib/permissions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
 import UserProfileDialog from '@/components/ui/user-profile-dialog';
-
 interface UserInfoData {
   email: string | null;
   username: string | null;
@@ -183,14 +182,13 @@ export default function UserInfo() {
   const filteredRolesForOverride = availableRoles.filter((role) => role.name !== (canonicalActualRoleName || ''));
 
   // Handle RadioGroup changes
-  const handleRoleChange = (value: string) => {
-      setRadioValue(value); // Update local state for the radio button
+  const handleRoleChange = async (value: string) => {
+      setRadioValue(value);
       if (value === 'actual') {
-          setRoleOverride(null);
+          await setRoleOverride(null);
       } else {
-          setRoleOverride(value); // value is the role.id for overrides
+          await setRoleOverride(value);
       }
-      // Soft refresh: navigate home to trigger view queries without full reload
       navigate('/');
   };
 
@@ -226,6 +224,14 @@ export default function UserInfo() {
             <DropdownMenuItem onSelect={() => setProfileDialogOpen(true)}>
                 <UserIcon className="mr-2 h-4 w-4" />
                 <span>{t('userMenu.profile')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>{t('userMenu.settings', 'Settings')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => navigate('/about')}>
+                <Info className="mr-2 h-4 w-4" />
+                <span>{t('userMenu.about', 'About')}</span>
             </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -273,6 +279,7 @@ export default function UserInfo() {
                     className="scale-75"
                  />
             </DropdownMenuItem>
+            {isAdminActual && (
              <DropdownMenuItem
                 className="flex items-center justify-between"
                 onSelect={(e) => e.preventDefault()}
@@ -287,6 +294,7 @@ export default function UserInfo() {
                     className="scale-75"
                 />
             </DropdownMenuItem>
+            )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>

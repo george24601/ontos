@@ -57,8 +57,23 @@ from src.routes import (
     tags_routes,
     teams_routes,
     projects_routes,
+    connection_routes,
+    schema_import_routes,
+    asset_bulk_routes,
     costs_routes,
+    quality_routes,
     workflows_routes,
+    assets_routes,
+    business_roles_routes,
+    business_owners_routes,
+    delivery_methods_routes,
+    ontology_schema_routes,
+    ontology_generator_routes,
+    entity_relationship_routes,
+    entity_subscription_routes,
+    business_lineage_routes,
+    readiness_routes,
+    suggestion_routes,
 )
 
 from src.common.database import init_db, get_session_factory, SQLAlchemySession
@@ -166,6 +181,8 @@ async def startup_event():
                 continue
         app.state.search_manager = SearchManager(searchable_managers=searchable_managers_instances)
         app.state.search_manager.build_index()
+        for mgr in searchable_managers_instances:
+            mgr.set_search_manager(app.state.search_manager)
         logger.info("Search index initialized and built from DB-backed managers (app.py).")
     except Exception as e:
         logger.error(f"Failed initializing or building search index in app.py: {e}", exc_info=True)
@@ -209,10 +226,11 @@ openapi_tags = [
     {"name": "Process Workflows", "description": "Manage process workflows"},
     {"name": "Data Asset Reviews", "description": "Manage data asset review workflows"},
 
-    # Business Glossary - Semantic models and ontologies
+    # Concept Browser - Semantic models and ontologies
     {"name": "Semantic Models", "description": "Manage semantic models and ontologies"},
     {"name": "Semantic Links", "description": "Manage semantic links between entities"},
     {"name": "Industry Ontologies", "description": "Industry Ontology Library for importing standard ontologies"},
+    {"name": "Ontology Generator", "description": "LLM-based ontology generation from table metadata"},
     
     # Operations - Monitoring and technical management
     {"name": "Estates", "description": "Manage data estates"},
@@ -240,6 +258,10 @@ openapi_tags = [
     {"name": "MCP Tokens", "description": "Manage MCP access tokens"},
     {"name": "Self Service", "description": "Self-service data product creation"},
     {"name": "Settings", "description": "Application settings and configuration"},
+    {"name": "Connections", "description": "Manage external data platform connections"},
+    {"name": "Schema Import", "description": "Browse remote systems and import schemas as Ontos assets"},
+    {"name": "Asset Bulk", "description": "Bulk import and export of assets via CSV/XLSX"},
+    {"name": "Delivery Methods", "description": "Manage delivery methods for output ports"},
 ]
 
 # Create single FastAPI app with settings dependency
@@ -287,16 +309,31 @@ teams_routes.register_routes(app)
 projects_routes.register_routes(app)
 tags_routes.register_routes(app)
 costs_routes.register_routes(app)
+quality_routes.register_routes(app)
 datasets_routes.register_routes(app)
 data_contracts_routes.register_routes(app)
 data_product_routes.register_routes(app)
 from src.routes import approvals_routes
 approvals_routes.register_routes(app)
 
+# Reference Data - Assets, Business Roles & Owners
+assets_routes.register_routes(app)
+asset_bulk_routes.register_routes(app)
+business_roles_routes.register_routes(app)
+business_owners_routes.register_routes(app)
+delivery_methods_routes.register_routes(app)
+
 # Governance - Standards and approval workflows
 semantic_models_routes.register_routes(app)
 semantic_links_routes.register_routes(app)
 industry_ontology_routes.register_routes(app)  # Industry Ontology Library
+ontology_schema_routes.register_routes(app)
+ontology_generator_routes.register_routes(app)
+entity_relationship_routes.register_routes(app)
+entity_subscription_routes.register_routes(app)
+business_lineage_routes.register_routes(app)
+readiness_routes.register_routes(app)
+suggestion_routes.register_routes(app)
 data_asset_reviews_routes.register_routes(app)
 data_catalog_routes.register_routes(app)
 
@@ -328,6 +365,8 @@ mcp_tokens_routes.register_routes(app)
 self_service_routes.register_routes(app)
 workflows_routes.register_routes(app)
 settings_routes.register_routes(app)
+connection_routes.register_routes(app)
+schema_import_routes.register_routes(app)
 
 # Define other specific API routes BEFORE the catch-all
 @app.get("/api/time")

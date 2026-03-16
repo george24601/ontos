@@ -35,7 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AuditLog, PaginatedAuditLogResponse, AuditLogFilters } from '@/types/audit-log';
-import { Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';
+import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -168,13 +169,18 @@ export default function AuditTrail() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">{t('title')}</h1>
-        <p className="text-muted-foreground mt-2">
+    <SettingsPageWrapper title={t('title')}>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <ScrollText className="w-8 h-8" />
+          {t('title')}
+        </h1>
+        <p className="text-muted-foreground mt-1">
           {t('description')}
         </p>
       </div>
+
+      <div className="space-y-6">
 
       {/* Filters */}
       <Card>
@@ -353,6 +359,7 @@ export default function AuditTrail() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </SettingsPageWrapper>
   );
 }

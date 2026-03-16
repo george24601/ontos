@@ -1,5 +1,6 @@
 {
   "title": "Teams",
+  "subtitle": "Manage teams and their members across your organization.",
   "addNewTeam": "Add New Team",
   "editTeam": "Edit Team",
   "deleteTeam": "Delete Team",

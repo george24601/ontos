@@ -32,8 +32,8 @@ class RdfTriplesRepository(CRUDBase[RdfTripleDb, dict, dict]):
         predicate_uri: str,
         object_value: str,
         object_is_uri: bool = True,
-        object_language: Optional[str] = None,
-        object_datatype: Optional[str] = None,
+        object_language: str = '',
+        object_datatype: str = '',
         context_name: str = 'default',
         source_type: Optional[str] = None,
         source_identifier: Optional[str] = None,
@@ -125,8 +125,8 @@ class RdfTriplesRepository(CRUDBase[RdfTripleDb, dict, dict]):
         predicate_uri: str,
         object_value: str,
         context_name: str = 'default',
-        object_language: Optional[str] = None,
-        object_datatype: Optional[str] = None,
+        object_language: str = '',
+        object_datatype: str = '',
     ) -> bool:
         """Remove a specific triple from the database.
         
@@ -138,19 +138,10 @@ class RdfTriplesRepository(CRUDBase[RdfTripleDb, dict, dict]):
                 RdfTripleDb.predicate_uri == predicate_uri,
                 RdfTripleDb.object_value == object_value,
                 RdfTripleDb.context_name == context_name,
+                RdfTripleDb.object_language == object_language,
+                RdfTripleDb.object_datatype == object_datatype,
             )
         )
-        
-        # Handle nullable fields in unique constraint
-        if object_language is not None:
-            query = query.filter(RdfTripleDb.object_language == object_language)
-        else:
-            query = query.filter(RdfTripleDb.object_language.is_(None))
-            
-        if object_datatype is not None:
-            query = query.filter(RdfTripleDb.object_datatype == object_datatype)
-        else:
-            query = query.filter(RdfTripleDb.object_datatype.is_(None))
         
         deleted = query.delete(synchronize_session=False)
         db.flush()

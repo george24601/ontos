@@ -2,7 +2,7 @@
   "rebuildGraph": "Reconstruir grafo",
   "rebuildingGraph": "Reconstruyendo…",
   "rebuildGraphTooltip": "Recargar ontologías, fuentes implícitas y objetos de la aplicación para que todo sea consultable.",
-  "title": "Glosario de Negocio",
+  "title": "Navegador de conceptos",
   "subtitle": "Gestiona glosarios de negocio y definiciones semánticas",
   "newModel": "Nuevo Glosario",
   "newTerm": "Nuevo Término",

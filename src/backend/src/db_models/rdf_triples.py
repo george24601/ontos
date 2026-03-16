@@ -32,8 +32,8 @@ class RdfTripleDb(Base):
     
     # Object type information
     object_is_uri = Column(Boolean, nullable=False, default=True)
-    object_language = Column(String(10), nullable=True)  # e.g., "en", "de" for lang-tagged literals
-    object_datatype = Column(Text, nullable=True)  # e.g., xsd:integer for typed literals
+    object_language = Column(String(10), nullable=False, default='', server_default='')  # e.g., "en", "de" for lang-tagged literals
+    object_datatype = Column(Text, nullable=False, default='', server_default='')  # e.g., xsd:integer for typed literals
     
     # Named graph / context
     context_name = Column(Text, nullable=False, default='default', index=True)

@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import { Toaster } from "@/components/ui/toaster";
-import useBreadcrumbStore from '@/stores/breadcrumb-store';
+import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 import { ProjectFormDialog } from '@/components/projects/project-form-dialog';
 import { useTranslation } from 'react-i18next';
 
@@ -46,8 +46,6 @@ export default function ProjectsView() {
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
-  const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
-  const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
 
   const featureId = 'projects';
   const canRead = !permissionsLoading && hasPermission(featureId, FeatureAccessLevel.READ_ONLY);
@@ -79,13 +77,7 @@ export default function ProjectsView() {
 
   useEffect(() => {
     fetchProjects();
-    setStaticSegments([]);
-    setDynamicTitle(t('title'));
-    return () => {
-        setStaticSegments([]);
-        setDynamicTitle(null);
-    };
-  }, [fetchProjects, setStaticSegments, setDynamicTitle, t]);
+  }, [fetchProjects]);
 
   const handleOpenCreateDialog = () => {
     if (!canWrite) {
@@ -283,12 +275,13 @@ export default function ProjectsView() {
   ], [canWrite, canAdmin, t, handleOpenEditDialog]);
 
   return (
-    <div className="py-6">
+    <SettingsPageWrapper title={t('title')}>
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
            <FolderOpen className="w-8 h-8" />
            {t('title')}
         </h1>
+        <p className="text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {(apiIsLoading || permissionsLoading) ? (
@@ -345,6 +338,6 @@ export default function ProjectsView() {
       </AlertDialog>
 
       <Toaster />
-    </div>
+    </SettingsPageWrapper>
   );
 }

@@ -24,7 +24,6 @@ class AppRoleDb(Base):
     home_sections = Column(Text, nullable=False, default='[]')
     # Approval privileges JSON (e.g., {"CONTRACTS": true, "PRODUCTS": true})
     approval_privileges = Column(Text, nullable=False, default='{}')
-    
     # Deployment policy JSON (catalog/schema restrictions, nullable for backward compatibility)
     deployment_policy = Column(Text, nullable=True, comment="Deployment policy for this role (catalog/schema restrictions)")
 

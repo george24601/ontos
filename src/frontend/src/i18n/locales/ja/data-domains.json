@@ -1,5 +1,6 @@
 {
   "title": "データドメイン",
+  "subtitle": "組織の階層的なデータドメインを整理・管理します。",
   "addNewDomain": "新しいドメインを追加",
   "viewDetails": "詳細を表示",
   "editDomain": "ドメインを編集",

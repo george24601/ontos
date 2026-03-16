@@ -4,9 +4,10 @@
   "tabs": {
     "askOntos": "Preguntar a Ontos",
     "indexSearch": "Búsqueda de Índice",
-    "conceptGraph": "Grafo de Conceptos",
-    "knowledgeGraph": "Grafo de Conocimiento",
-    "concepts": "Conceptos"
+    "viewGraph": "Ver Grafo",
+    "searchGraph": "Buscar Grafo",
+    "concepts": "Conceptos",
+    "knowledgeGraph": "Grafo de Conocimiento"
   },
   "noResults": "No se encontraron resultados",
   "noResultsHint": "Intenta ajustar tus términos de búsqueda o filtros",

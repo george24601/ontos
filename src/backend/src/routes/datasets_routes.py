@@ -1,7 +1,12 @@
 """
-Datasets API Routes
+Datasets API Routes (DEPRECATED)
 
-FastAPI endpoints for Dataset CRUD operations, subscriptions, and queries.
+DEPRECATED: This module is superseded by the Asset-based model (Phase 4-6 of the
+ontology-driven redesign). Datasets are now stored as Asset entities with
+asset_type="Dataset". Use /api/assets endpoints instead.
+
+This module is kept for backward compatibility during transition. It will be
+removed in a future version.
 """
 
 from typing import List, Optional

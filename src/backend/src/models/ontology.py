@@ -38,14 +38,6 @@ class ConceptStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-class OwnershipRole(str, Enum):
-    BUSINESS_OWNER = "business_owner"
-    DATA_STEWARD = "data_steward"
-    TECHNICAL_OWNER = "technical_owner"
-    SME = "sme"
-    CONTRIBUTOR = "contributor"
-
-
 class PromotionType(str, Enum):
     PROMOTED = "promoted"
     DEMOTED = "demoted"
@@ -55,14 +47,6 @@ class PromotionType(str, Enum):
 # ============================================================================
 # KNOWLEDGE COLLECTION MODELS
 # ============================================================================
-
-class OwnershipInfo(BaseModel):
-    """Ownership assignment with role"""
-    user_uri: str
-    role: OwnershipRole
-    assigned_at: Optional[datetime] = None
-    assigned_by: Optional[str] = None
-
 
 class KnowledgeCollection(BaseModel):
     """A glossary, taxonomy, or ontology containing concepts"""
@@ -141,7 +125,6 @@ class OntologyConcept(BaseModel):
     # Governance fields (for custom concepts)
     status: Optional[ConceptStatus] = None
     version: Optional[str] = None
-    owners: List[OwnershipInfo] = []
     
     # Lifecycle timestamps
     created_at: Optional[datetime] = None

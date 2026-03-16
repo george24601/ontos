@@ -1,5 +1,6 @@
 {
   "title": "Projects",
+  "subtitle": "Create and manage projects to organize teams and workspace isolation.",
   "addNewProject": "Add New Project",
   "editProject": "Edit Project",
   "deleteProject": "Delete Project",

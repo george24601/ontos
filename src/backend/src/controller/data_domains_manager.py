@@ -165,6 +165,7 @@ class DataDomainManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(db_domain)
             return result
         except IntegrityError as e:
             db.rollback()
@@ -268,6 +269,7 @@ class DataDomainManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(updated_db_domain)
             return result
         except IntegrityError as e:
              db.rollback()
@@ -309,6 +311,7 @@ class DataDomainManager(DeliveryMixin, SearchableAsset):
             # The repository.remove(db, id) should work.
             # The actual object `db_domain_to_delete` will become stale after deletion from session.
             self.repository.remove(db=db, id=domain_id)
+            self._notify_index_remove(f"domain::{domain_id}")
             
             # Log the change before commit
             try:
@@ -377,6 +380,32 @@ class DataDomainManager(DeliveryMixin, SearchableAsset):
             raise 
 
     # --- SearchableAsset Implementation ---
+    def _build_search_index_item(self, db_domain: DataDomain) -> Optional[SearchIndexItem]:
+        """Build a SearchIndexItem from a DataDomain DB model."""
+        if not getattr(db_domain, 'id', None) or not getattr(db_domain, 'name', None):
+            logger.warning(f"Skipping domain due to missing id or name: {db_domain}")
+            return None
+        extra_data = {
+            "owner": getattr(db_domain, 'created_by', '') or "",
+            "status": getattr(db_domain, 'status', 'active') or "active",
+        }
+        return SearchIndexItem(
+            id=f"domain::{db_domain.id}",
+            type="data-domain",
+            feature_id="data-domains",
+            title=db_domain.name,
+            description=getattr(db_domain, 'description', '') or "",
+            link=f"/data-domains/{db_domain.id}",
+            tags=[],
+            extra_data=extra_data,
+        )
+
+    def _update_search_index(self, db_domain: DataDomain) -> None:
+        """Upsert a single data domain into the search index."""
+        item = self._build_search_index_item(db_domain)
+        if item:
+            self._notify_index_upsert(item)
+
     def get_search_index_items(self) -> List[SearchIndexItem]:
         """Fetch data domains and map them to SearchIndexItem format for global search."""
         logger.info("Fetching data domains for search indexing...")
@@ -390,28 +419,9 @@ class DataDomainManager(DeliveryMixin, SearchableAsset):
             with session_factory() as db:
                 db_domains = self.repository.get_multi(db=db, limit=10000)
                 for db_domain in db_domains:
-                    if not getattr(db_domain, 'id', None) or not getattr(db_domain, 'name', None):
-                        logger.warning(f"Skipping domain due to missing id or name: {db_domain}")
-                        continue
-
-                    # Build extra_data for configurable search fields
-                    extra_data = {
-                        "owner": getattr(db_domain, 'created_by', '') or "",
-                        "status": getattr(db_domain, 'status', 'active') or "active",  # Default to active if no status field
-                    }
-
-                    items.append(
-                        SearchIndexItem(
-                            id=f"domain::{db_domain.id}",
-                            type="data-domain",
-                            feature_id="data-domains",
-                            title=db_domain.name,
-                            description=getattr(db_domain, 'description', '') or "",
-                            link=f"/data-domains/{db_domain.id}",
-                            tags=[],
-                            extra_data=extra_data,
-                        )
-                    )
+                    item = self._build_search_index_item(db_domain)
+                    if item:
+                        items.append(item)
 
             logger.info(f"Prepared {len(items)} data domains for search index.")
             return items

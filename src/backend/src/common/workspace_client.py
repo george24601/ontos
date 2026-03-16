@@ -159,6 +159,9 @@ class CachingWorkspaceClient(WorkspaceClient):
                     lambda: list(self._parent._client.connections.list())
                 )()
 
+            def get(self, name: str = None, **kwargs):
+                return self._parent._client.connections.get(name=name, **kwargs)
+
         return CachedConnections(self)
 
     @property

@@ -95,7 +95,22 @@ class AccessGrantRequestRepository:
         total = query.count()
         requests = query.order_by(AccessGrantRequestDb.created_at.desc()).offset(offset).limit(limit).all()
         return requests, total
-    
+
+    def get_all_for_user(
+        self,
+        db: Session,
+        email: str,
+        limit: int = 100,
+        offset: int = 0
+    ) -> Tuple[List[AccessGrantRequestDb], int]:
+        """Get all requests made by a specific user (any status)."""
+        query = db.query(AccessGrantRequestDb).filter(
+            AccessGrantRequestDb.requester_email == email
+        )
+        total = query.count()
+        requests = query.order_by(AccessGrantRequestDb.created_at.desc()).offset(offset).limit(limit).all()
+        return requests, total
+
     def get_all_pending(
         self,
         db: Session,

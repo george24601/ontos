@@ -23,12 +23,24 @@
     "name": "Products",
     "description": "Group and manage related Databricks assets with tags."
   },
+  "concepts": {
+    "name": "Concepts",
+    "description": "Browse, search, and manage business concepts, collections, and hierarchies."
+  },
   "semantic-models": {
-    "name": "Business Glossary",
+    "name": "Concept Browser",
     "description": "Explore business glossary terms, concepts, and their relationships."
   },
+  "collections": {
+    "name": "Concept Collections",
+    "description": "Organize concepts and assets into logical collections."
+  },
+  "process-workflows": {
+    "name": "Workflows",
+    "description": "Configure automated workflows for validation, approval, and notifications."
+  },
   "data-asset-reviews": {
-    "name": "Asset Review",
+    "name": "Asset Reviews",
     "description": "Review and approve Databricks assets like tables, views, and functions."
   },
   "compliance": {

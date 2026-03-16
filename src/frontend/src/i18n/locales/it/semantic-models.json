@@ -2,7 +2,7 @@
   "rebuildGraph": "Ricostruisci grafo",
   "rebuildingGraph": "Ricostruzione…",
   "rebuildGraphTooltip": "Ricarica ontologie, fonti implicite e oggetti dell'app in modo che tutto sia interrogabile.",
-  "title": "Glossario Aziendale",
+  "title": "Browser dei concetti",
   "subtitle": "Gestisci glossari aziendali e definizioni semantiche",
   "newModel": "Nuovo Glossario",
   "newTerm": "Nuovo Termine",

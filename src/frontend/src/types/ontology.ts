@@ -10,20 +10,11 @@ export type SourceType = 'custom' | 'imported';
 
 export type ConceptStatus = 'draft' | 'under_review' | 'approved' | 'published' | 'certified' | 'deprecated' | 'archived';
 
-export type OwnershipRole = 'business_owner' | 'data_steward' | 'technical_owner' | 'sme' | 'contributor';
-
 export type PromotionType = 'promoted' | 'demoted' | 'migrated';
 
 // ============================================================================
 // KNOWLEDGE COLLECTION TYPES
 // ============================================================================
-
-export interface OwnershipInfo {
-  user_uri: string;
-  role: OwnershipRole;
-  assigned_at?: string;
-  assigned_by?: string;
-}
 
 export interface KnowledgeCollection {
   iri: string;
@@ -107,7 +98,6 @@ export interface OntologyConcept {
   // Governance fields (for custom concepts)
   status?: ConceptStatus;
   version?: string;
-  owners?: OwnershipInfo[];
   
   // Lifecycle timestamps
   created_at?: string;
@@ -143,7 +133,6 @@ export interface ConceptCreate {
   broader_iris?: string[];
   narrower_iris?: string[];
   related_iris?: string[];
-  owners?: OwnershipInfo[];
 }
 
 export interface ConceptUpdate {

@@ -19,6 +19,7 @@ import {
   GitBranch,
   FileSearch,
   Globe,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { TriggerType, EntityType, StepType } from '@/types/process-workflow';
@@ -40,6 +41,7 @@ export const STEP_ICONS: Record<StepType, LucideIcon> = {
   delivery: Truck,
   create_asset_review: FileSearch,
   webhook: Globe,
+  user_action: MessageSquare,
 };
 
 /**
@@ -59,6 +61,7 @@ export const STEP_COLORS: Record<StepType, string> = {
   delivery: 'indigo',
   create_asset_review: 'teal',
   webhook: 'orange',
+  user_action: 'sky',
 };
 
 /**
@@ -149,6 +152,13 @@ export const ALL_TRIGGER_TYPES: TriggerType[] = [
   'on_unsubscribe',
   'on_expiring',
   'on_revoke',
+  // App-known UI actions (approval workflows, 1:1 match with ON_*)
+  'for_approval_response',
+  'for_subscribe',
+  'for_request_review',
+  'for_request_access',
+  'for_request_publish',
+  'for_request_status_change',
 ];
 
 /**

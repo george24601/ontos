@@ -76,9 +76,9 @@ export default function PropertiesSearch({
     if (currentQuery) params.set('query', currentQuery);
     if (currentIri) params.set('iri', currentIri);
 
+    params.set('tab', 'properties');
     const queryString = params.toString();
-    const newUrl = queryString ? `/search/properties?${queryString}` : '/search/properties';
-    navigate(newUrl, { replace: true });
+    navigate(`${location.pathname}?${queryString}`, { replace: true });
   };
 
   useEffect(() => {

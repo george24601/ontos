@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -156,26 +148,25 @@ export default function UICustomizationSettings() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Palette className="h-5 w-5" />
+    <>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Palette className="w-8 h-8" />
           {t('settings:uiCustomization.title', 'UI Customization')}
-        </CardTitle>
-        <CardDescription>
+        </h1>
+        <p className="text-muted-foreground mt-1">
           {t('settings:uiCustomization.description', 'Customize the application branding, language settings, and appearance.')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-8">
+        </p>
+      </div>
+
+      <div className="space-y-8">
         {/* Internationalization Settings */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -373,20 +364,20 @@ export default function UICustomizationSettings() {
             </p>
           </div>
         </div>
-      </CardContent>
-      {hasWriteAccess && (
-        <CardFooter className="border-t pt-6">
-          <Button onClick={handleSaveSettings} disabled={isSaving}>
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            {t('settings:uiCustomization.saveButton', 'Save UI Settings')}
-          </Button>
-        </CardFooter>
-      )}
-    </Card>
+        {hasWriteAccess && (
+          <div className="pt-4">
+            <Button onClick={handleSaveSettings} disabled={isSaving}>
+              {isSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {t('settings:uiCustomization.saveButton', 'Save UI Settings')}
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

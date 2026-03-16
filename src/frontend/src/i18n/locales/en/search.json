@@ -4,10 +4,16 @@
   "tabs": {
     "askOntos": "Ask Ontos",
     "indexSearch": "Index Search",
-    "conceptGraph": "Concept Graph",
-    "knowledgeGraph": "Knowledge Graph",
+    "searchConcepts": "Search Concepts",
+    "viewGraph": "View Graph",
+    "searchGraph": "Search Graph",
     "concepts": "Concepts",
-    "properties": "Properties"
+    "properties": "Properties",
+    "knowledgeGraph": "Knowledge Graph"
+  },
+  "subtitles": {
+    "searchConcepts": "Search and browse ontology concepts and properties",
+    "searchGraph": "Query and explore the knowledge graph using SPARQL"
   },
   "noResults": "No results found",
   "noResultsHint": "Try adjusting your search terms or filters",
@@ -167,6 +173,16 @@
       "deleteSessionFailed": "Failed to delete session",
       "loadFailed": "Failed to load LLM search. Please try again later."
     }
+  },
+  "copilot": {
+    "title": "Ask Ontos",
+    "subtitle": "AI-powered assistant",
+    "button": "Ask Ontos",
+    "welcome": "Welcome to Ask Ontos!",
+    "welcomeDescription": "Get help with modeling, mappings, product creation, and health insights. Try one of the suggested prompts below or type your own question.",
+    "askingAbout": "Asking about:",
+    "inputPlaceholder": "Ask Ontos anything...",
+    "messageSendFailed": "Failed to send message"
   }
 }
 

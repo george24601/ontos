@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -295,47 +294,43 @@ export default function SearchConfigEditor() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   if (!config) {
     return (
-      <Card>
-        <CardContent className="py-8">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load search configuration. Please refresh the page.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <div className="py-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load search configuration. Please refresh the page.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <>
+      <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Search className="w-8 h-8" />
               Search Configuration
-            </CardTitle>
-            <CardDescription>
+            </h1>
+            <p className="text-muted-foreground mt-1">
               Configure how the global search indexes and ranks results across different asset types.
-            </CardDescription>
+            </p>
           </div>
           <Badge variant="outline">v{config.version}</Badge>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-6">
+      <div className="space-y-6">
         {hasChanges && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
@@ -559,35 +554,34 @@ export default function SearchConfigEditor() {
             </div>
           </TabsContent>
         </Tabs>
-      </CardContent>
+        <div className="flex justify-between pt-4">
+          <Button
+            variant="outline"
+            onClick={handleRebuildIndex}
+            disabled={isRebuilding || !hasWriteAccess}
+          >
+            {isRebuilding ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Rebuild Search Index
+          </Button>
 
-      <CardFooter className="flex justify-between border-t pt-6">
-        <Button
-          variant="outline"
-          onClick={handleRebuildIndex}
-          disabled={isRebuilding || !hasWriteAccess}
-        >
-          {isRebuilding ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          Rebuild Search Index
-        </Button>
-
-        <Button
-          onClick={handleSave}
-          disabled={isSaving || !hasWriteAccess || !hasChanges}
-        >
-          {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Save Configuration
-        </Button>
-      </CardFooter>
-    </Card>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !hasWriteAccess || !hasChanges}
+          >
+            {isSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save Configuration
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }
 

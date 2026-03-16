@@ -1153,3 +1153,213 @@ workflows:
         name: "Revocation Notification Sent"
         type: "pass"
 
+  # Default approval response workflow (replaces hardcoded approval dialog)
+  # Used when an approver responds to a process workflow approval request.
+  # Looked up by trigger type for_approval_response; name is for display only.
+  - id: "approval-response"
+    name: "Approval response"
+    description: "Default workflow for approval response: enter a reason and approve or reject."
+    workflow_type: "approval"
+    trigger:
+      type: "for_approval_response"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "enter-reason"
+        name: "Enter a reason"
+        type: "user_action"
+        config:
+          title: "Enter a reason"
+          description: "Provide a reason for your approval or rejection decision."
+          requires_input: true
+          minimum_input_length: 10
+          primary_field_id: "reason"
+          required_fields:
+            - id: "reason"
+              label: "Reason for approval or rejection"
+              type: "text"
+              required: true
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+
+  # Default subscription / contract signing workflow (product or dataset subscribe)
+  # Used when user subscribes via the approval wizard; completion_action=subscribe runs subscribe after wizard.
+  # Looked up by trigger type for_subscribe; name is for display only.
+  - id: "subscription"
+    name: "Subscription"
+    description: "Default workflow for subscribing to a data product or dataset: reason required, then complete."
+    workflow_type: "approval"
+    trigger:
+      type: "for_subscribe"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "reason"
+        name: "Why are you subscribing?"
+        type: "user_action"
+        config:
+          title: "Subscribe"
+          description: "Provide a reason for your subscription. This helps data owners understand how their products are used."
+          requires_input: true
+          minimum_input_length: 10
+          primary_field_id: "reason"
+          required_fields:
+            - id: "reason"
+              label: "Why are you subscribing?"
+              type: "text"
+              required: true
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+
+  # =========================================================================
+  # FOR_REQUEST_* Wizard Workflows (match ON_REQUEST_* process triggers)
+  # =========================================================================
+
+  # Review request wizard (matches ON_REQUEST_REVIEW)
+  - id: "request-review"
+    name: "Request Review"
+    description: "Wizard shown before submitting a review request. Collects a reason from the requester."
+    workflow_type: "approval"
+    trigger:
+      type: "for_request_review"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "reason"
+        name: "Provide a reason"
+        type: "user_action"
+        config:
+          title: "Request review"
+          description: "Provide a reason for your review request."
+          requires_input: true
+          minimum_input_length: 10
+          primary_field_id: "reason"
+          required_fields:
+            - id: "reason"
+              label: "Why are you requesting a review?"
+              type: "text"
+              required: true
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+
+  # Access request wizard (matches ON_REQUEST_ACCESS)
+  - id: "request-access"
+    name: "Request Access"
+    description: "Wizard shown before submitting an access request. Collects a reason and optional duration."
+    workflow_type: "approval"
+    trigger:
+      type: "for_request_access"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "reason"
+        name: "Provide a reason"
+        type: "user_action"
+        config:
+          title: "Request access"
+          description: "Provide a reason for your access request and optionally set a duration."
+          requires_input: true
+          minimum_input_length: 10
+          primary_field_id: "reason"
+          required_fields:
+            - id: "reason"
+              label: "Why do you need access?"
+              type: "text"
+              required: true
+            - id: "expiry_days"
+              label: "Requested duration (days, leave blank for indefinite)"
+              type: "text"
+              required: false
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+
+  # Publish/deploy request wizard (matches ON_REQUEST_PUBLISH)
+  - id: "request-publish"
+    name: "Request Publish"
+    description: "Wizard shown before submitting a publish or deployment request. Collects a reason."
+    workflow_type: "approval"
+    trigger:
+      type: "for_request_publish"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "reason"
+        name: "Provide a reason"
+        type: "user_action"
+        config:
+          title: "Request publish"
+          description: "Provide a reason for your publish/deployment request."
+          requires_input: true
+          minimum_input_length: 10
+          primary_field_id: "reason"
+          required_fields:
+            - id: "reason"
+              label: "Why are you requesting publish/deployment?"
+              type: "text"
+              required: true
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+
+  # Status change request wizard (matches ON_REQUEST_STATUS_CHANGE)
+  - id: "request-status-change"
+    name: "Request Status Change"
+    description: "Wizard shown before submitting a status change request. Collects a reason."
+    workflow_type: "approval"
+    trigger:
+      type: "for_request_status_change"
+      entity_types: []
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "reason"
+        name: "Provide a reason"
+        type: "user_action"
+        config:
+          title: "Request status change"
+          description: "Provide a reason for your status change request."
+          requires_input: true
+          minimum_input_length: 10
+          primary_field_id: "reason"
+          required_fields:
+            - id: "reason"
+              label: "Why are you requesting this status change?"
+              type: "text"
+              required: true
+        on_pass: "done"
+        on_fail: "done"
+      - id: "done"
+        name: "Done"
+        type: "pass"
+

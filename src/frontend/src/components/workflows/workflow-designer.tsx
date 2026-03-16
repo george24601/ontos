@@ -61,6 +61,7 @@ import {
   ClipboardCheck,
   FileSearch,
   Globe,
+  MessageSquare,
 } from 'lucide-react';
 
 import {
@@ -68,6 +69,8 @@ import {
   ValidationNode,
   ApprovalNode,
   NotificationNode,
+  UserActionNode,
+  DefaultStepNode,
   AssignTagNode,
   ConditionalNode,
   ScriptNode,
@@ -97,12 +100,13 @@ import {
   ALL_ENTITY_TYPES 
 } from '@/lib/workflow-labels';
 
-// Node types registry
+// Node types registry (default = fallback for unknown step_type e.g. generate_pdf)
 const nodeTypes = {
   trigger: TriggerNode,
   validation: ValidationNode,
   approval: ApprovalNode,
   notification: NotificationNode,
+  user_action: UserActionNode,
   assign_tag: AssignTagNode,
   conditional: ConditionalNode,
   script: ScriptNode,
@@ -111,6 +115,7 @@ const nodeTypes = {
   policy_check: PolicyCheckNode,
   create_asset_review: CreateAssetReviewNode,
   webhook: WebhookNode,
+  default: DefaultStepNode,
 };
 
 // Layout helper
@@ -164,14 +169,16 @@ const workflowToElements = (
     position: { x: 0, y: 0 },
   });
 
-  // Add step nodes
+  // Add step nodes (use 'default' for unregistered step_type so we never get an empty box)
+  const stepNodeTypes = Object.keys(nodeTypes);
   workflow.steps.forEach((step, index) => {
+    const nodeType = stepNodeTypes.includes(step.step_type) ? step.step_type : 'default';
     nodes.push({
       id: step.step_id,
-      type: step.step_type,
+      type: nodeType,
       data: { step, rolesMap },
       position: step.position || { x: 0, y: (index + 1) * 120 },
-  });
+    });
   });
 
   // Connect trigger to first step
@@ -704,6 +711,9 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                 <Button variant="ghost" size="sm" className="justify-start" onClick={() => addStep('approval')}>
                   <UserCheck className="h-4 w-4 mr-2" /> Approval
                 </Button>
+                <Button variant="ghost" size="sm" className="justify-start" onClick={() => addStep('user_action')}>
+                  <MessageSquare className="h-4 w-4 mr-2" /> User Action
+                </Button>
                 <Button variant="ghost" size="sm" className="justify-start" onClick={() => addStep('notification')}>
                   <Bell className="h-4 w-4 mr-2" /> Notification
                 </Button>
@@ -839,6 +849,81 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                   </div>
                   
                   {/* Type-specific config */}
+                  {selectedStep.step_type === 'user_action' && (
+                    <>
+                      <div>
+                        <Label>Title</Label>
+                        <Input
+                          value={(selectedStep.config as { title?: string })?.title || ''}
+                          onChange={(e) => updateStep(selectedStep.step_id, {
+                            config: { ...selectedStep.config, title: e.target.value },
+                          })}
+                          placeholder="e.g. Enter a reason"
+                        />
+                      </div>
+                      <div>
+                        <Label>Description</Label>
+                        <Textarea
+                          value={(selectedStep.config as { description?: string })?.description || ''}
+                          onChange={(e) => updateStep(selectedStep.step_id, {
+                            config: { ...selectedStep.config, description: e.target.value },
+                          })}
+                          placeholder="Optional description for the wizard step"
+                          rows={2}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="user-action-requires-input"
+                          checked={(selectedStep.config as { requires_input?: boolean })?.requires_input ?? false}
+                          onCheckedChange={(checked) => updateStep(selectedStep.step_id, {
+                            config: { ...selectedStep.config, requires_input: checked },
+                          })}
+                        />
+                        <Label htmlFor="user-action-requires-input" className="cursor-pointer">
+                          Requires input
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground -mt-2">
+                        When on, user must enter something in the primary field before continuing.
+                      </p>
+                      <div>
+                        <Label>Minimum input length</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={(selectedStep.config as { minimum_input_length?: number })?.minimum_input_length ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                            updateStep(selectedStep.step_id, {
+                              config: { ...selectedStep.config, minimum_input_length: v != null && !Number.isNaN(v) ? v : undefined },
+                            });
+                          }}
+                          placeholder="e.g. 10"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Minimum characters for the primary field (leave empty for no minimum).
+                        </p>
+                      </div>
+                      <div>
+                        <Label>Primary field ID</Label>
+                        <Input
+                          value={(selectedStep.config as { primary_field_id?: string })?.primary_field_id || ''}
+                          onChange={(e) => updateStep(selectedStep.step_id, {
+                            config: { ...selectedStep.config, primary_field_id: e.target.value || undefined },
+                          })}
+                          placeholder="e.g. reason (default)"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Field checked for &quot;Requires input&quot; and minimum length. Default: first required field or &quot;reason&quot;.
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        User Action steps collect input in approval workflows (e.g. reason, acceptances). Use required_fields in YAML for custom field definitions.
+                      </p>
+                    </>
+                  )}
+
                   {selectedStep.step_type === 'policy_check' && (
                     <div>
                       <Label>Compliance Policy</Label>

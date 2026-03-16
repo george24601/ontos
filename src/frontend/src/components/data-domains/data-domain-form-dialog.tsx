@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +43,6 @@ const NO_PARENT_VALUE = "__NO_PARENT_SELECTED__"; // Constant for "No Parent" op
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }).max(100),
   description: z.string().max(500, { message: "Description must not exceed 500 characters." }).optional().nullable(),
-  owner: z.string().min(1, { message: "Owner(s) are required. Enter comma-separated values." }),
   tags: z.array(z.any()).optional(),
   parent_id: z.string().uuid().optional().nullable().or(z.literal(NO_PARENT_VALUE)), // Allow NO_PARENT_VALUE
 });
@@ -66,7 +65,6 @@ export function DataDomainFormDialog({
     defaultValues: {
       name: domain?.name || "",
       description: domain?.description || "",
-      owner: domain?.owner?.join(', ') || "",
       tags: domain?.tags || [],
       parent_id: domain?.parent_id ?? NO_PARENT_VALUE, // Use NO_PARENT_VALUE for null/undefined
     },
@@ -77,7 +75,6 @@ export function DataDomainFormDialog({
       form.reset({
         name: domain?.name || "",
         description: domain?.description || "",
-        owner: domain?.owner?.join(', ') || "",
         tags: domain?.tags || [],
         parent_id: domain?.parent_id ?? NO_PARENT_VALUE, // Use NO_PARENT_VALUE for null/undefined
       });
@@ -105,7 +102,6 @@ export function DataDomainFormDialog({
     const processedValues: DataDomainCreate | DataDomainUpdate = {
       name: values.name,
       description: values.description,
-      owner: values.owner.split(',').map(s => s.trim()).filter(s => s !== ""),
       tags: values.tags || [],
       parent_id: values.parent_id === NO_PARENT_VALUE ? null : values.parent_id, // Convert back to null for API
     };
@@ -185,20 +181,6 @@ export function DataDomainFormDialog({
                     value={field.value ?? ''}
                   />
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="owner"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Owners *</FormLabel>
-                <FormControl>
-                  <Input placeholder="user@example.com, group@example.com" {...field} />
-                </FormControl>
-                <FormDescription>Comma-separated list of owner emails or group names.</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

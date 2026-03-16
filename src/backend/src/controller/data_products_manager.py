@@ -56,6 +56,8 @@ from src.common.logging import get_logger
 from src.common.database import get_session_factory
 from src.common import genie_client
 from src.common.delivery_mixin import DeliveryMixin
+from src.repositories.entity_relationships_repository import entity_relationship_repo
+from src.repositories.assets_repository import asset_repo
 
 logger = get_logger(__name__)
 
@@ -184,6 +186,7 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(result)
             return result
 
         except SQLAlchemyError as e:
@@ -333,6 +336,7 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(result)
             return result
 
         except SQLAlchemyError as e:
@@ -451,6 +455,8 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                     )
                 except Exception as log_err:
                     logger.warning(f"Failed to log change for product deletion: {log_err}")
+                
+                self._notify_index_remove(f"product::{product_id}")
             
             return deleted_obj is not None
         except SQLAlchemyError as e:
@@ -556,7 +562,9 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 new_status=new_status_lower
             )
             
-            return self._load_product_with_tags(product_db)
+            result = self._load_product_with_tags(product_db)
+            self._update_search_index(result)
+            return result
             
         except SQLAlchemyError as e:
             logger.error(f"Database error transitioning product {product_id} status: {e}")
@@ -1284,7 +1292,9 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             created_db_obj = self._repo.create(db=self._db, obj_in=new_product_api_model)
 
             logger.info(f"Successfully created new version {request.new_version} (ID: {created_db_obj.id})")
-            return DataProductApi.model_validate(created_db_obj)
+            result = DataProductApi.model_validate(created_db_obj)
+            self._update_search_index(result)
+            return result
 
         except ValidationError as e:
             logger.error(f"Validation error creating new ODPS version: {e}")
@@ -1948,98 +1958,94 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
 
     # --- SearchableAsset implementation ---
 
+    def _build_search_index_item(self, product: DataProductApi) -> Optional[SearchIndexItem]:
+        """Convert a single DataProduct API model to a SearchIndexItem."""
+        if not product.id or not product.name:
+            return None
+
+        description = ""
+        if product.description:
+            parts = []
+            if product.description.purpose:
+                parts.append(product.description.purpose)
+            if product.description.usage:
+                parts.append(product.description.usage)
+            description = " | ".join(parts)
+
+        tag_strings: List[str] = []
+        try:
+            for t in (product.tags or []):
+                if hasattr(t, 'fully_qualified_name') and t.fully_qualified_name:
+                    tag_strings.append(t.fully_qualified_name)
+                elif isinstance(t, dict):
+                    fqn = t.get('fully_qualified_name') or t.get('tag_fqn')
+                    if fqn:
+                        tag_strings.append(str(fqn))
+                elif hasattr(t, 'tag_name') and t.tag_name:
+                    tag_strings.append(str(t.tag_name))
+                else:
+                    tag_strings.append(str(t))
+        except Exception:
+            tag_strings = []
+
+        owner_team_name = ""
+        if product.owner_team_id:
+            try:
+                from uuid import UUID
+                owner_team = team_repo.get(self._db, id=UUID(product.owner_team_id))
+                if owner_team:
+                    owner_team_name = owner_team.name or ""
+            except Exception as e:
+                logger.debug(f"Could not resolve owner_team_id {product.owner_team_id}: {e}")
+
+        product_team_name = product.team.name if product.team and product.team.name else ""
+        team_member_names: List[str] = []
+        if product.team and product.team.members:
+            for member in product.team.members:
+                if member.name:
+                    team_member_names.append(member.name)
+                if member.username and member.username != member.name:
+                    team_member_names.append(member.username)
+
+        extra_data = {
+            "status": product.status or "",
+            "version": product.version or "",
+            "domain": product.domain or "",
+            "owner": owner_team_name or product_team_name,
+            "owner_team": owner_team_name,
+            "product_team": product_team_name,
+            "team_members": ", ".join(team_member_names),
+        }
+
+        return SearchIndexItem(
+            id=f"product::{product.id}",
+            type="data-product",
+            feature_id="data-products",
+            title=product.name,
+            description=description,
+            link=f"/data-products/{product.id}",
+            tags=tag_strings,
+            extra_data=extra_data,
+        )
+
+    def _update_search_index(self, product: DataProductApi) -> None:
+        """Build a SearchIndexItem from a product and upsert it into the index."""
+        item = self._build_search_index_item(product)
+        if item:
+            self._notify_index_upsert(item)
+
     def get_search_index_items(self) -> List[SearchIndexItem]:
         """Fetches ODPS v1.0.0 data products and maps them to SearchIndexItem format."""
         logger.info("Fetching ODPS products for search indexing...")
         items = []
-
         try:
             products_api = self.list_products(limit=10000)
-
             for product in products_api:
-                if not product.id or not product.name:
-                    logger.warning(f"Skipping ODPS product due to missing id or name: {product}")
-                    continue
-
-                # Get description from ODPS structured description
-                description = ""
-                if product.description:
-                    parts = []
-                    if product.description.purpose:
-                        parts.append(product.description.purpose)
-                    if product.description.usage:
-                        parts.append(product.description.usage)
-                    description = " | ".join(parts)
-
-                # Normalize tags - extract FQN from AssignedTag objects or dicts
-                tag_strings: List[str] = []
-                try:
-                    for t in (product.tags or []):
-                        # AssignedTag Pydantic model
-                        if hasattr(t, 'fully_qualified_name') and t.fully_qualified_name:
-                            tag_strings.append(t.fully_qualified_name)
-                        # Dict with tag_fqn or fully_qualified_name
-                        elif isinstance(t, dict):
-                            fqn = t.get('fully_qualified_name') or t.get('tag_fqn')
-                            if fqn:
-                                tag_strings.append(str(fqn))
-                        # Fallback: try tag_name attribute or string conversion
-                        elif hasattr(t, 'tag_name') and t.tag_name:
-                            tag_strings.append(str(t.tag_name))
-                        else:
-                            tag_strings.append(str(t))
-                except Exception:
-                    tag_strings = []
-
-                # Get owner team name from owner_team_id (organizational team)
-                owner_team_name = ""
-                if product.owner_team_id:
-                    try:
-                        from uuid import UUID
-                        owner_team = team_repo.get(self._db, id=UUID(product.owner_team_id))
-                        if owner_team:
-                            owner_team_name = owner_team.name or ""
-                    except Exception as e:
-                        logger.debug(f"Could not resolve owner_team_id {product.owner_team_id}: {e}")
-
-                # Get product team name and member names
-                product_team_name = product.team.name if product.team and product.team.name else ""
-                team_member_names: List[str] = []
-                if product.team and product.team.members:
-                    for member in product.team.members:
-                        if member.name:
-                            team_member_names.append(member.name)
-                        if member.username and member.username != member.name:
-                            team_member_names.append(member.username)
-
-                # Build extra_data for configurable search fields
-                # Include both owner_team (organizational) and product team info
-                extra_data = {
-                    "status": product.status or "",
-                    "version": product.version or "",
-                    "domain": product.domain or "",
-                    "owner": owner_team_name or product_team_name,  # Prefer organizational team
-                    "owner_team": owner_team_name,
-                    "product_team": product_team_name,
-                    "team_members": ", ".join(team_member_names),
-                }
-
-                items.append(
-                    SearchIndexItem(
-                        id=f"product::{product.id}",
-                        type="data-product",
-                        feature_id="data-products",
-                        title=product.name,
-                        description=description,
-                        link=f"/data-products/{product.id}",
-                        tags=tag_strings,
-                        extra_data=extra_data,
-                    )
-                )
-
+                item = self._build_search_index_item(product)
+                if item:
+                    items.append(item)
             logger.info(f"Prepared {len(items)} ODPS products for search index.")
             return items
-
         except Exception as e:
             logger.error(f"Error fetching/mapping ODPS products for search: {e}", exc_info=True)
             return []
@@ -2121,9 +2127,10 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 except Exception as e:
                     logger.debug(f"Could not resolve project: {e}")
 
-            # Resolve contract names for output ports
+            # Resolve contract names and delivery method names for output ports
             if product_api.outputPorts:
                 from src.repositories.data_contracts_repository import data_contract_repo
+                from src.repositories.delivery_methods_repository import delivery_method_repo
                 for port in product_api.outputPorts:
                     if port.contractId:
                         try:
@@ -2131,6 +2138,12 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                             port.contractName = contract.name if contract else None
                         except Exception as e:
                             logger.debug(f"Could not resolve contract: {e}")
+                    if port.deliveryMethodId:
+                        try:
+                            dm = delivery_method_repo.get(self._db, port.deliveryMethodId)
+                            port.deliveryMethodName = dm.name if dm else None
+                        except Exception as e:
+                            logger.debug(f"Could not resolve delivery method: {e}")
 
             return product_api
 
@@ -2361,6 +2374,340 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         except Exception as e:
             logger.error(f"Error fetching contracts for ODPS product {product_id}: {e}")
             raise
+
+    # ------------------------------------------------------------------
+    # Dataset hierarchy (Phase 5 — asset-backed datasets)
+    # ------------------------------------------------------------------
+
+    def get_product_datasets(
+        self,
+        product_id: str,
+        db: Optional[Session] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return Dataset assets linked to this product via hasDataset relationships.
+
+        Each entry contains the asset summary plus the relationship ID.
+        """
+        session = db or self._db
+        rels = entity_relationship_repo.query_filtered(
+            session,
+            source_type="DataProduct",
+            source_id=product_id,
+            relationship_type="hasDataset",
+        )
+        results = []
+        for r in rels:
+            asset = asset_repo.get(session, r.target_id)
+            if asset:
+                results.append({
+                    "relationship_id": str(r.id),
+                    "dataset_id": str(asset.id),
+                    "name": asset.name,
+                    "description": asset.description,
+                    "status": asset.status,
+                    "properties": asset.properties or {},
+                    "tags": asset.tags or [],
+                    "created_at": asset.created_at.isoformat() if asset.created_at else None,
+                })
+        return results
+
+    def get_product_hierarchy(
+        self,
+        product_id: str,
+        db: Optional[Session] = None,
+    ) -> Dict[str, Any]:
+        """Resolve the full DP > Dataset > Table/View > Column hierarchy.
+
+        Returns a nested dict:
+        {
+          "product_id": "...",
+          "product_name": "...",
+          "datasets": [
+            {
+              "dataset_id": "...", "name": "...", "status": "...",
+              "tables": [ { "id", "name", "location", "columns": [...] } ],
+              "views": [ { "id", "name", "location", "columns": [...] } ],
+              "contract": { "id", "type" } | null
+            }, ...
+          ]
+        }
+        """
+        session = db or self._db
+
+        product = self.get_product(product_id)
+        if not product:
+            raise ValueError(f"Product {product_id} not found")
+
+        datasets_out = []
+        ds_rels = entity_relationship_repo.query_filtered(
+            session,
+            source_type="DataProduct",
+            source_id=product_id,
+            relationship_type="hasDataset",
+        )
+
+        for ds_rel in ds_rels:
+            ds_asset = asset_repo.get(session, ds_rel.target_id)
+            if not ds_asset:
+                continue
+
+            ds_entry: Dict[str, Any] = {
+                "dataset_id": str(ds_asset.id),
+                "name": ds_asset.name,
+                "description": ds_asset.description,
+                "status": ds_asset.status,
+                "properties": ds_asset.properties or {},
+                "tables": [],
+                "views": [],
+                "contract": None,
+            }
+
+            child_rels = entity_relationship_repo.query_filtered(
+                session,
+                source_type="Dataset",
+                source_id=str(ds_asset.id),
+            )
+
+            for child_rel in child_rels:
+                if child_rel.relationship_type == "governedBy":
+                    ds_entry["contract"] = {
+                        "id": child_rel.target_id,
+                        "type": child_rel.target_type,
+                    }
+                    continue
+
+                child_asset = asset_repo.get(session, child_rel.target_id)
+                if not child_asset:
+                    continue
+
+                child_entry = {
+                    "id": str(child_asset.id),
+                    "name": child_asset.name,
+                    "location": child_asset.location,
+                    "status": child_asset.status,
+                    "properties": child_asset.properties or {},
+                    "columns": [],
+                }
+
+                col_rels = entity_relationship_repo.query_filtered(
+                    session,
+                    source_type=child_rel.target_type,
+                    source_id=child_rel.target_id,
+                    relationship_type="hasColumn",
+                )
+                for col_rel in col_rels:
+                    col_asset = asset_repo.get(session, col_rel.target_id)
+                    if col_asset:
+                        child_entry["columns"].append({
+                            "id": str(col_asset.id),
+                            "name": col_asset.name,
+                            "properties": col_asset.properties or {},
+                        })
+
+                if child_rel.relationship_type == "hasTable":
+                    ds_entry["tables"].append(child_entry)
+                elif child_rel.relationship_type == "hasView":
+                    ds_entry["views"].append(child_entry)
+
+            datasets_out.append(ds_entry)
+
+        return {
+            "product_id": product_id,
+            "product_name": product.name or product_id,
+            "datasets": datasets_out,
+        }
+
+    def build_odps_export(
+        self,
+        product_id: str,
+        db: Optional[Session] = None,
+    ) -> Dict[str, Any]:
+        """Build a full ODPS v1.0.0-compatible YAML export of a Data Product.
+
+        Includes the standard ODPS structure plus entity relationship-based
+        dataset hierarchy as an extension section.
+        """
+        session = db or self._db
+        product = self.get_product(product_id)
+        if not product:
+            raise ValueError(f"Product {product_id} not found")
+
+        odps: Dict[str, Any] = {
+            "kind": product.kind or "DataProduct",
+            "apiVersion": product.api_version or "v1.0.0",
+            "id": product.id,
+            "status": product.status,
+        }
+
+        if product.name:
+            odps["name"] = product.name
+        if product.version:
+            odps["version"] = product.version
+        if product.domain:
+            odps["domain"] = product.domain
+        if product.tenant:
+            odps["tenant"] = product.tenant
+
+        if product.description:
+            desc: Dict[str, Any] = {}
+            if product.description.purpose:
+                desc["purpose"] = product.description.purpose
+            if product.description.usage:
+                desc["usage"] = product.description.usage
+            if product.description.limitations:
+                desc["limitations"] = product.description.limitations
+            if desc:
+                odps["description"] = desc
+
+        if product.input_ports:
+            odps["inputPorts"] = [
+                {k: v for k, v in {
+                    "name": p.name, "version": p.version,
+                    "contractId": p.contract_id,
+                }.items() if v}
+                for p in product.input_ports
+            ]
+
+        if product.output_ports:
+            odps["outputPorts"] = [
+                {k: v for k, v in {
+                    "name": p.name, "version": p.version,
+                    "contractId": p.contract_id,
+                    "status": p.status,
+                }.items() if v}
+                for p in product.output_ports
+            ]
+
+        if product.support_channels:
+            odps["support"] = [
+                {k: v for k, v in {
+                    "channel": s.channel, "url": s.url,
+                    "tool": s.tool, "scope": s.scope,
+                }.items() if v}
+                for s in product.support_channels
+            ]
+
+        if product.team and product.team.members:
+            odps["team"] = {
+                "name": product.team.name,
+                "members": [
+                    {k: v for k, v in {
+                        "username": m.username, "role": m.role,
+                    }.items() if v}
+                    for m in product.team.members
+                ],
+            }
+
+        if product.custom_properties:
+            odps["customProperties"] = [
+                {"property": cp.property, "value": cp.value}
+                for cp in product.custom_properties
+            ]
+
+        if product.authoritative_definitions:
+            odps["authoritativeDefinitions"] = [
+                {"url": ad.url, "type": ad.type}
+                for ad in product.authoritative_definitions
+            ]
+
+        # Extension: include entity relationship-based dataset hierarchy
+        try:
+            hierarchy = self.get_product_hierarchy(product_id, db=session)
+            if hierarchy.get("datasets"):
+                datasets_export = []
+                for ds in hierarchy["datasets"]:
+                    ds_export: Dict[str, Any] = {
+                        "name": ds["name"],
+                        "status": ds.get("status"),
+                    }
+                    if ds.get("contract"):
+                        ds_export["contractId"] = ds["contract"]["id"]
+                    if ds.get("tables"):
+                        ds_export["tables"] = [
+                            {"name": t["name"], "location": t.get("location")}
+                            for t in ds["tables"]
+                        ]
+                    if ds.get("views"):
+                        ds_export["views"] = [
+                            {"name": v["name"], "location": v.get("location")}
+                            for v in ds["views"]
+                        ]
+                    datasets_export.append(ds_export)
+                odps["datasets"] = datasets_export
+        except Exception as e:
+            logger.warning(f"Failed to include dataset hierarchy in ODPS export: {e}")
+
+        return odps
+
+    def link_dataset(
+        self,
+        product_id: str,
+        dataset_asset_id: str,
+        current_user: str,
+        db: Optional[Session] = None,
+    ) -> Dict[str, Any]:
+        """Link a Dataset asset to this product via hasDataset relationship."""
+        from src.db_models.entity_relationships import EntityRelationshipDb
+
+        session = db or self._db
+        product = self.get_product(product_id)
+        if not product:
+            raise ValueError(f"Product {product_id} not found")
+
+        ds_asset = asset_repo.get(session, dataset_asset_id)
+        if not ds_asset:
+            raise ValueError(f"Dataset asset {dataset_asset_id} not found")
+
+        existing = entity_relationship_repo.find_existing(
+            session,
+            source_type="DataProduct",
+            source_id=product_id,
+            target_type="Dataset",
+            target_id=dataset_asset_id,
+            relationship_type="hasDataset",
+        )
+        if existing:
+            raise ValueError("Dataset is already linked to this product")
+
+        rel = EntityRelationshipDb(
+            source_type="DataProduct",
+            source_id=product_id,
+            target_type="Dataset",
+            target_id=dataset_asset_id,
+            relationship_type="hasDataset",
+            created_by=current_user,
+        )
+        session.add(rel)
+        session.commit()
+        session.refresh(rel)
+
+        return {
+            "relationship_id": str(rel.id),
+            "dataset_id": dataset_asset_id,
+            "dataset_name": ds_asset.name,
+        }
+
+    def unlink_dataset(
+        self,
+        product_id: str,
+        dataset_asset_id: str,
+        db: Optional[Session] = None,
+    ) -> bool:
+        """Remove a hasDataset relationship between a product and a dataset."""
+        session = db or self._db
+        existing = entity_relationship_repo.find_existing(
+            session,
+            source_type="DataProduct",
+            source_id=product_id,
+            target_type="Dataset",
+            target_id=dataset_asset_id,
+            relationship_type="hasDataset",
+        )
+        if not existing:
+            return False
+        session.delete(existing)
+        session.commit()
+        return True
 
     def get_team_members_for_import(
         self,

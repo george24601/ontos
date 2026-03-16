@@ -143,7 +143,7 @@ const CreateFromContractDialog: React.FC<CreateFromContractDialogProps> = ({
             Create Data Product from Contract
           </DialogTitle>
           <DialogDescription>
-            Create a new Data Product that uses this contract to govern one output port.
+            Create a new Data Product that uses this contract to govern one deliverable.
             The product will inherit the contract's domain, owner team, and project.
           </DialogDescription>
         </DialogHeader>
@@ -212,7 +212,7 @@ const CreateFromContractDialog: React.FC<CreateFromContractDialogProps> = ({
           {/* Output Port Name (Optional) */}
           <div className="space-y-2">
             <Label htmlFor="output-port-name" className="text-sm font-medium">
-              Output Port Name (Optional)
+              Deliverable Name (Optional)
             </Label>
             <Input
               id="output-port-name"
@@ -222,7 +222,7 @@ const CreateFromContractDialog: React.FC<CreateFromContractDialogProps> = ({
               disabled={submitting}
             />
             <div className="text-xs text-muted-foreground">
-              If not specified, the output port will use the contract name
+              If not specified, the deliverable will use the contract name
             </div>
           </div>
 

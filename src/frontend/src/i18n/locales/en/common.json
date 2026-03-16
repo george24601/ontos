@@ -113,7 +113,7 @@
     "columns": "columns",
     "tables": "tables",
     "relationships": "relationships",
-    "conceptGraph": "Concept Graph",
+    "viewGraph": "View Graph",
     "concepts": "concepts",
     "properties": "properties",
     "securableId": "Securable ID",
@@ -269,6 +269,8 @@
   "userMenu": {
     "role": "Role",
     "profile": "Profile",
+    "settings": "Settings",
+    "about": "About",
     "applyRoleOverride": "Apply Role Override",
     "featurePreviews": "Feature Previews",
     "showBetaFeatures": "Show Beta Features",
@@ -312,7 +314,13 @@
       "on_subscribe": "Subscription",
       "on_unsubscribe": "Unsubscription",
       "on_expiring": "Expiring Soon",
-      "on_revoke": "Access Revoked"
+      "on_revoke": "Access Revoked",
+      "for_approval_response": "Approval Response (Wizard)",
+      "for_subscribe": "Subscribe (Wizard)",
+      "for_request_review": "Request Review (Wizard)",
+      "for_request_access": "Request Access (Wizard)",
+      "for_request_publish": "Request Publish (Wizard)",
+      "for_request_status_change": "Request Status Change (Wizard)"
     },
     "entityTypes": {
       "catalog": "Catalog",

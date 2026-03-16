@@ -2,8 +2,8 @@
 Connectors Package
 
 This package provides a pluggable connector architecture for asset discovery
-and metadata retrieval across multiple platforms (Unity Catalog, Snowflake,
-Kafka, PowerBI, etc.).
+and metadata retrieval across multiple platforms (Unity Catalog, BigQuery,
+Snowflake, Kafka, PowerBI, etc.).
 
 Usage:
     from src.connectors import get_connector, ConnectorRegistry

@@ -1,11 +1,9 @@
 {
   "home": "Home",
   "groups": {
-    "dataProducts": "Dataproducten",
-    "governance": "Governance",
-    "operations": "Operaties",
-    "security": "Beveiliging",
-    "system": "Systeem"
+    "discover": "Ontdekken",
+    "build": "Bouwen",
+    "govern": "Besturen",
+    "deploy": "Uitrollen"
   }
 }
-

@@ -110,7 +110,7 @@
     "columns": "Spalten",
     "tables": "Tabellen",
     "relationships": "Beziehungen",
-    "conceptGraph": "Konzeptgraph",
+    "viewGraph": "Graph anzeigen",
     "concepts": "Konzepte",
     "securableId": "Sicherbare ID",
     "securableType": "Sicherbarer Typ",
@@ -264,6 +264,8 @@
   "userMenu": {
     "role": "Rolle",
     "profile": "Profil",
+    "settings": "Einstellungen",
+    "about": "Über",
     "applyRoleOverride": "Rollenüberschreibung anwenden",
     "featurePreviews": "Funktionsvorschauen",
     "showBetaFeatures": "Beta-Funktionen anzeigen",

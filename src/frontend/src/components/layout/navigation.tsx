@@ -10,13 +10,10 @@ import {
 import { getNavigationGroups, FeatureConfig } from '@/config/features';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-// Import the Zustand store hook
 import { useFeatureVisibilityStore } from '@/stores/feature-visibility-store';
 import { Button } from '@/components/ui/button';
-// Import permissions hook and types
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
-// Add Home icon
 import { Home as HomeIcon, Loader2 } from 'lucide-react';
 
 interface NavigationProps {
@@ -26,44 +23,35 @@ interface NavigationProps {
 export function Navigation({ isCollapsed }: NavigationProps) {
   const { t } = useTranslation(['navigation', 'features']);
   const location = useLocation();
-  // Select only the allowedMaturities from the store
   const allowedMaturities = useFeatureVisibilityStore((state) => state.allowedMaturities);
-  // Get permissions state and checker
   const { permissions, isLoading: permissionsLoading, hasPermission } = usePermissions();
 
-  // Get navigation groups based on maturity filters
   const rawNavigationGroups = getNavigationGroups(allowedMaturities);
 
-  // IDs of features to show ungrouped after Home
-  const ungroupedFeatureIds = ['data-domains', 'teams', 'projects'];
+  const ungroupedFeatureIds: string[] = [];
 
-  // Filter groups and items based on permissions (only run when permissions are loaded)
   const { navigationGroups, ungroupedItems } = React.useMemo(() => {
     if (permissionsLoading || Object.keys(permissions).length === 0) {
-      // Return empty or skeleton while loading/empty to prevent flashing
       return { navigationGroups: [], ungroupedItems: [] };
     }
 
-    // Extract ungrouped items from the raw navigation groups
     const extractedUngroupedItems: FeatureConfig[] = [];
     
     const filteredGroups = rawNavigationGroups
       .map(group => ({
         ...group,
-        // Filter items within the group
         items: group.items.filter(item => {
-          const hasAccess = item.id === 'about' || hasPermission(item.id, FeatureAccessLevel.READ_ONLY);
+          const hasAccess = hasPermission(item.permissionId || item.id, FeatureAccessLevel.READ_ONLY);
           
-          // If this item should be ungrouped and has access, add it to ungroupedItems
           if (ungroupedFeatureIds.includes(item.id) && hasAccess) {
             extractedUngroupedItems.push(item);
-            return false; // Remove from group
+            return false;
           }
           
           return hasAccess;
         })
       }))
-      .filter(group => group.items.length > 0); // Remove groups that become empty after filtering
+      .filter(group => group.items.length > 0);
 
     return { 
       navigationGroups: filteredGroups, 
@@ -71,9 +59,7 @@ export function Navigation({ isCollapsed }: NavigationProps) {
     };
   }, [rawNavigationGroups, permissions, permissionsLoading, hasPermission]);
 
-  // Handle loading state for permissions
   if (permissionsLoading) {
-     // Show a loading indicator instead of an empty sidebar
      return (
          <div className="flex justify-center items-center h-full p-4">
              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -81,24 +67,21 @@ export function Navigation({ isCollapsed }: NavigationProps) {
      );
   }
 
-  // Define the Home link separately
   const homeLink: FeatureConfig = {
     id: 'home',
     name: t('navigation:home'),
     path: '/',
-    description: 'Dashboard overview', // Optional description
-    icon: HomeIcon, // Use imported HomeIcon
-    group: 'System', // Assign to a group, or handle separately
-    maturity: 'ga', // Treat as GA
+    description: 'Dashboard overview',
+    icon: HomeIcon,
+    group: 'Discover',
+    maturity: 'ga',
   };
 
-  // Map group names to i18n keys
   const groupKeyMap: Record<string, string> = {
-    'Data Products': 'dataProducts',
-    'Governance': 'governance',
-    'Operations': 'operations',
-    'Security': 'security',
-    'System': 'system',
+    'Discover': 'discover',
+    'Build': 'build',
+    'Govern': 'govern',
+    'Deploy': 'deploy',
   };
 
   const translateGroupName = (groupName: string) => {
@@ -114,7 +97,7 @@ export function Navigation({ isCollapsed }: NavigationProps) {
     <ScrollArea className="h-full py-2">
       <TooltipProvider delayDuration={0}>
         <nav className={cn("flex flex-col px-1 gap-1")}>
-          {/* Render Home Link First */}
+          {/* Home Link */}
           {
             isCollapsed ? (
                   <Tooltip key={homeLink.path}>
@@ -159,7 +142,7 @@ export function Navigation({ isCollapsed }: NavigationProps) {
                   </NavLink>
             )
           }
-          {/* Render Ungrouped Items (Domains, Teams, Projects) */}
+          {/* Ungrouped Items (Domains, Teams, Projects) */}
           {ungroupedItems.map((item: FeatureConfig) => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
             const translatedName = translateFeatureName(item.id, item.name);
@@ -227,7 +210,7 @@ export function Navigation({ isCollapsed }: NavigationProps) {
               </NavLink>
             );
           })}
-          {/* Render Other Groups */}
+          {/* Grouped Navigation */}
           {navigationGroups.map((group) => (
             <div key={group.name} className={cn("w-full", isCollapsed ? "" : "mb-2 last:mb-0")}>
               {!isCollapsed && group.items.length > 0 && (

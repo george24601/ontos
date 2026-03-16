@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -13,6 +13,9 @@ import { DataTable } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
 import { useToast } from '@/hooks/use-toast'
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel'
+import EntityQualityPanel from '@/components/quality/entity-quality-panel'
+import { OwnershipPanel } from '@/components/common/ownership-panel'
+import { EntityRelationshipPanel } from '@/components/common/entity-relationship-panel'
 import { CommentSidebar } from '@/components/comments'
 import ConceptSelectDialog from '@/components/semantic/concept-select-dialog'
 import LinkedConceptChips from '@/components/semantic/linked-concept-chips'
@@ -49,6 +52,7 @@ import type { DataProduct } from '@/types/data-product'
 import type { DataProfilingRun } from '@/types/data-contract'
 import type { DatasetListItem } from '@/types/dataset'
 import { DATASET_STATUS_LABELS, DATASET_STATUS_COLORS } from '@/types/dataset'
+import { useCopilotContext } from '@/hooks/use-copilot-context'
 
 // Status-based editability constants
 // Only draft/proposed contracts can be edited in place
@@ -173,6 +177,9 @@ export default function DataContractDetails() {
   const { t } = useTranslation(['data-contracts', 'common'])
   const { contractId } = useParams<{ contractId: string }>()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const listPath = pathname.replace(/\/[^/]+$/, '')
+  const productBasePath = '/data-products'
   const { toast } = useToast()
   const { getDomainName } = useDomains()
   const { getPermissionLevel } = usePermissions()
@@ -290,6 +297,12 @@ export default function DataContractDetails() {
   const [editingQualityRuleIndex, setEditingQualityRuleIndex] = useState<number | null>(null)
   const [editingTeamMemberIndex, setEditingTeamMemberIndex] = useState<number | null>(null)
   const [editingServerIndex, setEditingServerIndex] = useState<number | null>(null)
+
+  useCopilotContext(
+    'Data Contract Details',
+    `/data-contracts/${contractId}`,
+    contract ? { type: 'data_contract', name: contract.name || 'Unnamed', id: contractId || '' } : null,
+  )
 
   const fetchLinkedProducts = async () => {
     if (!contractId) return
@@ -555,7 +568,7 @@ export default function DataContractDetails() {
   }, [viewMode])
 
   useEffect(() => {
-    setStaticSegments([{ label: 'Data Contracts', path: '/data-contracts' }])
+    setStaticSegments([{ label: 'Data Contracts', path: listPath }])
     fetchDetails()
     fetchLinkedProducts()
     fetchLinkedDatasets()
@@ -599,7 +612,7 @@ export default function DataContractDetails() {
       const res = await fetch(`/api/data-contracts/${contractId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Delete failed')
       toast({ title: 'Deleted', description: 'Contract deleted.' })
-      navigate('/data-contracts')
+      navigate(listPath)
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to delete', variant: 'destructive' })
     }
@@ -622,7 +635,7 @@ export default function DataContractDetails() {
         description: 'You can now edit this draft. It will only be visible to you until committed.',
       })
       // Navigate to the new draft
-      navigate(`/data-contracts/${data.id}`)
+      navigate(`${listPath}/${data.id}`)
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to clone', variant: 'destructive' })
     }
@@ -640,9 +653,9 @@ export default function DataContractDetails() {
       toast({ title: 'Draft Discarded', description: 'Your personal draft has been deleted.' })
       // Navigate back to contracts list or parent contract
       if (contract?.parentContractId) {
-        navigate(`/data-contracts/${contract.parentContractId}`)
+        navigate(`${listPath}/${contract.parentContractId}`)
       } else {
-        navigate('/data-contracts')
+        navigate(listPath)
       }
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to discard', variant: 'destructive' })
@@ -733,7 +746,7 @@ export default function DataContractDetails() {
       if (!newId) throw new Error('Invalid response when creating version.')
       toast({ title: 'Success', description: `Version ${newVersionString} created successfully!` })
       setIsVersionDialogOpen(false)
-      navigate(`/data-contracts/${newId}`)
+      navigate(`${listPath}/${newId}`)
     } catch (e: any) {
       toast({ title: 'Error', description: e?.message || 'Failed to create new version.', variant: 'destructive' })
     }
@@ -1429,7 +1442,7 @@ export default function DataContractDetails() {
     <div className="py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate('/data-contracts')} size="sm">
+          <Button variant="outline" onClick={() => navigate(listPath)} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to List
           </Button>
@@ -1442,7 +1455,7 @@ export default function DataContractDetails() {
                 size="icon"
                 className="h-8 w-8"
                 disabled={!prevVersion}
-                onClick={() => prevVersion && navigate(`/data-contracts/${prevVersion.id}`)}
+                onClick={() => prevVersion && navigate(`${listPath}/${prevVersion.id}`)}
                 title={prevVersion ? `Previous version: ${prevVersion.version}` : 'No previous version'}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -1450,14 +1463,14 @@ export default function DataContractDetails() {
               <VersionSelector
                 currentContractId={contractId!}
                 currentVersion={contract?.version}
-                onVersionChange={(id) => navigate(`/data-contracts/${id}`)}
+                onVersionChange={(id) => navigate(`${listPath}/${id}`)}
               />
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
                 disabled={!nextVersion}
-                onClick={() => nextVersion && navigate(`/data-contracts/${nextVersion.id}`)}
+                onClick={() => nextVersion && navigate(`${listPath}/${nextVersion.id}`)}
                 title={nextVersion ? `Next version: ${nextVersion.version}` : 'No next version'}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -1554,7 +1567,7 @@ export default function DataContractDetails() {
             {contract?.parentContractId && (
               <span className="ml-2 text-sm">
                 Based on{' '}
-                <Button variant="link" className="h-auto p-0 text-amber-700 dark:text-amber-300" onClick={() => navigate(`/data-contracts/${contract.parentContractId}`)}>
+                <Button variant="link" className="h-auto p-0 text-amber-700 dark:text-amber-300" onClick={() => navigate(`${listPath}/${contract.parentContractId}`)}>
                   v{contract?.version?.replace('-draft', '') || 'parent'}
                 </Button>
               </span>
@@ -2279,7 +2292,7 @@ export default function DataContractDetails() {
                 <Package className="h-5 w-5 text-primary" />
                 Linked Data Products ({linkedProducts.length})
               </CardTitle>
-              <CardDescription>Data Products using this contract for output ports</CardDescription>
+              <CardDescription>Data Products using this contract for deliverables</CardDescription>
             </div>
             <div className="flex gap-2">
               <Button
@@ -2312,7 +2325,7 @@ export default function DataContractDetails() {
               <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
               <div className="text-muted-foreground mb-2">No linked data products yet</div>
               <div className="text-sm text-muted-foreground mb-4">
-                Create a data product that uses this contract to govern an output port
+                Create a data product that uses this contract to govern a deliverable
               </div>
               {contract && ['active', 'approved', 'certified'].includes((contract.status || '').toLowerCase()) ? (
                 <Button onClick={() => setIsCreateProductDialogOpen(true)}>
@@ -2334,7 +2347,7 @@ export default function DataContractDetails() {
                   <div
                     key={product.id}
                     className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/data-products/${product.id}`)}
+                    onClick={() => navigate(`${productBasePath}/${product.id}`)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -2352,7 +2365,7 @@ export default function DataContractDetails() {
                         </div>
                         {linkedPorts.length > 0 && (
                           <div className="mt-2 text-xs text-muted-foreground">
-                            Output Port{linkedPorts.length > 1 ? 's' : ''}: {linkedPorts.map(port => `${port.name} (v${port.version})`).join(', ')}
+                            Deliverable{linkedPorts.length > 1 ? 's' : ''}: {linkedPorts.map(port => `${port.name} (v${port.version})`).join(', ')}
                           </div>
                         )}
                       </div>
@@ -2873,9 +2886,29 @@ export default function DataContractDetails() {
       </Card>
       )}
 
+      {/* Ownership Panel */}
+      {shouldShowSection('metadata-panel') && contract.id && (
+        <OwnershipPanel objectType="data_contract" objectId={contract.id} canAssign={canEditInPlace} className="mb-6" />
+      )}
+
+      {/* Entity Relationships Panel */}
+      {shouldShowSection('metadata-panel') && contract.id && (
+        <EntityRelationshipPanel
+          entityType="DataContract"
+          entityId={contract.id}
+          title="Related Entities"
+          canEdit={canEditInPlace}
+        />
+      )}
+
       {/* Metadata Panel */}
       {shouldShowSection('metadata-panel') && contract.id && (
         <EntityMetadataPanel entityId={contract.id} entityType="data_contract" />
+      )}
+
+      {/* Quality Panel */}
+      {contract.id && (
+        <EntityQualityPanel entityId={contract.id} entityType="data_contract" />
       )}
 
       {/* Dialogs */}
@@ -2988,7 +3021,7 @@ export default function DataContractDetails() {
           contractName={contract.name}
           onSuccess={(productId) => {
             fetchLinkedProducts()
-            navigate(`/data-products/${productId}`)
+            navigate(`${productBasePath}/${productId}`)
           }}
         />
       )}
@@ -3060,7 +3093,7 @@ export default function DataContractDetails() {
           setIsLinkProductDialogOpen(false);
           toast({
             title: 'Contract Linked',
-            description: 'Contract successfully linked to product output port.'
+            description: 'Contract successfully linked to product deliverable.'
           });
         }}
       />

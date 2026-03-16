@@ -1,0 +1,444 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import i18n from 'i18next';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  FolderTree,
+  Layers,
+  Plus,
+  ChevronDown,
+  Upload,
+  HelpCircle,
+  Loader2,
+} from 'lucide-react';
+import type {
+  OntologyConcept,
+  KnowledgeCollection,
+  GroupedConcepts,
+  TaxonomyStats,
+} from '@/types/ontology';
+import useBreadcrumbStore from '@/stores/breadcrumb-store';
+import { useGlossaryPreferencesStore } from '@/stores/glossary-preferences-store';
+import { usePermissions } from '@/stores/permissions-store';
+import { FeatureAccessLevel } from '@/types/feature-access-levels';
+import { useToast } from '@/hooks/use-toast';
+import {
+  ConceptsTab,
+  CollectionEditorDialog,
+  ConceptEditorDialog,
+  GlossaryFilterPanel,
+} from '@/components/knowledge';
+
+export default function BusinessTermsView() {
+  const { t } = useTranslation(['semantic-models', 'common']);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+  const { hasPermission } = usePermissions();
+
+  const canWrite = hasPermission('semantic-models', FeatureAccessLevel.READ_WRITE);
+
+  // Data state
+  const [isLoading, setIsLoading] = useState(true);
+  const [collections, setCollections] = useState<KnowledgeCollection[]>([]);
+  const [groupedConcepts, setGroupedConcepts] = useState<GroupedConcepts>({});
+  const [groupedProperties, setGroupedProperties] = useState<Record<string, OntologyConcept[]>>({});
+  const [selectedConcept, setSelectedConcept] = useState<OntologyConcept | null>(null);
+  const [stats, setStats] = useState<TaxonomyStats | null>(null);
+
+  // Dialog state
+  const [collectionEditorOpen, setCollectionEditorOpen] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<KnowledgeCollection | null>(null);
+  const [conceptEditorOpen, setConceptEditorOpen] = useState(false);
+  const [editingConcept, setEditingConcept] = useState<OntologyConcept | null>(null);
+
+  // Language selection - defaults to UI language
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(i18n.language?.split('-')[0] || 'en');
+
+  // Glossary preferences from persistent store
+  const {
+    hiddenSources,
+    groupBySource,
+    showProperties,
+    groupByDomain,
+    isFilterExpanded,
+    toggleSource,
+    selectAllSources,
+    selectNoneSources,
+    setGroupBySource,
+    setShowProperties,
+    setGroupByDomain,
+    setFilterExpanded,
+  } = useGlossaryPreferencesStore();
+
+  // Extract unique source contexts
+  const availableSources = useMemo(() => {
+    const allConcepts = Object.values(groupedConcepts).flat();
+    const allProperties = Object.values(groupedProperties).flat();
+    const sources = new Set<string>();
+    allConcepts.forEach((c) => { if (c.source_context) sources.add(c.source_context); });
+    allProperties.forEach((p) => { if (p.source_context) sources.add(p.source_context); });
+    return Array.from(sources).sort();
+  }, [groupedConcepts, groupedProperties]);
+
+  // Filter concepts based on hidden sources
+  const filteredConcepts = useMemo(() => {
+    const allConcepts = Object.values(groupedConcepts).flat();
+    const allProperties = showProperties ? Object.values(groupedProperties).flat() : [];
+
+    const seenIris = new Set<string>();
+    const combined: OntologyConcept[] = [];
+    for (const item of [...allConcepts, ...allProperties]) {
+      if (!showProperties && item.concept_type === 'property') continue;
+      if (!seenIris.has(item.iri)) {
+        seenIris.add(item.iri);
+        combined.push(item);
+      }
+    }
+
+    if (hiddenSources.length === 0) return combined;
+    return combined.filter(
+      (item) => !item.source_context || !hiddenSources.includes(item.source_context)
+    );
+  }, [groupedConcepts, groupedProperties, hiddenSources, showProperties]);
+
+  // Breadcrumbs
+  const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
+
+  useEffect(() => {
+    setStaticSegments([
+      { label: t('semantic-models:title'), path: '/ontology' },
+      { label: t('semantic-models:tabs.concepts'), path: '/semantic-models' },
+    ]);
+  }, [setStaticSegments, t]);
+
+  // Fetch data
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [collectionsRes, conceptsRes, statsRes] = await Promise.all([
+        fetch('/api/knowledge/collections?hierarchical=true'),
+        fetch('/api/semantic-models/concepts-grouped'),
+        fetch('/api/semantic-models/stats'),
+      ]);
+
+      if (collectionsRes.ok) {
+        const data = await collectionsRes.json();
+        setCollections(data.collections || []);
+      }
+
+      if (conceptsRes.ok) {
+        const data = await conceptsRes.json();
+        setGroupedConcepts(data.grouped_concepts || {});
+      }
+
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch properties when toggle is enabled
+  const fetchProperties = useCallback(async () => {
+    try {
+      const response = await fetch('/api/semantic-models/properties-grouped');
+      if (!response.ok) throw new Error('Failed to fetch properties');
+      const data = await response.json();
+
+      const propsGrouped: Record<string, OntologyConcept[]> = {};
+      for (const [source, props] of Object.entries(data.grouped_properties || {})) {
+        propsGrouped[source] = (props as any[]).map((p: any) => ({
+          ...p,
+          properties: [],
+          synonyms: [],
+          examples: [],
+        } as OntologyConcept));
+      }
+      setGroupedProperties(propsGrouped);
+    } catch (err) {
+      console.error('Failed to fetch properties:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showProperties) {
+      fetchProperties();
+    } else {
+      setGroupedProperties({});
+    }
+  }, [showProperties, fetchProperties]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Handle concept from URL
+  useEffect(() => {
+    const conceptIri = searchParams.get('concept');
+    if (conceptIri && filteredConcepts.length > 0) {
+      const decoded = decodeURIComponent(conceptIri);
+      const found = filteredConcepts.find((c) => c.iri === decoded);
+      if (found) setSelectedConcept(found);
+    }
+  }, [searchParams, filteredConcepts]);
+
+  // Concept selection handler
+  const handleSelectConcept = (concept: OntologyConcept) => {
+    setSelectedConcept(concept);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('concept', encodeURIComponent(concept.iri));
+    setSearchParams(newParams, { replace: true });
+  };
+
+  // Concept CRUD handlers
+  const handleCreateConcept = () => {
+    setEditingConcept(null);
+    setConceptEditorOpen(true);
+  };
+
+  const handleEditConcept = (concept: OntologyConcept) => {
+    setEditingConcept(concept);
+    setConceptEditorOpen(true);
+  };
+
+  const handleSaveConcept = async (data: any, isNew: boolean) => {
+    try {
+      const url = isNew
+        ? '/api/knowledge/concepts'
+        : `/api/knowledge/concepts/${encodeURIComponent(editingConcept!.iri)}`;
+      const method = isNew ? 'POST' : 'PATCH';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to save concept');
+      }
+
+      toast({
+        title: t('common:toast.success'),
+        description: isNew
+          ? t('semantic-models:messages.conceptCreated')
+          : t('semantic-models:messages.conceptUpdated'),
+      });
+
+      setConceptEditorOpen(false);
+      await fetchData();
+    } catch (error: any) {
+      toast({
+        title: t('common:toast.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteConcept = async (concept: OntologyConcept) => {
+    try {
+      const response = await fetch(
+        `/api/knowledge/concepts/${encodeURIComponent(concept.iri)}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to delete concept');
+      }
+
+      toast({
+        title: t('common:toast.success'),
+        description: t('semantic-models:messages.conceptDeleted'),
+      });
+
+      if (selectedConcept?.iri === concept.iri) setSelectedConcept(null);
+      await fetchData();
+    } catch (error: any) {
+      toast({
+        title: t('common:toast.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Collection handlers (needed for create dropdown and collection editor)
+  const handleCreateCollection = () => {
+    setEditingCollection(null);
+    setCollectionEditorOpen(true);
+  };
+
+  const handleSaveCollection = async (data: any, isNew: boolean) => {
+    try {
+      const url = isNew
+        ? '/api/knowledge/collections'
+        : `/api/knowledge/collections/${encodeURIComponent(editingCollection!.iri)}`;
+      const method = isNew ? 'POST' : 'PATCH';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to save collection');
+      }
+
+      toast({
+        title: t('common:toast.success'),
+        description: isNew
+          ? t('semantic-models:messages.collectionCreated')
+          : t('semantic-models:messages.collectionUpdated'),
+      });
+
+      setCollectionEditorOpen(false);
+      await fetchData();
+    } catch (error: any) {
+      toast({
+        title: t('common:toast.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const editableCollections = collections.filter((c) => c.is_editable);
+  const totalConcepts = stats?.total_concepts ?? Object.values(groupedConcepts).flat().length;
+  const totalProperties = stats?.total_properties ?? Object.values(groupedProperties).flat().length;
+  const selectedCollection = editableCollections[0] || null;
+
+  return (
+    <div className="flex flex-col py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Layers className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">{t('semantic-models:tabs.concepts')}</h1>
+            <p className="text-sm text-muted-foreground">
+              {totalConcepts} {t('common:terms.concepts')}
+              {showProperties && ` / ${totalProperties} ${t('common:terms.properties')}`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('common:actions.create')}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCreateConcept}>
+                  <Layers className="h-4 w-4 mr-2" />
+                  {t('semantic-models:actions.createConcept')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCreateCollection}>
+                  <FolderTree className="h-4 w-4 mr-2" />
+                  {t('semantic-models:actions.createCollection')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          <Button variant="outline" size="icon" title={t('common:actions.import')}>
+            <Upload className="h-4 w-4" />
+          </Button>
+
+          <Button variant="ghost" size="icon" title={t('common:actions.help')}>
+            <HelpCircle className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Loading state */}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col">
+          {/* Filter Panel */}
+          <GlossaryFilterPanel
+            groupedConcepts={groupedConcepts}
+            filteredConcepts={filteredConcepts}
+            availableSources={availableSources}
+            hiddenSources={hiddenSources}
+            onToggleSource={toggleSource}
+            onSelectAllSources={selectAllSources}
+            onSelectNoneSources={selectNoneSources}
+            groupBySource={groupBySource}
+            showProperties={showProperties}
+            groupByDomain={groupByDomain}
+            onSetGroupBySource={setGroupBySource}
+            onSetShowProperties={setShowProperties}
+            onSetGroupByDomain={setGroupByDomain}
+            selectedLanguage={selectedLanguage}
+            onSetSelectedLanguage={setSelectedLanguage}
+            isFilterExpanded={isFilterExpanded}
+            onSetFilterExpanded={setFilterExpanded}
+          />
+
+          {/* Concepts Tree + Detail */}
+          <ConceptsTab
+            collections={collections}
+            groupedConcepts={groupedConcepts}
+            filteredConcepts={filteredConcepts}
+            selectedConcept={selectedConcept}
+            onSelectConcept={handleSelectConcept}
+            onCreateConcept={handleCreateConcept}
+            onEditConcept={handleEditConcept}
+            onDeleteConcept={handleDeleteConcept}
+            onRefresh={fetchData}
+            canEdit={canWrite}
+            groupBySource={groupBySource}
+            showProperties={showProperties}
+            groupByDomain={groupByDomain}
+            selectedLanguage={selectedLanguage}
+          />
+        </div>
+      )}
+
+      {/* Collection Editor Dialog */}
+      <CollectionEditorDialog
+        open={collectionEditorOpen}
+        onOpenChange={setCollectionEditorOpen}
+        collection={editingCollection}
+        collections={collections}
+        onSave={handleSaveCollection}
+      />
+
+      {/* Concept Editor Dialog */}
+      <ConceptEditorDialog
+        open={conceptEditorOpen}
+        onOpenChange={setConceptEditorOpen}
+        concept={editingConcept}
+        collection={selectedCollection || editableCollections[0]}
+        collections={editableCollections}
+        onSave={handleSaveConcept}
+      />
+    </div>
+  );
+}

@@ -79,6 +79,43 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
     # SearchableAsset Interface Implementation
     # =========================================================================
 
+    def _build_search_index_item(self, ds: DatasetDb) -> Optional[SearchIndexItem]:
+        """Build a SearchIndexItem from a DatasetDb model."""
+        tags = []
+        try:
+            assigned_tags = entity_tag_repo.get_assigned_tags_for_entity(
+                db=self._db,
+                entity_id=str(ds.id),
+                entity_type="dataset"
+            )
+            for tag in assigned_tags:
+                if hasattr(tag, 'fully_qualified_name') and tag.fully_qualified_name:
+                    tags.append(tag.fully_qualified_name)
+        except Exception as tag_err:
+            logger.debug(f"Could not load tags for dataset {ds.id}: {tag_err}")
+        description = ds.description or f"Dataset: {ds.name}"
+        extra_data = {
+            "status": getattr(ds, 'status', '') or "",
+            "published": str(getattr(ds, 'published', False)),
+            "instance_count": str(len(ds.instances) if ds.instances else 0),
+        }
+        return SearchIndexItem(
+            id=f"dataset::{ds.id}",
+            type="dataset",
+            title=ds.name,
+            description=description,
+            link=f"/datasets/{ds.id}",
+            tags=tags,
+            feature_id="datasets",
+            extra_data=extra_data,
+        )
+
+    def _update_search_index(self, ds: DatasetDb) -> None:
+        """Upsert a single dataset into the search index."""
+        item = self._build_search_index_item(ds)
+        if item:
+            self._notify_index_upsert(item)
+
     def get_search_index_items(self) -> List[SearchIndexItem]:
         """
         Fetches datasets and maps them to SearchIndexItem format for global search.
@@ -88,39 +125,9 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
         try:
             datasets = dataset_repo.get_multi(db=self._db, limit=1000)
             for ds in datasets:
-                # Get tags from unified tag system (EntityTagAssociationDb)
-                tags = []
-                try:
-                    assigned_tags = entity_tag_repo.get_assigned_tags_for_entity(
-                        db=self._db,
-                        entity_id=str(ds.id),
-                        entity_type="dataset"
-                    )
-                    for tag in assigned_tags:
-                        if hasattr(tag, 'fully_qualified_name') and tag.fully_qualified_name:
-                            tags.append(tag.fully_qualified_name)
-                except Exception as tag_err:
-                    logger.debug(f"Could not load tags for dataset {ds.id}: {tag_err}")
-                
-                description = ds.description or f"Dataset: {ds.name}"
-                
-                # Build extra_data for configurable search fields
-                extra_data = {
-                    "status": getattr(ds, 'status', '') or "",
-                    "published": str(getattr(ds, 'published', False)),
-                    "instance_count": str(len(ds.instances) if ds.instances else 0),
-                }
-
-                items.append(SearchIndexItem(
-                    id=f"dataset::{ds.id}",
-                    type="dataset",
-                    title=ds.name,
-                    description=description,
-                    link=f"/datasets/{ds.id}",
-                    tags=tags,
-                    feature_id="datasets",
-                    extra_data=extra_data,
-                ))
+                item = self._build_search_index_item(ds)
+                if item:
+                    items.append(item)
         except Exception as e:
             logger.error(f"Error fetching datasets for search index: {e}", exc_info=True)
         
@@ -261,6 +268,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(db_dataset)
             return result
             
         except Exception as e:
@@ -365,6 +373,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(db_dataset)
             return result
             
         except Exception as e:
@@ -383,6 +392,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             dataset_name = db_dataset.name
             
             self._db.delete(db_dataset)
+            self._notify_index_remove(f"dataset::{dataset_id}")
             
             # Log to change log for timeline (before flush/commit)
             try:
@@ -471,6 +481,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             self._db.flush()
             self._db.refresh(db_dataset)
             
+            self._update_search_index(db_dataset)
             logger.info(f"Published dataset {dataset_id} to marketplace")
             
             # Trigger ON_REQUEST_PUBLISH workflow
@@ -546,6 +557,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             self._db.flush()
             self._db.refresh(db_dataset)
             
+            self._update_search_index(db_dataset)
             logger.info(f"Unpublished dataset {dataset_id} from marketplace")
             
             # Trigger ON_STATUS_CHANGE workflow (publication status change)
@@ -650,6 +662,7 @@ class DatasetsManager(DeliveryMixin, SearchableAsset):
             self._db.refresh(db_dataset)
             
             logger.info(f"Changed dataset {dataset_id} status from '{current_status}' to '{target_status}' by {changed_by}")
+            self._update_search_index(db_dataset)
             return self._to_api_model(db_dataset)
             
         except ValueError:

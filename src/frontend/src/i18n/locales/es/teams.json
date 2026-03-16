@@ -1,5 +1,6 @@
 {
   "title": "Equipos",
+  "subtitle": "Gestione equipos y sus miembros en su organización.",
   "addNewTeam": "Agregar nuevo equipo",
   "editTeam": "Editar equipo",
   "deleteTeam": "Eliminar equipo",

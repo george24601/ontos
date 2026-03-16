@@ -110,7 +110,7 @@
     "columns": "kolommen",
     "tables": "tabellen",
     "relationships": "relaties",
-    "conceptGraph": "Concept Grafiek",
+    "viewGraph": "Grafiek Bekijken",
     "concepts": "concepten",
     "securableId": "Beveiligbaar ID",
     "securableType": "Beveiligbaar Type",
@@ -264,6 +264,8 @@
   "userMenu": {
     "role": "Rol",
     "profile": "Profiel",
+    "settings": "Instellingen",
+    "about": "Over",
     "applyRoleOverride": "Rol Overschrijving Toepassen",
     "featurePreviews": "Functie Voorbeelden",
     "showBetaFeatures": "Toon Beta Functies",

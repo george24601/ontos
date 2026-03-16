@@ -59,7 +59,7 @@ export default function ImportExportDialog({
     if (data.inputPorts && Array.isArray(data.inputPorts)) {
       data.inputPorts.forEach((port: any, idx: number) => {
         if (!port.contractId) {
-          errors.push(`Input port #${idx + 1} missing required field: contractId`);
+          errors.push(`Consumable #${idx + 1} missing required field: contractId`);
         }
       });
     }

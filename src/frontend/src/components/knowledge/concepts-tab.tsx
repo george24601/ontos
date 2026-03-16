@@ -4,21 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import {
   Search,
   Plus,
@@ -31,9 +16,7 @@ import {
   Trash2,
   User,
   ExternalLink,
-  Filter,
   FolderTree,
-  Languages,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -43,7 +26,8 @@ import type {
 } from '@/types/ontology';
 import { NodeLinksPanel } from '@/components/knowledge/node-links-panel';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
-import { resolveLabel, resolveComment, getAvailableLanguages, getLanguageDisplayName } from '@/lib/ontology-utils';
+import { OwnershipPanel } from '@/components/common/ownership-panel';
+import { resolveLabel, resolveComment } from '@/lib/ontology-utils';
 
 interface ConceptsTabProps {
   collections: KnowledgeCollection[];
@@ -56,20 +40,11 @@ interface ConceptsTabProps {
   onDeleteConcept: (concept: OntologyConcept) => void;
   onRefresh: () => Promise<void>;
   canEdit: boolean;
-  // Filter props
-  availableSources: string[];
-  hiddenSources: string[];
+  // Display options (from unified filter panel)
   groupBySource: boolean;
   showProperties: boolean;
   groupByDomain: boolean;
-  isFilterExpanded: boolean;
-  onToggleSource: (source: string) => void;
-  onSelectAllSources: () => void;
-  onSelectNoneSources: (sources: string[]) => void;
-  onSetGroupBySource: (enabled: boolean) => void;
-  onSetShowProperties: (enabled: boolean) => void;
-  onSetGroupByDomain: (enabled: boolean) => void;
-  onSetFilterExpanded: (expanded: boolean) => void;
+  selectedLanguage: string;
 }
 
 const typeIcons: Record<string, React.ReactNode> = {
@@ -100,32 +75,15 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
   onDeleteConcept,
   onRefresh,
   canEdit,
-  // Filter props
-  availableSources,
-  hiddenSources,
+  // Display options (from unified filter panel)
   groupBySource,
   showProperties,
   groupByDomain,
-  isFilterExpanded,
-  onToggleSource,
-  onSelectAllSources,
-  onSelectNoneSources,
-  onSetGroupBySource,
-  onSetShowProperties,
-  onSetGroupByDomain,
-  onSetFilterExpanded,
+  selectedLanguage,
 }) => {
-  const { t, i18n } = useTranslation(['semantic-models', 'common']);
+  const { t } = useTranslation(['semantic-models', 'common']);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['root']));
-  
-  // Language selection for concept labels - defaults to UI language
-  const [selectedLanguage, setSelectedLanguage] = useState<string>(i18n.language.split('-')[0] || 'en');
-  
-  // Compute available languages from all concepts
-  const availableLanguages = useMemo(() => {
-    return getAvailableLanguages(filteredConcepts);
-  }, [filteredConcepts]);
   
   // Build tree data structure from concepts
   const treeData = useMemo(() => {
@@ -408,147 +366,6 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
           </div>
         </div>
         
-        {/* Filter by Source - Collapsible */}
-        {availableSources.length > 0 && (
-          <Collapsible
-            open={isFilterExpanded}
-            onOpenChange={onSetFilterExpanded}
-            className="border-b"
-          >
-            <div className="px-4 py-2 flex items-center justify-between">
-              <CollapsibleTrigger asChild>
-                <button className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
-                  {isFilterExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <Filter className="h-4 w-4" />
-                  {t('semantic-models:filters.bySource')}
-                  {hiddenSources.length > 0 && (
-                    <Badge variant="secondary" className="h-5 text-[10px] px-1.5">
-                      {availableSources.filter(s => !hiddenSources.includes(s)).length}/{availableSources.length}
-                    </Badge>
-                  )}
-                </button>
-              </CollapsibleTrigger>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs px-2"
-                  onClick={onSelectAllSources}
-                >
-                  {t('semantic-models:filters.all')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs px-2"
-                  onClick={() => onSelectNoneSources(availableSources)}
-                >
-                  {t('semantic-models:filters.none')}
-                </Button>
-              </div>
-            </div>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {availableSources.map((source) => {
-                    const isVisible = !hiddenSources.includes(source);
-                    const conceptCount = Object.values(groupedConcepts)
-                      .flat()
-                      .filter((c) => c.source_context === source).length;
-                    return (
-                      <label
-                        key={source}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                          "border hover:bg-accent",
-                          isVisible ? "bg-accent/50 border-primary/30" : "opacity-60"
-                        )}
-                      >
-                        <Checkbox
-                          checked={isVisible}
-                          onCheckedChange={() => onToggleSource(source)}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span>{source}</span>
-                        <Badge variant="secondary" className="h-4 text-[10px] px-1">
-                          {conceptCount}
-                        </Badge>
-                      </label>
-                    );
-                  })}
-                </div>
-                
-                {/* Group by Source Toggle */}
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <Label htmlFor="group-by-source" className="text-sm flex items-center gap-2 cursor-pointer">
-                    <FolderTree className="h-4 w-4" />
-                    {t('semantic-models:filters.groupBySource')}
-                  </Label>
-                  <Switch
-                    id="group-by-source"
-                    checked={groupBySource}
-                    onCheckedChange={onSetGroupBySource}
-                  />
-                </div>
-                
-                {/* Show Properties Toggle */}
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <Label htmlFor="show-properties" className="text-sm flex items-center gap-2 cursor-pointer">
-                    <Zap className="h-4 w-4" />
-                    {t('semantic-models:filters.showProperties')}
-                  </Label>
-                  <Switch
-                    id="show-properties"
-                    checked={showProperties}
-                    onCheckedChange={onSetShowProperties}
-                  />
-                </div>
-                
-                {/* Group by Domain Toggle - only visible when properties are shown */}
-                {showProperties && (
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <Label htmlFor="group-by-domain" className="text-sm flex items-center gap-2 cursor-pointer">
-                      <Layers className="h-4 w-4" />
-                      {t('semantic-models:filters.groupByDomain')}
-                    </Label>
-                    <Switch
-                      id="group-by-domain"
-                      checked={groupByDomain}
-                      onCheckedChange={onSetGroupByDomain}
-                    />
-                  </div>
-                )}
-                
-                {/* Label Language Selector */}
-                {availableLanguages.length > 0 && (
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <Label htmlFor="label-language" className="text-sm flex items-center gap-2 cursor-pointer">
-                      <Languages className="h-4 w-4" />
-                      {t('semantic-models:filters.labelLanguage', 'Label Language')}
-                    </Label>
-                    <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                      <SelectTrigger id="label-language" className="w-28 h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableLanguages.map((lang) => (
-                          <SelectItem key={lang} value={lang}>
-                            {getLanguageDisplayName(lang)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-        
         {/* Concept Tree */}
         <div className="flex-1 min-h-0 overflow-auto">
           <div className="p-2 min-w-max">
@@ -756,27 +573,13 @@ export const ConceptsTab: React.FC<ConceptsTabProps> = ({
                 selectedLanguage={selectedLanguage}
               />
               
-              {/* Owners */}
-              {selectedConcept.owners && selectedConcept.owners.length > 0 && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    {t('semantic-models:fields.businessOwners')}
-                  </h3>
-                  <div className="space-y-2">
-                    {selectedConcept.owners.map((owner) => (
-                      <div
-                        key={owner.user_uri}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <span>{owner.user_uri?.replace('urn:user:', '')}</span>
-                        <Badge variant="outline" className="text-xs">{owner.role}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
+              {/* Ownership Panel */}
+              <OwnershipPanel
+                objectType="business_term"
+                objectId={selectedConcept.iri}
+                canAssign={isConceptEditable(selectedConcept)}
+              />
+
               {/* Source Info */}
               <div className="text-sm text-muted-foreground border-t pt-4">
                 <p>Source: {selectedConcept.source_context}</p>

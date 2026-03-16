@@ -118,10 +118,11 @@ Start with: [05. Gap Analysis](05-gap-analysis.md) → Executive summary
 - Roles are fluid in minimal teams, specialized in elaborate teams
 
 ### 2. Workflow Approach
-- **Contracts First** is the recommended approach
-- Contracts serve as formal interface and commitment to consumers
-- Forces teams to think about consumer needs, quality, and semantics upfront
-- Products are built against approved contracts
+- Both **Contracts First** and **Products First** approaches are supported
+- In either approach, assets are linked to individual **Deliverables** (output ports), not to the Data Product directly
+- Each Deliverable has a **Delivery Method** (e.g., Table Access, Serving Endpoint) that determines access semantics
+- **Consumables** (input ports) declare upstream data dependencies
+- Contracts can be linked per Deliverable to formalize the interface
 
 ### 3. Lifecycle Management
 - Objects start **private** to team (DRAFT, DEVELOPMENT)

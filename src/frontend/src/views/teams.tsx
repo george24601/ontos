@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import { Toaster } from "@/components/ui/toaster";
-import useBreadcrumbStore from '@/stores/breadcrumb-store';
+import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 import { useProjectContext } from '@/stores/project-store';
 import { TeamFormDialog } from '@/components/teams/team-form-dialog';
 import { useNavigate } from 'react-router-dom';
@@ -48,8 +48,6 @@ export default function TeamsView() {
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
-  const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
-  const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const navigate = useNavigate();
   const { getDomainName } = useDomains();
   const { currentProject, hasProjectContext } = useProjectContext();
@@ -90,13 +88,7 @@ export default function TeamsView() {
 
   useEffect(() => {
     fetchTeams();
-    setStaticSegments([]);
-    setDynamicTitle(t('title'));
-    return () => {
-        setStaticSegments([]);
-        setDynamicTitle(null);
-    };
-  }, [fetchTeams, setStaticSegments, setDynamicTitle, t]);
+  }, [fetchTeams]);
 
   const handleOpenCreateDialog = () => {
     if (!canWrite) {
@@ -291,17 +283,18 @@ export default function TeamsView() {
   ], [canWrite, canAdmin, getDomainName, navigate, t, handleOpenEditDialog]);
 
   return (
-    <div className="py-6">
+    <SettingsPageWrapper title={t('title')}>
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
            <UserCheck className="w-8 h-8" />
            {t('title')}
         </h1>
-        {hasProjectContext && currentProject && (
-          <p className="text-muted-foreground mt-1">
-            {t('showingTeamsForProject')} <span className="font-medium">{currentProject.name}</span>
-          </p>
-        )}
+        <p className="text-muted-foreground mt-1">
+          {t('subtitle')}
+          {hasProjectContext && currentProject && (
+            <> — {t('showingTeamsForProject')} <span className="font-medium">{currentProject.name}</span></>
+          )}
+        </p>
       </div>
 
       {(apiIsLoading || permissionsLoading) ? (
@@ -358,6 +351,6 @@ export default function TeamsView() {
       </AlertDialog>
 
       <Toaster />
-    </div>
+    </SettingsPageWrapper>
   );
 }

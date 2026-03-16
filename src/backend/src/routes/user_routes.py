@@ -201,6 +201,7 @@ async def get_actual_role(
     return {"role": role.dict() if role else None}
 
 
+
 # --- Requestable Roles Endpoint ---
 @router.get("/user/requestable-roles", response_model=List[AppRole])
 async def get_requestable_roles(

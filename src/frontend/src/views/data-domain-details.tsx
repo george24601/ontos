@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 // Label - unused
 // import { Label } from '@/components/ui/label';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
+import { OwnershipPanel } from '@/components/common/ownership-panel';
+import { EntityRelationshipPanel } from '@/components/common/entity-relationship-panel';
 // Preview handled in EntityMetadataPanel
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -226,6 +228,8 @@ export default function DataDomainDetailsView() {
   const { t } = useTranslation(['data-domains', 'common']);
   const { domainId } = useParams<{ domainId: string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const listPath = pathname.replace(/\/[^/]+$/, '');
   const { get, post, delete: del } = useApi();
   const { toast } = useToast();
   
@@ -514,7 +518,7 @@ export default function DataDomainDetailsView() {
   };
 
   useEffect(() => {
-    setStaticSegments([{ label: 'Data Domains', path: '/data-domains' }]);
+    setStaticSegments([{ label: 'Data Domains', path: listPath }]);
     if (domainId) {
       fetchDomainDetails(domainId);
       fetchMetadata(domainId);
@@ -548,7 +552,7 @@ export default function DataDomainDetailsView() {
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={() => navigate('/data-domains')}>
+        <Button variant="outline" onClick={() => navigate(listPath)}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Data Domains
         </Button>
       </div>
@@ -561,7 +565,7 @@ export default function DataDomainDetailsView() {
             <Alert className="mb-4">
                 <AlertDescription>Data domain not found or could not be loaded.</AlertDescription>
             </Alert>
-            <Button variant="outline" onClick={() => navigate('/data-domains')}>
+            <Button variant="outline" onClick={() => navigate(listPath)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Data Domains
             </Button>
         </div>
@@ -571,7 +575,7 @@ export default function DataDomainDetailsView() {
   return (
     <div className="py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => navigate('/data-domains')} size="sm">
+        <Button variant="outline" onClick={() => navigate(listPath)} size="sm">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to List
         </Button>
@@ -607,14 +611,6 @@ export default function DataDomainDetailsView() {
               </InfoItem>
             )}
              <InfoItem label="Children Count" value={domain.children_count?.toString() ?? '0'} icon={<ListTree />} />
-
-            <InfoItem label="Owners" icon={<Users />}>
-              {domain.owner && domain.owner.length > 0 ? (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {domain.owner.map((o, i) => <Badge key={i} variant="outline">{o}</Badge>)}
-                </div>
-              ) : t('common:states.notAssigned')}
-            </InfoItem>
 
             <InfoItem label="Tags" icon={<Tag />}>
               {domain.tags && domain.tags.length > 0 ? (
@@ -751,6 +747,17 @@ export default function DataDomainDetailsView() {
           <LinkedAssetsView assets={linkedAssets} />
         </CardContent>
       </Card>
+
+      {/* Ownership Panel */}
+      <OwnershipPanel objectType="data_domain" objectId={domainId!} canAssign className="mb-6" />
+
+      {/* Entity Relationships Panel */}
+      <EntityRelationshipPanel
+        entityType="DataDomain"
+        entityId={domainId!}
+        title="Related Entities"
+        canEdit
+      />
 
       {/* Metadata Panel - Last Section */}
       <EntityMetadataPanel entityId={domainId!} entityType={entityType} />

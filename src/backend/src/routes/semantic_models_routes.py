@@ -653,6 +653,28 @@ async def get_neighbors(
         logger.error("Error retrieving neighbors for %s", iri, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve neighbors")
 
+
+@router.get('/semantic-models/resources/{iri:path}/description')
+async def get_resource_description(
+    iri: str,
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_ONLY))
+) -> dict:
+    """Get full description of a resource: direct triples plus one-level expansion of blank nodes.
+
+    Used by KG Search to show all SHACL shape constraints (e.g. nested sh:property contents).
+    """
+    try:
+        from urllib.parse import unquote
+        decoded_iri = unquote(iri)
+        logger.info("Resource description for IRI: %s", decoded_iri[:80] + "..." if len(decoded_iri) > 80 else decoded_iri)
+        description = manager.get_resource_description(decoded_iri, expand_blank_depth=1)
+        return description
+    except Exception as e:
+        logger.error("Error getting resource description for %s", iri, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get resource description")
+
+
 @router.get('/semantic-models/prefix')
 async def prefix_search(
     q: str = Query(..., description="IRI prefix substring to search for"),

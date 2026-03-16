@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DataContractListItem, DataContractCreate } from '@/types/data-contract';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useDomains } from '@/hooks/use-domains'
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -40,6 +40,7 @@ export default function DataContracts() {
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const { currentProject, hasProjectContext } = useProjectContext();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     fetchContracts();
@@ -415,7 +416,7 @@ export default function DataContracts() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => { e.stopPropagation(); contract.id && navigate(`/data-contracts/${contract.id}`) }}
+              onClick={(e) => { e.stopPropagation(); contract.id && navigate(`${pathname}/${contract.id}`) }}
               title={t('common:tooltips.edit')}
             >
               <Pencil className="h-4 w-4" />
@@ -539,7 +540,7 @@ export default function DataContracts() {
           )}
           onRowClick={(row) => {
             const id = row.original.id;
-            if (id) navigate(`/data-contracts/${id}`);
+            if (id) navigate(`${pathname}/${id}`);
           }}
         />
       )}
@@ -636,7 +637,7 @@ export default function DataContracts() {
         onSuccess={(contractId) => {
           fetchContracts();
           setOpenFromDatasetDialog(false);
-          navigate(`/data-contracts/${contractId}`);
+          navigate(`${pathname}/${contractId}`);
         }}
       />
     </div>

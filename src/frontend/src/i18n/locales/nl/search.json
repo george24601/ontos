@@ -4,9 +4,10 @@
   "tabs": {
     "askOntos": "Vraag Ontos",
     "indexSearch": "Index Zoeken",
-    "conceptGraph": "Concept Grafiek",
-    "knowledgeGraph": "Knowledge Graph",
-    "concepts": "Concepten"
+    "viewGraph": "Grafiek Bekijken",
+    "searchGraph": "Grafiek Zoeken",
+    "concepts": "Concepten",
+    "knowledgeGraph": "Kennisgraaf"
   },
   "noResults": "Geen resultaten gevonden",
   "noResultsHint": "Probeer je zoektermen of filters aan te passen",

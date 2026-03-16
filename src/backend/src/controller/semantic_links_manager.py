@@ -98,13 +98,12 @@ class SemanticLinksManager:
         return None
 
     def _to_api(self, db_obj: EntitySemanticLinkDb) -> EntitySemanticLink:
-        # Use existing label if available, otherwise try to resolve from entity
         label = db_obj.label
         if not label:
-            resolved_name = self._resolve_entity_name(db_obj.entity_id, db_obj.entity_type)
-            if resolved_name:
-                label = resolved_name
-                logger.debug(f"Resolved name '{resolved_name}' for {db_obj.entity_type}:{db_obj.entity_id}")
+            # Derive concept label from IRI local name (fragment or last path segment)
+            iri = db_obj.iri or ''
+            tail = iri.split('#')[-1].split('/')[-1]
+            label = tail.replace('_', ' ') if tail else None
         
         return EntitySemanticLink(
             id=str(db_obj.id),

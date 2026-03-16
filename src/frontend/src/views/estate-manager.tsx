@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import { ViewModeToggle } from '@/components/common/view-mode-toggle';
 import { DataTable } from '@/components/ui/data-table';
@@ -74,6 +74,7 @@ export default function EstateManager() {
   const { toast } = useToast();
   const { get, post, put, delete: deleteEstateApi } = useApi();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const [estates, setEstates] = useState<Estate[]>([]);
@@ -244,7 +245,7 @@ export default function EstateManager() {
   };
   
   const handleNodeClick = (estateId: string) => {
-    navigate(`/estates/${estateId}`);
+    navigate(`${pathname}/${estateId}`);
   };
 
   const columns: ColumnDef<Estate>[] = [

@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +61,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Cpu,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
@@ -244,17 +244,17 @@ export default function MCPTokensSettings() {
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <>
+      <div className="mb-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Key className="h-6 w-6 text-primary" />
-            <div>
-              <CardTitle>{t('settings:mcpTokens.title')}</CardTitle>
-              <CardDescription>
-                {t('settings:mcpTokens.description')}
-              </CardDescription>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Cpu className="w-8 h-8" />
+              {t('settings:mcpTokens.title')}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {t('settings:mcpTokens.description')}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -272,9 +272,9 @@ export default function MCPTokensSettings() {
             </Button>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent>
+      <div>
         {/* Filter */}
         <div className="flex items-center gap-2 mb-4">
           <Checkbox
@@ -449,7 +449,7 @@ export default function MCPTokensSettings() {
             <code className="bg-background px-1 rounded">X-API-Key: mcp_...</code>
           </div>
         </div>
-      </CardContent>
+      </div>
 
       {/* Create Token Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -683,7 +683,7 @@ export default function MCPTokensSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </>
   );
 }
 

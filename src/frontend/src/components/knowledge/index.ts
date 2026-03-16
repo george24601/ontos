@@ -9,3 +9,6 @@ export { LinkEditorDialog } from './link-editor-dialog';
 export { CollectionsTab } from './collections-tab';
 export { ConceptsTab } from './concepts-tab';
 export { GraphTab } from './graph-tab';
+
+// Shared components
+export { GlossaryFilterPanel } from './glossary-filter-panel';

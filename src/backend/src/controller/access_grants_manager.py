@@ -311,7 +311,21 @@ class AccessGrantsManager:
             requests=[AccessGrantRequestResponse.model_validate(r) for r in requests],
             total=total
         )
-    
+
+    def get_my_requests(
+        self,
+        db: Session,
+        email: str,
+        limit: int = 100,
+        offset: int = 0
+    ) -> AccessGrantRequestList:
+        """Get all requests made by a user (any status: pending, approved, denied, etc.)."""
+        requests, total = self._request_repo.get_all_for_user(db, email, limit, offset)
+        return AccessGrantRequestList(
+            requests=[AccessGrantRequestResponse.model_validate(r) for r in requests],
+            total=total
+        )
+
     def cancel_request(self, db: Session, request_id: str, user_email: str) -> bool:
         """Cancel a pending request (by the requester)."""
         request = self._request_repo.get_by_id(db, request_id)

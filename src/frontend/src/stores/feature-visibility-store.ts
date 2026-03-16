@@ -17,7 +17,7 @@ export const useFeatureVisibilityStore = create<FeatureVisibilityState>()(
   persist(
     (set, _get) => ({
       showBeta: true,
-      showAlpha: true,
+      showAlpha: false,
       // Compute allowedMaturities whenever state changes
       allowedMaturities: ['ga'], // Initial value
 

@@ -26,6 +26,31 @@ type Neighbor = {
 
 type DirectionFilter = 'all' | 'incoming' | 'outgoing';
 
+interface ResourceDescriptionTriple {
+  predicate: string;
+  object: string;
+  objectType: 'uri' | 'literal' | 'bnode';
+  expanded?: ResourceDescriptionTriple[];
+}
+interface ResourceDescription {
+  iri: string;
+  triples: ResourceDescriptionTriple[];
+}
+
+const PREDICATE_PREFIXES: Record<string, string> = {
+  'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'rdf:',
+  'http://www.w3.org/2000/01/rdf-schema#': 'rdfs:',
+  'http://www.w3.org/2001/XMLSchema#': 'xsd:',
+  'http://www.w3.org/ns/shacl#': 'sh:',
+};
+function shortPredicate(iri: string): string {
+  for (const [prefix, short] of Object.entries(PREDICATE_PREFIXES)) {
+    if (iri.startsWith(prefix)) return short + iri.slice(prefix.length);
+  }
+  const local = iri.includes('#') ? iri.split('#').pop()! : iri.split('/').pop()!;
+  return local || iri;
+}
+
 interface KGSearchProps {
   initialPrefix?: string;
   initialPath?: string[];
@@ -124,6 +149,7 @@ export default function KGSearch({
     el.style.height = '0';
     el.style.height = `${el.scrollHeight}px`;
   };
+  const [resourceDescription, setResourceDescription] = useState<ResourceDescription | null>(null);
 
   // New filter states
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>(initialDirectionFilter);
@@ -154,9 +180,9 @@ export default function KGSearch({
     if (newDirection && newDirection !== 'all') params.set('direction', newDirection);
     if (newConceptsOnly) params.set('concepts_only', 'true');
 
+    params.set('tab', 'kg');
     const queryString = params.toString();
-    const newUrl = queryString ? `/search/kg?${queryString}` : '/search/kg';
-    navigate(newUrl, { replace: true });
+    navigate(`${location.pathname}?${queryString}`, { replace: true });
   };
 
   // Load initial state from URL
@@ -219,6 +245,27 @@ export default function KGSearch({
       }
     };
     loadNeighbors();
+  }, [path]);
+
+  // Load full resource description (with expanded blank nodes) when path changes
+  useEffect(() => {
+    const loadDescription = async () => {
+      if (path.length === 0) {
+        setResourceDescription(null);
+        return;
+      }
+      const currentIri = path[path.length - 1];
+      try {
+        const res = await get<ResourceDescription>(
+          `/api/semantic-models/resources/${encodeURIComponent(currentIri)}/description`
+        );
+        setResourceDescription(res.data || null);
+      } catch (e) {
+        console.error('Failed to load resource description:', e);
+        setResourceDescription(null);
+      }
+    };
+    loadDescription();
   }, [path]);
 
   // Prefix search
@@ -379,7 +426,7 @@ export default function KGSearch({
               <div key={i} className="flex items-center justify-between">
                 <div className="truncate mr-2">
                   <div className="text-[10px] text-muted-foreground uppercase">{n.direction}</div>
-                  <div className="text-xs text-muted-foreground">{n.predicate}</div>
+                  <div className="text-xs text-muted-foreground">{shortPredicate(n.predicate)}</div>
                   <div className="truncate">
                     {parseAppEntity(n.display) ? (
                       <AppEntityHover iri={n.display}>
@@ -399,6 +446,43 @@ export default function KGSearch({
               </div>
             ))}
           </div>
+
+          {/* Resource detail: full description with expanded blank nodes */}
+          {path.length >= 1 && (
+            <div className="mt-4 pt-4 border-t space-y-2">
+              <h4 className="text-sm font-medium">{t('search:kg.resourceDetail', 'Resource detail')}</h4>
+              {resourceDescription == null ? (
+                <div className="text-sm text-muted-foreground">Loading…</div>
+              ) : resourceDescription.triples.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No triples for this resource.</div>
+              ) : (
+                <div className="space-y-2 text-xs">
+                  {resourceDescription.triples.map((trip, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 items-baseline">
+                        <span className="font-medium text-muted-foreground">{shortPredicate(trip.predicate)}</span>
+                        {trip.objectType === 'bnode' && trip.expanded && trip.expanded.length > 0 ? (
+                          <span className="text-muted-foreground">(blank node, expanded below)</span>
+                        ) : (
+                          <span title={trip.object} className="truncate max-w-[280px]">{trip.object}</span>
+                        )}
+                      </div>
+                      {trip.objectType === 'bnode' && trip.expanded && trip.expanded.length > 0 && (
+                        <div className="ml-4 pl-3 border-l-2 border-muted space-y-1 py-1">
+                          {trip.expanded.map((sub, j) => (
+                            <div key={j} className="flex flex-wrap gap-x-2 gap-y-0.5 items-baseline">
+                              <span className="font-medium text-muted-foreground">{shortPredicate(sub.predicate)}</span>
+                              <span title={sub.object} className="truncate max-w-[240px]">{sub.object}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

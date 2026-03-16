@@ -32,6 +32,9 @@ class ProcessWorkflowDb(Base):
     # Contains: type (all, project, catalog, domain), ids (list of scoped entity ids)
     scope_config = Column(Text, nullable=True)
     
+    # Workflow type: process (event-driven automation) | approval (wizard-driven agreement/signing)
+    workflow_type = Column(String(50), nullable=False, default='process', server_default='process')
+    
     # Status
     is_active = Column(Boolean, nullable=False, default=True)
     is_default = Column(Boolean, nullable=False, default=False)

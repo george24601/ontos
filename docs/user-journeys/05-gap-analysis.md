@@ -52,7 +52,7 @@ Ontos has strong foundational components but lacks explicit lifecycle management
 | **Basic Product Model** | ✅ Exists (`DataProductDb`) | ✅ No change needed | None | - |
 | **Asset Grouping (Tags)** | ✅ Implemented | ✅ No change needed | None | - |
 | **Lifecycle States** | ❌ Missing | DEVELOPMENT, SANDBOX, PENDING_CERTIFICATION, CERTIFIED, ACTIVE, DEPRECATED, ARCHIVED | **HIGH** | Medium |
-| **Contract Linking** | ⚠️ Basic linking | Explicit version linking to output ports | **HIGH** | Medium |
+| **Contract Linking (Optional)** | ⚠️ Basic linking | Optional version linking to Deliverables (output ports) — contracts can be added after asset composition. Each Deliverable has a Delivery Method and per-port asset linking. | **MEDIUM** | Medium |
 | **Subscription Workflow** | ❌ Missing | Consumer subscribe/unsubscribe mechanism | **HIGH** | Low |
 | **Certification Process** | ❌ Missing | Formal steward certification with criteria | **HIGH** | High |
 | **Sandbox Deployment** | ❌ Missing | Pre-production testing environment | **MEDIUM** | High |
@@ -146,7 +146,7 @@ Ontos has strong foundational components but lacks explicit lifecycle management
 | **Lifecycle States** | Missing | Add status enums, enforce transitions in API, update DB schema |
 | **Contract Versioning** | Missing | Add version field, track history, create new drafts from published |
 | **Steward Review UI** | Missing | Build review queue, approve/reject buttons, criteria checklist |
-| **Product-Contract Linking** | Partial | Explicit version linking, display on product page |
+| **Product-Contract Linking** | Partial | Optional version linking via detail page, display on product page |
 | **Subscriptions** | Missing | Subscribe/unsubscribe buttons, track relationships, display subscribers |
 | **Role-Based Home** | Partial | Customize home page per role (Consumer, Producer, Steward) |
 
@@ -189,7 +189,7 @@ Ontos has strong foundational components but lacks explicit lifecycle management
 | **State machine bugs** | Medium | High | Comprehensive unit tests, API validation, state transition logs |
 | **Performance degradation** | Medium | Medium | Database indexes on status fields, pagination, caching |
 | **Migration issues** | High | High | Careful DB migration, default status for existing records, rollback plan |
-| **UI complexity** | Medium | Medium | Progressive disclosure, guided wizards, user testing |
+| **UI complexity** | Medium | Medium | Progressive disclosure, lightweight creation with Draft-state editing, user testing |
 
 ### Adoption Risks
 

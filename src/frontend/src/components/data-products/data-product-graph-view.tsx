@@ -73,7 +73,7 @@ const DataProductNode: React.FC<NodeProps<DataProductNodeData>> = ({ data }) => 
                                     onClick={(e) => e.stopPropagation()} // Keep stopPropagation
                                 />
                                 <TooltipContent side="left">
-                                    <p className="font-semibold">{port.name} (Input)</p>
+                                    <p className="font-semibold">{port.name} (Consumable)</p>
                                     {(port as any).description && <p className="text-xs text-muted-foreground">{(port as any).description}</p>}
                                     <p className="text-xs"><span className="text-muted-foreground">Contract:</span> {port.contractId}</p>
                                     <p className="text-xs"><span className="text-muted-foreground">Version:</span> {port.version}</p>
@@ -128,7 +128,7 @@ const DataProductNode: React.FC<NodeProps<DataProductNodeData>> = ({ data }) => 
                                     onClick={(e) => e.stopPropagation()} // Keep stopPropagation
                                 />
                                 <TooltipContent side="right">
-                                    <p className="font-semibold">{port.name} (Output)</p>
+                                    <p className="font-semibold">{port.name} (Deliverable)</p>
                                     {port.description && <p className="text-xs text-muted-foreground">{port.description}</p>}
                                     {port.contractId && <p className="text-xs"><span className="text-muted-foreground">Contract:</span> {port.contractId}</p>}
                                     <p className="text-xs"><span className="text-muted-foreground">Version:</span> {port.version}</p>

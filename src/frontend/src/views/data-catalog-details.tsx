@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
@@ -70,6 +70,8 @@ import type {
 const DataCatalogDetails: React.FC = () => {
   const { '*': tableFqn } = useParams<{ '*': string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const listPath = pathname.replace(/\/catalog\/.*$/, '/catalog');
   const { t } = useTranslation(['data-catalog', 'common']);
   const { toast } = useToast();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
@@ -263,9 +265,9 @@ const DataCatalogDetails: React.FC = () => {
         <h2 className="text-xl font-semibold mb-2">{t('common:error')}</h2>
         <p className="text-muted-foreground mb-4">{error}</p>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/data-catalog')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {t('common:back')}
+          <Button variant="outline" onClick={() => navigate(listPath)} size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to List
           </Button>
           <Button onClick={fetchTableDetails}>
             {t('common:retry', 'Retry')}
@@ -284,44 +286,42 @@ const DataCatalogDetails: React.FC = () => {
   return (
     <div className="flex flex-col h-full p-6 gap-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/data-catalog')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          
-          <div className="flex items-center gap-3">
-            {isView ? (
-              <Eye className="h-8 w-8 text-green-600 dark:text-green-400" />
-            ) : (
-              <TableIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-            )}
-            
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-semibold">{tableInfo.name}</h1>
-                <Badge variant={isView ? 'secondary' : 'default'}>
-                  {tableInfo.table_type}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <code className="text-sm bg-muted px-2 py-0.5 rounded">
-                  {tableInfo.full_name}
-                </code>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyFqn}>
-                      {copiedFqn ? (
-                        <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t('common:copy')}</TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => navigate(listPath)} size="sm">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {isView ? (
+          <Eye className="h-8 w-8 text-green-600 dark:text-green-400" />
+        ) : (
+          <TableIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+        )}
+
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">{tableInfo.name}</h1>
+            <Badge variant={isView ? 'secondary' : 'default'}>
+              {tableInfo.table_type}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <code className="text-sm bg-muted px-2 py-0.5 rounded">
+              {tableInfo.full_name}
+            </code>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyFqn}>
+                  {copiedFqn ? (
+                    <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('common:copy')}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>

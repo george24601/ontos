@@ -4,9 +4,15 @@
     "general": "Allgemein",
     "databricks": "Databricks",
     "git": "Git",
-    "jobs": "Jobs & Workflows",
+    "jobs": "Jobs",
+    "audit": "Audit-Protokoll",
+    "businessRoles": "Geschäftsrollen",
+    "assetTypes": "Asset-Typen",
+    "dataDomains": "Domänen",
+    "teams": "Teams",
+    "projects": "Projekte",
     "roles": "Rollen",
-    "semanticModels": "Semantische Modelle",
+    "rdfSources": "RDF-Quellen",
     "tags": "Tags",
     "search": "Suche",
     "mcpTokens": "MCP-Token",
@@ -109,8 +115,17 @@
       "token": "ghp_... oder ähnlich"
     }
   },
+  "nav": {
+    "groups": {
+      "configuration": "Konfiguration",
+      "integrations": "Integrationen",
+      "operations": "Betrieb",
+      "accessControl": "Zugriffskontrolle",
+      "referenceData": "Stammdaten"
+    }
+  },
   "jobs": {
-    "title": "Jobs & Workflows Konfiguration",
+    "title": "Jobs Konfiguration",
     "description": "Databricks Job-Cluster konfigurieren und Hintergrund-Workflows aktivieren",
     "jobClusterId": {
       "label": "Job-Cluster-ID",

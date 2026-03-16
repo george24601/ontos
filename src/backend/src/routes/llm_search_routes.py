@@ -120,7 +120,8 @@ async def chat(
         response = await manager.chat(
             user_message=message.content,
             user_id=current_user.email,
-            session_id=message.session_id
+            session_id=message.session_id,
+            debug=message.debug
         )
         
         success = True

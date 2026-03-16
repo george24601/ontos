@@ -23,12 +23,24 @@
     "name": "Productos",
     "description": "Agrupa y gestiona activos Databricks relacionados con etiquetas."
   },
+  "concepts": {
+    "name": "Conceptos",
+    "description": "Navegar, buscar y gestionar conceptos de negocio, colecciones y jerarquías."
+  },
   "semantic-models": {
-    "name": "Glosario de Negocio",
+    "name": "Navegador de conceptos",
     "description": "Explora términos del glosario de negocio, conceptos y sus relaciones."
   },
+  "collections": {
+    "name": "Colecciones de conceptos",
+    "description": "Organiza conceptos y activos en colecciones lógicas."
+  },
+  "process-workflows": {
+    "name": "Flujos de trabajo",
+    "description": "Configura flujos de trabajo automatizados para validación, aprobación y notificaciones."
+  },
   "data-asset-reviews": {
-    "name": "Revisión de activos",
+    "name": "Revisiones de activos",
     "description": "Revisa y aprueba activos Databricks como tablas, vistas y funciones."
   },
   "compliance": {

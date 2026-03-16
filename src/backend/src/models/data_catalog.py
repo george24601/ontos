@@ -187,7 +187,7 @@ class LineageNode(BaseModel):
     
     # Location info
     catalog: Optional[str] = None
-    schema: Optional[str] = None
+    schema_name: Optional[str] = Field(None, alias="schema")
     
     # Metadata
     owner: Optional[str] = None
@@ -201,7 +201,7 @@ class LineageNode(BaseModel):
     is_root: bool = Field(False, description="Whether this is the queried node")
     depth: int = Field(0, description="Distance from root node")
     
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class ColumnMapping(BaseModel):

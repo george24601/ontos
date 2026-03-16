@@ -17,6 +17,7 @@ import {
   GitBranch,
   FileSearch,
   Globe,
+  MessageSquare,
 } from 'lucide-react';
 import type { WorkflowStep, WorkflowTrigger } from '@/types/process-workflow';
 import { 
@@ -90,6 +91,11 @@ const nodeColorStyles = {
     card: "border-orange-500 bg-orange-50 dark:bg-orange-900/50 dark:border-orange-400",
     icon: "text-orange-600 dark:text-orange-300",
     ring: "ring-orange-500 dark:ring-orange-400",
+  },
+  user_action: {
+    card: "border-sky-500 bg-sky-50 dark:bg-sky-900/50 dark:border-sky-400",
+    icon: "text-sky-600 dark:text-sky-300",
+    ring: "ring-sky-500 dark:ring-sky-400",
   },
 } as const;
 
@@ -290,6 +296,56 @@ export const NotificationNode = memo((props: NodeProps<StepNodeData>) => {
   );
 });
 NotificationNode.displayName = 'NotificationNode';
+
+// User Action Node (approval workflows: collect reason, acceptances, etc.)
+export const UserActionNode = memo((props: NodeProps<StepNodeData>) => {
+  const title = (props.data.step.config as { title?: string })?.title;
+  const styles = nodeColorStyles.user_action;
+  return (
+    <Card className={`${baseNodeClass} ${styles.card} ${props.selected ? `ring-2 ${styles.ring}` : ''}`}>
+      <Handle type="target" position={Position.Top} className="!bg-slate-400 dark:!bg-slate-500" />
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className={`${nodeTextStyles.title} flex items-center gap-2`}>
+          <MessageSquare className={`h-4 w-4 ${styles.icon}`} />
+          {props.data.step.name || title || 'User Action'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 pt-0">
+        <Badge variant="outline" className="text-xs dark:border-sky-400/50 dark:text-sky-200">user_action</Badge>
+        {title && (
+          <div className={nodeTextStyles.description + " mt-1 truncate max-w-[140px]"}>{title}</div>
+        )}
+      </CardContent>
+      <Handle type="source" position={Position.Bottom} id="pass" className="!bg-green-500 dark:!bg-green-400" style={{ left: '30%' }} />
+      <Handle type="source" position={Position.Bottom} id="fail" className="!bg-red-500 dark:!bg-red-400" style={{ left: '70%' }} />
+    </Card>
+  );
+});
+UserActionNode.displayName = 'UserActionNode';
+
+// Default/unknown step node (fallback when step_type has no dedicated component)
+export const DefaultStepNode = memo((props: NodeProps<StepNodeData>) => {
+  const step = props.data.step;
+  return (
+    <Card className={`${baseNodeClass} border-slate-500 bg-slate-50 dark:bg-slate-800/70 dark:border-slate-400 ${props.selected ? 'ring-2 ring-slate-500 dark:ring-slate-400' : ''}`}>
+      <Handle type="target" position={Position.Top} className="!bg-slate-400 dark:!bg-slate-500" />
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className={`${nodeTextStyles.title} flex items-center gap-2`}>
+          <MessageSquare className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+          {step.name || step.step_type || 'Step'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 pt-0">
+        <Badge variant="outline" className="text-xs dark:border-slate-400/50 dark:text-slate-200">
+          {step.step_type.replace('_', ' ')}
+        </Badge>
+      </CardContent>
+      <Handle type="source" position={Position.Bottom} id="pass" className="!bg-green-500 dark:!bg-green-400" style={{ left: '30%' }} />
+      <Handle type="source" position={Position.Bottom} id="fail" className="!bg-red-500 dark:!bg-red-400" style={{ left: '70%' }} />
+    </Card>
+  );
+});
+DefaultStepNode.displayName = 'DefaultStepNode';
 
 // Assign Tag Node
 export const AssignTagNode = memo((props: NodeProps<StepNodeData>) => {

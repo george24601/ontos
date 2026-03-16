@@ -190,6 +190,29 @@ asset_types:
         priority: 5
         boost: 0.7
 
+  asset:
+    enabled: true
+    inherit_defaults: true
+    extra_fields:
+      asset_type:
+        indexed: true
+        source: "asset_type"
+        match_type: exact
+        priority: 4
+        boost: 1.0
+      platform:
+        indexed: true
+        source: "platform"
+        match_type: exact
+        priority: 5
+        boost: 0.8
+      status:
+        indexed: true
+        source: "status"
+        match_type: exact
+        priority: 6
+        boost: 0.7
+
 # Result ranking behavior
 ranking:
   primary_sort: match_priority   # Sort by field priority first (title matches before description)

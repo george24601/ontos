@@ -1,6 +1,16 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from src.controller.search_manager import SearchManager
+
+from src.common.logging import get_logger
+
+_logger = get_logger(__name__)
+
 
 class SearchIndexItem(BaseModel):
     """Standardized structure for items returned by searchable assets."""
@@ -17,10 +27,35 @@ class SearchIndexItem(BaseModel):
     )
 
     class Config:
-        pass # Removed frozen = True
+        pass
+
 
 class SearchableAsset(ABC):
     """Abstract Base Class for managers that provide searchable items."""
+
+    _search_manager: Optional[SearchManager] = None
+
+    def set_search_manager(self, search_manager: SearchManager) -> None:
+        """Inject the SearchManager reference (called once during startup)."""
+        self._search_manager = search_manager
+
+    def _notify_index_upsert(self, item: SearchIndexItem) -> None:
+        """Upsert a single item in the search index. Safe no-op if SearchManager not yet wired."""
+        if self._search_manager is None:
+            return
+        try:
+            self._search_manager.upsert_item(item)
+        except Exception as e:
+            _logger.warning(f"Failed to upsert search index item {item.id}: {e}")
+
+    def _notify_index_remove(self, item_id: str) -> None:
+        """Remove a single item from the search index. Safe no-op if SearchManager not yet wired."""
+        if self._search_manager is None:
+            return
+        try:
+            self._search_manager.remove_item(item_id)
+        except Exception as e:
+            _logger.warning(f"Failed to remove search index item {item_id}: {e}")
 
     @abstractmethod
     def get_search_index_items(self) -> List[SearchIndexItem]:
@@ -31,4 +66,4 @@ class SearchableAsset(ABC):
         Returns:
             List[SearchIndexItem]: A list of items prepared for the global search index.
         """
-        pass 
+        pass

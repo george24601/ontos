@@ -1,0 +1,50 @@
+{
+  "title": "Delivery Methods",
+  "subtitle": "Define how data is delivered to consumers via deliverables (e.g., Table Access, Serving Endpoint).",
+  "addNew": "Add Method",
+  "editMethod": "Edit Method",
+  "deleteMethod": "Delete Method",
+  "table": {
+    "name": "Name",
+    "description": "Description",
+    "category": "Category",
+    "status": "Status",
+    "system": "System",
+    "lastUpdated": "Last Updated",
+    "actions": "Actions"
+  },
+  "categories": {
+    "access": "Access",
+    "endpoint": "Endpoint",
+    "export": "Export",
+    "streaming": "Streaming"
+  },
+  "statuses": {
+    "active": "Active",
+    "deprecated": "Deprecated"
+  },
+  "permissions": {
+    "deniedView": "You do not have permission to view delivery methods.",
+    "deniedCreate": "You do not have permission to create delivery methods.",
+    "deniedEdit": "You do not have permission to edit delivery methods.",
+    "deniedDelete": "You do not have permission to delete delivery methods.",
+    "permissionDenied": "Permission Denied"
+  },
+  "messages": {
+    "errorFetching": "Error fetching delivery methods",
+    "errorDeleting": "Error deleting delivery method",
+    "deleted": "Delivery Method Deleted",
+    "deletedSuccess": "The delivery method was successfully deleted.",
+    "errorLoadingData": "Error Loading Data"
+  },
+  "deleteDialog": {
+    "title": "Delete Delivery Method?",
+    "description": "This action cannot be undone. Existing deliverables using this method may become orphaned.",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "emptyState": {
+    "title": "No delivery methods defined yet",
+    "description": "Create your first delivery method (e.g., Table Access, Serving Endpoint, File Export)."
+  }
+}

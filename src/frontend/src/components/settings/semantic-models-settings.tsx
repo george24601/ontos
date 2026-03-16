@@ -3,14 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef, Column } from '@tanstack/react-table';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, ChevronDown, RefreshCw, Trash2, Loader2, Library, Eye, Copy, Check, Network } from 'lucide-react';
+import { Upload, ChevronDown, RefreshCw, Trash2, Loader2, Library, Eye, Copy, Check, Network, FileCode2 } from 'lucide-react';
 import type { SemanticModel } from '@/types/ontology';
 import {
   AlertDialog,
@@ -32,7 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import OntologyLibraryDialog from '@/components/settings/ontology-library-dialog';
 
-// System contexts that should be hidden from the UI (internal use only)
 const SYSTEM_CONTEXTS = ['urn:meta:sources', 'urn:semantic-links'];
 
 export default function SemanticModelsSettings() {
@@ -53,7 +51,6 @@ export default function SemanticModelsSettings() {
   const [isRefreshingGraph, setIsRefreshingGraph] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   
-  // Filter out system contexts from display
   const filteredItems = useMemo(() => 
     items.filter(m => !SYSTEM_CONTEXTS.includes(m.name)),
     [items]
@@ -65,7 +62,6 @@ export default function SemanticModelsSettings() {
       const res = await get<{ semantic_models: SemanticModel[] } | SemanticModel[]>('/api/semantic-models');
       const data = (res.data as any);
       const models: SemanticModel[] = Array.isArray(data) ? data : (data?.semantic_models || []);
-      console.log('Semantic models loaded:', models.map(m => ({ name: m.name, created_by: m.created_by })));
       setItems(models || []);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'Failed to load models', variant: 'destructive' });
@@ -105,24 +101,13 @@ export default function SemanticModelsSettings() {
       const res = await post<{ model: SemanticModel; message: string }>('/api/semantic-models/upload', formData);
       
       if (res.error) {
-        toast({ 
-          title: 'Upload Failed', 
-          description: res.error, 
-          variant: 'destructive' 
-        });
+        toast({ title: 'Upload Failed', description: res.error, variant: 'destructive' });
       } else {
-        toast({ 
-          title: 'Success', 
-          description: res.data.message || 'Semantic model uploaded successfully' 
-        });
+        toast({ title: 'Success', description: res.data.message || 'Semantic model uploaded successfully' });
         await fetchItems();
       }
     } catch (e: any) {
-      toast({ 
-        title: 'Upload Error', 
-        description: e.message || 'Failed to upload file', 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Upload Error', description: e.message || 'Failed to upload file', variant: 'destructive' });
     } finally {
       setUploadingId(null);
       if (fileInputRef.current) {
@@ -136,9 +121,7 @@ export default function SemanticModelsSettings() {
     try {
       const response = await fetch(`/api/semantic-models/${modelId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !currentEnabled }),
       });
 
@@ -147,18 +130,10 @@ export default function SemanticModelsSettings() {
         throw new Error(errorData.detail || 'Failed to update model');
       }
 
-      toast({ 
-        title: 'Success', 
-        description: `Model ${!currentEnabled ? 'enabled' : 'disabled'} successfully` 
-      });
-      
+      toast({ title: 'Success', description: `Model ${!currentEnabled ? 'enabled' : 'disabled'} successfully` });
       await fetchItems();
     } catch (e: any) {
-      toast({ 
-        title: 'Error', 
-        description: e.message || 'Failed to update model', 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Error', description: e.message || 'Failed to update model', variant: 'destructive' });
     } finally {
       setUploadingId(null);
     }
@@ -211,24 +186,13 @@ export default function SemanticModelsSettings() {
       const res = await deleteApi(`/api/semantic-models/${modelToDelete.id}`);
       
       if (res.error) {
-        toast({ 
-          title: 'Delete Failed', 
-          description: res.error, 
-          variant: 'destructive' 
-        });
+        toast({ title: 'Delete Failed', description: res.error, variant: 'destructive' });
       } else {
-        toast({ 
-          title: 'Success', 
-          description: 'Semantic model deleted successfully' 
-        });
+        toast({ title: 'Success', description: 'Semantic model deleted successfully' });
         await fetchItems();
       }
     } catch (e: any) {
-      toast({ 
-        title: 'Delete Error', 
-        description: e.message || 'Failed to delete model', 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Delete Error', description: e.message || 'Failed to delete model', variant: 'destructive' });
     } finally {
       setDeleteDialogOpen(false);
       setModelToDelete(null);
@@ -252,7 +216,6 @@ export default function SemanticModelsSettings() {
         const model = row.original;
         const createdBy = model.created_by || '';
         
-        // Determine source based on created_by
         let label = 'Unknown';
         let variant: 'default' | 'secondary' | 'outline' = 'secondary';
         
@@ -301,7 +264,6 @@ export default function SemanticModelsSettings() {
         const createdBy = model.created_by || '';
         const isSystemManaged = createdBy.startsWith('system@') && createdBy !== 'system@startup';
         
-        // File-based and schema models can't be toggled (always enabled)
         if (isFileBased || isSystemManaged) {
           return (
             <div data-action-cell="true">
@@ -323,7 +285,7 @@ export default function SemanticModelsSettings() {
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
         const model = row.original;
         const isFileBased = model.id?.startsWith('file-');
@@ -332,85 +294,98 @@ export default function SemanticModelsSettings() {
         const canDelete = !isFileBased && !isSystemManaged;
         
         return (
-          <div data-action-cell="true" className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
               size="icon"
+              className="h-8 w-8"
               onClick={() => onViewClick(model)}
               title="View content"
             >
               <Eye className="h-4 w-4" />
             </Button>
-            {canDelete ? (
+            {canDelete && (
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8"
                 onClick={() => onDeleteClick(model)}
                 title="Delete model"
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
-            ) : (
-              <span className="text-xs text-muted-foreground px-2">Read-only</span>
             )}
           </div>
         );
       },
+      enableSorting: false,
     },
   ], [uploadingId]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Semantic Models (RDFS/SKOS)</CardTitle>
-          <CardDescription>Upload and manage taxonomy files for tagging.</CardDescription>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input ref={fileInputRef} type="file" accept=".ttl,.rdf,.xml,.skos,.rdfs,.owl,.nt,.n3,.trig,.trix,.jsonld,.json" className="hidden" onChange={onUpload} />
-          <Button 
-            variant="default"
-            onClick={() => setLibraryDialogOpen(true)}
-          >
-            <Library className="h-4 w-4 mr-2" />
-            Industry Library
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingId === 'uploading'}
-          >
-            {uploadingId === 'uploading' ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading...</>
-            ) : (
-              <><Upload className="h-4 w-4 mr-2" /> Upload</>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onRefreshGraph}
-            disabled={isRefreshingGraph || uploadingId === 'uploading'}
-            title={t('rebuildGraphTooltip')}
-          >
-            {isRefreshingGraph ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('rebuildingGraph')}</>
-            ) : (
-              <><Network className="h-4 w-4 mr-2" /> {t('rebuildGraph')}</>
-            )}
-          </Button>
-          <Button variant="ghost" onClick={fetchItems} title="Refresh list">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <DataTable columns={columns} data={filteredItems} searchColumn="name" isLoading={isLoading} />
-      </CardContent>
+    <>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <FileCode2 className="w-8 h-8" />
+          RDF Sources
+        </h1>
+        <p className="text-muted-foreground mt-1">Upload and manage RDF ontology and taxonomy files (RDFS, SKOS, OWL).</p>
+      </div>
+
+      <Input ref={fileInputRef} type="file" accept=".ttl,.rdf,.xml,.skos,.rdfs,.owl,.nt,.n3,.trig,.trix,.jsonld,.json" className="hidden" onChange={onUpload} />
+
+      <DataTable
+        columns={columns}
+        data={filteredItems}
+        searchColumn="name"
+        isLoading={isLoading}
+        storageKey="rdf-sources-sort"
+        toolbarActions={
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="default"
+              className="h-9"
+              onClick={() => setLibraryDialogOpen(true)}
+            >
+              <Library className="h-4 w-4 mr-2" />
+              Industry Library
+            </Button>
+            <Button 
+              variant="outline"
+              className="h-9"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingId === 'uploading'}
+            >
+              {uploadingId === 'uploading' ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading...</>
+              ) : (
+                <><Upload className="h-4 w-4 mr-2" /> Upload</>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-9"
+              onClick={onRefreshGraph}
+              disabled={isRefreshingGraph || uploadingId === 'uploading'}
+              title={t('rebuildGraphTooltip')}
+            >
+              {isRefreshingGraph ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('rebuildingGraph')}</>
+              ) : (
+                <><Network className="h-4 w-4 mr-2" /> {t('rebuildGraph')}</>
+              )}
+            </Button>
+            <Button variant="ghost" className="h-9" onClick={fetchItems} title="Refresh list">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        }
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Semantic Model</AlertDialogTitle>
+            <AlertDialogTitle>Delete RDF Source</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete <strong>{modelToDelete?.name}</strong>? 
               This action cannot be undone and will remove the model from the semantic graph.
@@ -425,17 +400,12 @@ export default function SemanticModelsSettings() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Industry Ontology Library Dialog */}
       <OntologyLibraryDialog
         isOpen={libraryDialogOpen}
         onOpenChange={setLibraryDialogOpen}
-        onImportSuccess={() => {
-          // Refresh the list after successful import
-          fetchItems();
-        }}
+        onImportSuccess={() => { fetchItems(); }}
       />
 
-      {/* View Content Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={(open) => {
         setViewDialogOpen(open);
         if (!open) {
@@ -485,8 +455,6 @@ export default function SemanticModelsSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }
-
-

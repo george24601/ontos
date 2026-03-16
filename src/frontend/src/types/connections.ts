@@ -1,0 +1,43 @@
+export interface Connection {
+  id: string;
+  name: string;
+  connector_type: string;
+  description: string | null;
+  config: Record<string, any>;
+  enabled: boolean;
+  is_default: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConnectionCreate {
+  name: string;
+  connector_type: string;
+  description?: string;
+  config: Record<string, any>;
+  enabled?: boolean;
+  is_default?: boolean;
+}
+
+export interface ConnectionUpdate {
+  name?: string;
+  description?: string;
+  config?: Record<string, any>;
+  enabled?: boolean;
+  is_default?: boolean;
+}
+
+export interface ConnectorTypeInfo {
+  connector_type: string;
+  display_name: string;
+  description: string;
+  capabilities: Record<string, boolean>;
+  config_fields: ConfigFieldHint[];
+}
+
+export interface ConfigFieldHint {
+  name: string;
+  required: boolean;
+  description: string;
+}

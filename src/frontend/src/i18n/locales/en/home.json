@@ -24,7 +24,7 @@
         "description": "Total data products"
       },
       "semanticModels": {
-        "title": "Business Glossary",
+        "title": "Concept Browser",
         "description": "Models / Terms"
       },
       "estates": {
@@ -69,7 +69,7 @@
     "noActions": "No actions available.",
     "actions": {
       "browseProducts": "Browse Data Products",
-      "browseGlossary": "Browse Business Glossary",
+      "browseGlossary": "Browse Concept Browser",
       "createProduct": "Create Data Product",
       "defineContract": "Define Data Contract",
       "reviewAssets": "Review Data Assets",
@@ -219,5 +219,41 @@
       "four": "4 per row"
     },
     "openInDetails": "Open in details view"
+  },
+  "myProducts": {
+    "title": "My Products",
+    "description": "Data products you have subscribed to.",
+    "loading": "Loading your products...",
+    "empty": "You haven't subscribed to any data products yet.",
+    "browseMarketplace": "Browse Marketplace"
+  },
+  "myRequests": {
+    "title": "My Requests",
+    "description": "Requests you have created that require approval (including access and subscriptions).",
+    "loading": "Loading your requests...",
+    "empty": "You have not created any requests.",
+    "entity": "Entity",
+    "type": "Type",
+    "status": "Status",
+    "requestedAt": "Requested",
+    "handledAt": "Resolved",
+    "cancel": "Cancel",
+    "cancelSuccess": "Request cancelled",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusDenied": "Denied",
+    "statusCancelled": "Cancelled",
+    "statusExpired": "Expired",
+    "statusInProgress": "In progress",
+    "statusCompleted": "Completed",
+    "statusAbandoned": "Abandoned",
+    "typeAccess": "Access",
+    "typeSubscription": "Subscription",
+    "typeApproval": "Approval",
+    "entityType": "Entity type",
+    "name": "Name",
+    "entityTypeDataProduct": "Data product",
+    "entityTypeDataset": "Dataset",
+    "entityTypeDataContract": "Data contract"
   }
 }

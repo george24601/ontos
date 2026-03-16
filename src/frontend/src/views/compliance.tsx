@@ -14,7 +14,7 @@ import {
   Scale, 
   MoreHorizontal, 
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +58,7 @@ export default function Compliance() {
   const { t } = useTranslation(['compliance', 'common']);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { get: apiGet, post: apiPost, put: apiPut, delete: apiDeleteApi, loading: apiIsLoading } = useApi();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
@@ -375,7 +376,7 @@ export default function Compliance() {
             data={policies}
             searchColumn="name"
             storageKey="compliance-policies-sort"
-            onRowClick={(row) => navigate(`/compliance/policies/${row.original.id}`)}
+            onRowClick={(row) => navigate(`${pathname}/policies/${row.original.id}`)}
           />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

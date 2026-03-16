@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from databricks.sdk import WorkspaceClient
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 
 from ..common.workspace_client import get_workspace_client
@@ -30,6 +30,7 @@ from ..common.search_config_loader import get_search_config_loader
 # Configure logging
 from src.common.logging import get_logger
 logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/api", tags=["Settings"])
 
@@ -381,104 +382,115 @@ async def load_demo_data(
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
-    manager: SettingsManager = Depends(get_settings_manager)
+    manager: SettingsManager = Depends(get_settings_manager),
+    industry: Optional[List[str]] = Query(
+        default=None,
+        description="Optional industry-specific demo data to load (e.g. 'hls', 'fsi', 'mfg', 'auto'). "
+                    "Loads demo_data_{industry}.sql in addition to the base demo_data.sql. "
+                    "Pass multiple values to load several industries.",
+    ),
 ):
     """
-    Load demo data from SQL file into the database.
+    Load demo data from SQL file(s) into the database.
     
-    This endpoint is Admin-only and loads all demo/example data including:
-    - Data Domains
-    - Teams and Team Members
-    - Projects
-    - Data Contracts with schemas
-    - Data Products with ports
-    - Data Asset Reviews
-    - Notifications
-    - Compliance Policies and Runs
-    - Cost Items
-    - Semantic Links
-    - Metadata (notes, links, documents)
+    Always loads the base `demo_data.sql`. When one or more `industry` query
+    parameters are supplied, the corresponding `demo_data_{industry}.sql`
+    files are loaded afterwards (additive overlay).
+    
+    Example: POST /api/settings/demo-data/load?industry=hls&industry=fsi
     
     The SQL uses ON CONFLICT DO NOTHING to avoid duplicate key errors on re-runs.
     """
     success = False
-    details = {"action": "load_demo_data"}
+    details: Dict[str, Any] = {"action": "load_demo_data", "industries": industry or []}
     
     try:
         from pathlib import Path
         from sqlalchemy import text
+        import re
         
-        # Locate the demo data SQL file
         data_dir = Path(__file__).parent.parent / "data"
-        sql_file = data_dir / "demo_data.sql"
         
-        if not sql_file.exists():
-            details["exception"] = "demo_data.sql not found"
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Demo data SQL file not found at {sql_file}"
-            )
+        # Build ordered list of SQL files: base first, then per-industry
+        sql_files: List[Path] = [data_dir / "demo_data.sql"]
+        if industry:
+            for ind in industry:
+                slug = re.sub(r'[^a-z0-9_]', '', ind.lower())
+                if not slug:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid industry identifier: '{ind}'",
+                    )
+                sql_files.append(data_dir / f"demo_data_{slug}.sql")
         
-        # Read and execute the SQL file
-        sql_content = sql_file.read_text(encoding="utf-8")
+        # Validate all files exist before executing anything
+        for sql_file in sql_files:
+            if not sql_file.exists():
+                details["exception"] = f"{sql_file.name} not found"
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Demo data SQL file not found: {sql_file.name}",
+                )
         
-        # Execute the SQL within a transaction
-        # The SQL file already has BEGIN/COMMIT, so we need to handle it appropriately
-        # For SQLAlchemy, we'll use raw connection execution
         connection = db.connection()
+        total_executed = 0
+        file_results: List[Dict[str, Any]] = []
         
-        # Split by semicolons and execute each statement
-        # This is safer than executing the entire file at once
-        statements = []
-        current_statement = []
-        in_dollar_quote = False
-        
-        for line in sql_content.split('\n'):
-            stripped = line.strip()
+        for sql_file in sql_files:
+            sql_content = sql_file.read_text(encoding="utf-8")
             
-            # Skip empty lines and comments at statement level
-            if not stripped or stripped.startswith('--'):
-                if current_statement:  # Keep comments within statements
-                    current_statement.append(line)
-                continue
+            statements = []
+            current_statement = []
+            in_dollar_quote = False
             
-            # Track dollar-quoted strings (for E'' strings with newlines)
-            if "E'" in line or "$$" in line:
-                in_dollar_quote = not in_dollar_quote if "$$" in line else in_dollar_quote
+            for line in sql_content.split('\n'):
+                stripped = line.strip()
+                
+                if not stripped or stripped.startswith('--'):
+                    if current_statement:
+                        current_statement.append(line)
+                    continue
+                
+                if "E'" in line or "$$" in line:
+                    in_dollar_quote = not in_dollar_quote if "$$" in line else in_dollar_quote
+                
+                current_statement.append(line)
+                
+                if stripped.endswith(';') and not in_dollar_quote:
+                    full_statement = '\n'.join(current_statement).strip()
+                    if full_statement and not full_statement.startswith('--'):
+                        if full_statement.upper() not in ('BEGIN;', 'COMMIT;'):
+                            statements.append(full_statement)
+                    current_statement = []
             
-            current_statement.append(line)
+            executed_count = 0
+            for stmt in statements:
+                if stmt.strip():
+                    try:
+                        nested = connection.begin_nested()
+                        connection.execute(text(stmt))
+                        nested.commit()
+                        executed_count += 1
+                    except Exception as stmt_error:
+                        nested.rollback()
+                        logger.warning(f"Statement execution warning ({sql_file.name}): {stmt_error}")
             
-            # Check if this line ends a statement
-            if stripped.endswith(';') and not in_dollar_quote:
-                full_statement = '\n'.join(current_statement).strip()
-                if full_statement and not full_statement.startswith('--'):
-                    # Skip BEGIN/COMMIT as SQLAlchemy manages transactions
-                    if full_statement.upper() not in ('BEGIN;', 'COMMIT;'):
-                        statements.append(full_statement)
-                current_statement = []
-        
-        # Execute all statements
-        executed_count = 0
-        for stmt in statements:
-            if stmt.strip():
-                try:
-                    connection.execute(text(stmt))
-                    executed_count += 1
-                except Exception as stmt_error:
-                    logger.warning(f"Statement execution warning: {stmt_error}")
-                    # Continue with other statements - ON CONFLICT should handle duplicates
+            total_executed += executed_count
+            file_results.append({"file": sql_file.name, "statements_executed": executed_count})
         
         db.commit()
         
         success = True
-        details["statements_executed"] = executed_count
+        details["statements_executed"] = total_executed
+        details["files"] = file_results
         
-        logger.info(f"Demo data loaded successfully. Executed {executed_count} statements.")
+        logger.info(f"Demo data loaded successfully. Executed {total_executed} statements across {len(sql_files)} file(s).")
         
         return {
             "status": "success",
-            "message": f"Demo data loaded successfully. Executed {executed_count} SQL statements.",
-            "statements_executed": executed_count
+            "message": f"Demo data loaded successfully. Executed {total_executed} SQL statements across {len(sql_files)} file(s).",
+            "statements_executed": total_executed,
+            "files": file_results,
         }
         
     except HTTPException:
@@ -563,15 +575,39 @@ async def clear_demo_data(
             "DELETE FROM rdf_triples WHERE id::text LIKE '020%'",
             "DELETE FROM rdf_triples WHERE id::text LIKE '030%'",
             
-            # Dataset subscriptions (022%, 0260%) and custom properties (024%)
+            # Entity subscriptions (022%, 0260%) — migrated from dataset_subscriptions
+            "DELETE FROM entity_subscriptions WHERE id::text LIKE '022%'",
+            "DELETE FROM entity_subscriptions WHERE id::text LIKE '0260%'",
+            
+            # Entity relationships (0215%) — Dataset→Table/View/Contract
+            "DELETE FROM entity_relationships WHERE id::text LIKE '0215%'",
+            # Entity relationships (0f4%) — asset lineage/containment
+            "DELETE FROM entity_relationships WHERE id::text LIKE '0f4%'",
+            # Entity relationships (0fa%) — business lineage
+            "DELETE FROM entity_relationships WHERE id::text LIKE '0fa%'",
+            # Entity relationships (0f6%) — hasColumn
+            "DELETE FROM entity_relationships WHERE id::text LIKE '0f6%'",
+            
+            # Legacy: dataset subscriptions/custom properties (if old tables still exist)
             "DELETE FROM dataset_subscriptions WHERE id::text LIKE '022%'",
             "DELETE FROM dataset_subscriptions WHERE id::text LIKE '0260%'",
             "DELETE FROM dataset_custom_properties WHERE id::text LIKE '024%'",
             
-            # Dataset instances (025)
-            "DELETE FROM dataset_instances WHERE id::text LIKE '025%'",
+            # Physical assets (025%) — migrated from dataset_instances
+            "DELETE FROM assets WHERE id::text LIKE '025%'",
             
-            # Datasets (021)
+            # Dataset assets (021%) — migrated from datasets table
+            "DELETE FROM assets WHERE id::text LIKE '021%'",
+            
+            # Business Term assets (0f7%)
+            "DELETE FROM assets WHERE id::text LIKE '0f7%'",
+            # Logical Entity/Attribute assets (0f8%)
+            "DELETE FROM assets WHERE id::text LIKE '0f8%'",
+            # Delivery Channel assets (0f9%)
+            "DELETE FROM assets WHERE id::text LIKE '0f9%'",
+            
+            # Legacy: dataset instances (025) and datasets (021) (if old tables still exist)
+            "DELETE FROM dataset_instances WHERE id::text LIKE '025%'",
             "DELETE FROM datasets WHERE id::text LIKE '021%'",
             
             # Data contract servers (srv pattern for server IDs)
@@ -1299,3 +1335,21 @@ async def complete_delivery_task(
             success=success,
             details=details
         )
+
+
+# ============================================================================
+# Legacy connector config endpoints (DEPRECATED — use /api/connections instead)
+# Kept for backward compatibility; will be removed in a future version.
+# ============================================================================
+
+@router.get('/settings/connectors')
+async def list_connectors_legacy():
+    """DEPRECATED: Use GET /api/connections instead."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/api/connections", status_code=307)
+
+
+@router.post('/settings/connectors/{connector_type}/test')
+async def test_connector_legacy(connector_type: str):
+    """DEPRECATED: Use POST /api/connections/{id}/test instead."""
+    return {"error": "Deprecated. Use /api/connections/{id}/test with a connection ID."}

@@ -203,6 +203,8 @@ class SearchConfig(BaseModel):
         """
         result: Dict[str, FieldConfig] = {}
         asset_config = self.asset_types.get(asset_type)
+        if not asset_config and asset_type.startswith("asset-"):
+            asset_config = self.asset_types.get("asset")
         
         # Check if asset type is disabled
         if asset_config and not asset_config.enabled:

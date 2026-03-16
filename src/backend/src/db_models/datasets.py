@@ -1,12 +1,13 @@
 """
-Datasets Database Models
+Datasets Database Models (DEPRECATED)
 
-Datasets are logical groupings of related data assets.
-Physical implementations are represented by DatasetInstance objects,
-which link to specific tables/views in Unity Catalog, Snowflake, etc.
+DEPRECATED: These tables (datasets, dataset_instances, dataset_subscriptions,
+dataset_custom_properties) are superseded by the generic Asset model
+(AssetDb in db_models/assets.py) as part of the ontology-driven redesign.
+Datasets are now stored as Asset entities with asset_type="Dataset".
 
-Relationship: Data Product -> Data Contract <- Dataset (many-to-one from DS to DC)
-              Dataset -> DatasetInstance (one-to-many)
+These models are kept for backward compatibility and will be removed after
+full migration verification. Do not add new features to these models.
 """
 
 from uuid import uuid4

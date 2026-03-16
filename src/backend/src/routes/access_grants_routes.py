@@ -241,6 +241,29 @@ async def list_my_pending_requests(
     return manager.get_my_pending_requests(db, current_user.email, limit, offset)
 
 
+@router.get(
+    "/my-requests",
+    response_model=AccessGrantRequestList,
+    summary="My Requests (all statuses)",
+    description="List all access requests created by the current user (pending, approved, denied, cancelled)."
+)
+async def list_my_requests(
+    request: Request,
+    current_user: CurrentUserDep,
+    db: DBSessionDep,
+    notifications: NotificationsManagerDep,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    _: bool = Depends(PermissionChecker(ACCESS_GRANTS_FEATURE_ID, FeatureAccessLevel.READ_ONLY)),
+):
+    """List all access requests created by the current user."""
+    if not current_user or not current_user.email:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    manager = get_manager(request, notifications)
+    return manager.get_my_requests(db, current_user.email, limit, offset)
+
+
 @router.delete(
     "/requests/{request_id}",
     status_code=status.HTTP_204_NO_CONTENT,

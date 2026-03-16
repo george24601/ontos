@@ -23,12 +23,24 @@
     "name": "Producten",
     "description": "Groepeer en beheer gerelateerde Databricks assets met tags."
   },
+  "concepts": {
+    "name": "Concepten",
+    "description": "Blader, zoek en beheer bedrijfsconcepten, collecties en hiërarchieën."
+  },
   "semantic-models": {
-    "name": "Business Glossary",
+    "name": "Conceptbrowser",
     "description": "Verken business glossary termen, concepten en hun relaties."
   },
+  "collections": {
+    "name": "Conceptcollecties",
+    "description": "Organiseer concepten en assets in logische collecties."
+  },
+  "process-workflows": {
+    "name": "Workflows",
+    "description": "Configureer geautomatiseerde workflows voor validatie, goedkeuring en notificaties."
+  },
   "data-asset-reviews": {
-    "name": "Asset Beoordeling",
+    "name": "Asset Beoordelingen",
     "description": "Beoordeel en keur Databricks assets goed zoals tabellen, views en functies."
   },
   "compliance": {

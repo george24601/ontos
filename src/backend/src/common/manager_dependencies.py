@@ -25,6 +25,11 @@ from src.controller.workspace_manager import WorkspaceManager
 from src.controller.change_log_manager import ChangeLogManager
 from src.controller.datasets_manager import DatasetsManager
 from src.controller.delivery_service import DeliveryService
+from src.controller.assets_manager import AssetsManager
+from src.controller.business_roles_manager import BusinessRolesManager
+from src.controller.business_owners_manager import BusinessOwnersManager
+from src.controller.delivery_methods_manager import DeliveryMethodsManager
+from src.controller.ontology_generator_manager import OntologyGeneratorManager
 
 # Import other dependencies needed by these providers
 from src.common.database import get_db
@@ -181,6 +186,34 @@ def get_datasets_manager(request: Request) -> DatasetsManager:
 
 # Add getters for Compliance, Estate, MDM, Security, Entitlements, Catalog Commander managers when they are added
 
+def get_assets_manager(request: Request) -> AssetsManager:
+    manager = getattr(request.app.state, 'assets_manager', None)
+    if not manager:
+        logger.critical("AssetsManager not found in application state!")
+        raise HTTPException(status_code=503, detail="Assets service not configured.")
+    return manager
+
+def get_business_roles_manager(request: Request) -> BusinessRolesManager:
+    manager = getattr(request.app.state, 'business_roles_manager', None)
+    if not manager:
+        logger.critical("BusinessRolesManager not found in application state!")
+        raise HTTPException(status_code=503, detail="Business Roles service not configured.")
+    return manager
+
+def get_business_owners_manager(request: Request) -> BusinessOwnersManager:
+    manager = getattr(request.app.state, 'business_owners_manager', None)
+    if not manager:
+        logger.critical("BusinessOwnersManager not found in application state!")
+        raise HTTPException(status_code=503, detail="Business Owners service not configured.")
+    return manager
+
+def get_delivery_methods_manager(request: Request) -> DeliveryMethodsManager:
+    manager = getattr(request.app.state, 'delivery_methods_manager', None)
+    if not manager:
+        logger.critical("DeliveryMethodsManager not found in application state!")
+        raise HTTPException(status_code=503, detail="Delivery Methods service not configured.")
+    return manager
+
 def get_delivery_service(request: Request) -> DeliveryService:
     """Get the DeliveryService for multi-mode delivery of governance changes."""
     service = getattr(request.app.state, "delivery_service", None)
@@ -188,6 +221,13 @@ def get_delivery_service(request: Request) -> DeliveryService:
         logger.warning("DeliveryService not found in application state - delivery features disabled")
         return None
     return service
+
+def get_ontology_generator_manager(request: Request) -> OntologyGeneratorManager:
+    manager = getattr(request.app.state, "ontology_generator_manager", None)
+    if not manager:
+        logger.critical("OntologyGeneratorManager not found in application state!")
+        raise HTTPException(status_code=503, detail="Ontology Generator service not configured.")
+    return manager
 
 # --- Add other manager getters if needed --- #
 # Example:

@@ -3,7 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, FileText, Database, Book, Shield, Loader2 } from 'lucide-react';
+import {
+  Search, FileText, Database, Book, Shield, Loader2,
+  BookOpen, Shapes, Tag, Send, Server, Table2, Eye, Columns2,
+  LayoutDashboard, Globe, FileCode, Brain, Activity, Package,
+} from 'lucide-react';
 import { features } from '@/config/features';
 
 type IndexSearchResult = {
@@ -85,7 +89,30 @@ export default function IndexSearch({ initialQuery = '' }: IndexSearchProps) {
       }
     }
 
-    // Fallbacks based on type
+    // Asset type-specific icons
+    const ASSET_TYPE_ICONS: Record<string, React.ElementType> = {
+      'asset-business-term': BookOpen,
+      'asset-logical-entity': Shapes,
+      'asset-logical-attribute': Tag,
+      'asset-delivery-channel': Send,
+      'asset-system': Server,
+      'asset-dataset': Database,
+      'asset-table': Table2,
+      'asset-view': Eye,
+      'asset-column': Columns2,
+      'asset-dashboard': LayoutDashboard,
+      'asset-api-endpoint': Globe,
+      'asset-notebook': FileCode,
+      'asset-ml-model': Brain,
+      'asset-stream': Activity,
+      'asset-policy': Shield,
+    };
+
+    if (result.type.startsWith('asset-')) {
+      const AssetIcon = ASSET_TYPE_ICONS[result.type] || Package;
+      return <AssetIcon className="h-4 w-4 flex-shrink-0" />;
+    }
+
     switch (result.type) {
       case 'data-product':
         return <Database className="h-4 w-4 flex-shrink-0" />;

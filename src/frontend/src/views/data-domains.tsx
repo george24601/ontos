@@ -16,13 +16,13 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from "@/components/ui/badge";
+
 import TagChip from '@/components/ui/tag-chip';
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import { Toaster } from "@/components/ui/toaster";
-import useBreadcrumbStore from '@/stores/breadcrumb-store';
-import { useNavigate } from 'react-router-dom';
+import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DataDomainGraphView from '@/components/data-domains/data-domain-graph-view';
 import { ViewModeToggle } from '@/components/common/view-mode-toggle';
 import { useProjectContext } from '@/stores/project-store';
@@ -60,9 +60,8 @@ export default function DataDomainsView() {
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
-  const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
-  const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const { currentProject, hasProjectContext } = useProjectContext();
   const { t } = useTranslation(['data-domains', 'common']);
 
@@ -102,13 +101,7 @@ export default function DataDomainsView() {
 
   useEffect(() => {
     fetchDataDomains();
-    setStaticSegments([]);
-    setDynamicTitle(t('title'));
-    return () => {
-        setStaticSegments([]);
-        setDynamicTitle(null);
-    };
-  }, [fetchDataDomains, setStaticSegments, setDynamicTitle, t]);
+  }, [fetchDataDomains]);
 
   const handleOpenCreateDialog = () => {
     if (!canWrite) {
@@ -164,7 +157,7 @@ export default function DataDomainsView() {
   };
 
   const handleNavigateToDomain = (domainId: string) => {
-    navigate(`/data-domains/${domainId}`);
+    navigate(`${pathname}/${domainId}`);
   };
 
   const columns = useMemo<ColumnDef<DataDomain>[]>(() => [
@@ -214,26 +207,6 @@ export default function DataDomainsView() {
           {row.getValue("description") || '-'}
         </div>
       ),
-    },
-    {
-      accessorKey: "owner",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          {t('table.owners')}
-          <ChevronDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const owners = row.original.owner;
-        if (!owners || owners.length === 0) return '-' ;
-        return (
-            <div className="flex flex-col space-y-0.5">
-                {owners.map((owner, index) => (
-                    <Badge key={index} variant="outline" className="text-xs truncate w-fit">{owner}</Badge>
-                ))}
-            </div>
-        );
-      }
     },
     {
       accessorKey: "tags",
@@ -306,15 +279,16 @@ export default function DataDomainsView() {
         );
       },
     },
-  ], [canWrite, canAdmin, navigate, t]);
+  ], [canWrite, canAdmin, navigate, pathname, t]);
 
   return (
-    <div className="py-6">
+    <SettingsPageWrapper title={t('title')}>
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
            <BoxSelect className="w-8 h-8" />
            {t('title')}
         </h1>
+        <p className="text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {(apiIsLoading || permissionsLoading) ? (
@@ -387,6 +361,6 @@ export default function DataDomainsView() {
       </AlertDialog>
 
       <Toaster />
-    </div>
+    </SettingsPageWrapper>
   );
 }

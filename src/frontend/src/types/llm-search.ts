@@ -52,6 +52,7 @@ export interface ChatMessage {
 export interface ChatMessageCreate {
   content: string;
   session_id?: string;
+  debug?: boolean;
 }
 
 
@@ -81,11 +82,55 @@ export interface SessionSummary {
 // Response Types
 // ============================================================================
 
+export interface DebugToolExecution {
+  tool_call_id: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+  success: boolean;
+  error?: string;
+  result?: Record<string, unknown>;
+  execution_ms: number;
+}
+
+export interface DebugIteration {
+  iteration: number;
+  llm_call_ms: number;
+  messages_sent: number;
+  has_tool_calls: boolean;
+  tool_calls: Array<{ tool: string; arguments: Record<string, unknown> }>;
+  response_preview?: string;
+}
+
+export interface DebugSessionContext {
+  prior_messages: number;
+  prior_tool_results: number;
+  is_follow_up: boolean;
+}
+
+export interface DebugInfo {
+  query_classification: {
+    user_query: string;
+    categories: string[];
+    tools_provided: string[];
+    tools_count: number;
+  };
+  model: string;
+  system_prompt_length: number;
+  session_context?: DebugSessionContext;
+  iterations: DebugIteration[];
+  tool_executions: DebugToolExecution[];
+  total_tool_calls: number;
+  total_iterations: number;
+  total_elapsed_ms: number;
+  max_iterations_reached?: boolean;
+}
+
 export interface ChatResponse {
   session_id: string;
   message: ChatMessage;
   tool_calls_executed: number;
   sources: ToolSource[];
+  debug?: DebugInfo | null;
 }
 
 export interface ToolSource {

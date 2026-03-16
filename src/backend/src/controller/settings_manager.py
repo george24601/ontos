@@ -268,7 +268,10 @@ class SettingsManager:
             if 'UI_CUSTOM_CSS' in all_settings and all_settings['UI_CUSTOM_CSS'] is not None:
                 self._settings.UI_CUSTOM_CSS = all_settings['UI_CUSTOM_CSS']
                 logger.info("Loaded UI_CUSTOM_CSS from database")
-                
+
+            # Connector configurations are now managed via the `connections`
+            # table and loaded by ConnectionsManager at startup.
+
         except Exception as e:
             logger.warning(f"Failed to load persisted settings from database: {e}")
 
@@ -1543,7 +1546,7 @@ class SettingsManager:
             approver_roles = []
 
         return AppRole(
-            id=role_db.id, # Keep UUID
+            id=role_db.id,
             name=role_db.name,
             description=role_db.description,
             assigned_groups=assigned_groups,

@@ -17,7 +17,7 @@ This roadmap outlines the phased implementation of Ontos, from a Minimum Viable 
 | 1.1 | **Explicit Lifecycle State (Contracts & Products)** | Implement `status` field (DRAFT, PROPOSED, UNDER_REVIEW, APPROVED, ACTIVE, DEPRECATED, REJECTED) in `DataContractDb` and (DEVELOPMENT, SANDBOX, PENDING_CERTIFICATION, CERTIFIED, ACTIVE, DEPRECATED, ARCHIVED) in `DataProductDb`. Enforce state transitions in the API. | Data Producer, Steward | Design, Creation, Publishing | Medium | - |
 | 1.2 | **Basic Contract Versioning** | Add a `version` field to `DataContractDb`. When editing a PUBLISHED contract, create a new DRAFT version. Track version history. | Data Producer | Design, Iteration | Medium | 1.1 |
 | 1.3 | **Simple Steward Review UI** | Create a "Submit for Review" button on DRAFT assets that transitions to PROPOSED/PENDING_CERTIFICATION. This sends a notification to users with the "Data Steward" role. The steward gets "Approve" / "Reject" buttons in their dashboard. | Data Steward, Data Producer | Design, Publishing | Medium | 1.1, NotificationsManager |
-| 1.4 | **Data Product to Contract Linking** | Enhance the Data Product creation UI to allow a producer to explicitly link an output port to a specific, APPROVED Data Contract version. Display contract details on product page. | Data Producer | Creation | Medium | 1.1, 1.2 |
+| 1.4 | **Data Product to Contract Linking (Optional)** | On the Data Product detail page, allow a producer to optionally link a Deliverable (output port) to a specific, APPROVED Data Contract version. Contract linking is not required during product composition — producers can link assets to Deliverables first and add contracts later. Each Deliverable has a Delivery Method that defines access semantics. Display contract details on product page when linked. | Data Producer | Creation | Medium | 1.1, 1.2 |
 | 1.5 | **Basic Consumer "Subscription"** | Implement a "Subscribe" button for consumers on an ACTIVE Data Product. This records the relationship in the database (consumer → product mapping). Show subscriber list to product owners. | Data Consumer | Consumption | Low | 1.1, 1.4 |
 | 1.6 | **Role-Based Home Page (MVP)** | Implement the basic home page variations: <br>- **Data Consumer:** Discovery/marketplace view with featured ACTIVE products<br>- **Data Producer:** "My Products" view showing DRAFT/IN_PROGRESS items<br>- **Data Steward:** Review queue showing PROPOSED/PENDING_CERTIFICATION items | All Personas | All | Medium | - |
 
@@ -230,6 +230,6 @@ Phase 3 (Advanced)
 
 | Risk | Mitigation | Phase |
 | :--- | :--- | :--- |
-| **Complex UI for simple workflows** | Provide "Quick Start" wizards. Hide advanced features behind progressive disclosure. | Phase 1 |
+| **Complex UI for simple workflows** | Use progressive disclosure and sensible defaults. Keep creation lightweight (simple dialog) and use Draft-state detail-page editing for composition. | Phase 1 |
 | **Steward bottleneck** | Implement SLAs for reviews. Auto-escalation for overdue reviews. Delegate reviews to domain stewards. | Phase 2 |
 | **Poor data quality kills trust** | Enforce contract validation before ACTIVE status. Show quality metrics prominently. | Phase 2-3 |

@@ -126,6 +126,7 @@ class DataProductRepository(CRUDBase[DataProductDb, DataProductCreate, DataProdu
                         description=port.description,
                         port_type=port.type,
                         contract_id=port.contractId,
+                        delivery_method_id=port.deliveryMethodId,
                         asset_type=port.assetType,
                         asset_identifier=port.assetIdentifier,
                         status=port.status,
@@ -300,48 +301,77 @@ class DataProductRepository(CRUDBase[DataProductDb, DataProductCreate, DataProdu
                     )
                     db_obj.input_ports.append(port_obj)
 
-            # 6. Update Output Ports (replace all) with SBOM and InputContracts
+            # 6. Update Output Ports (upsert to preserve IDs for entity relationships)
             if 'output_ports' in update_data:
-                db_obj.output_ports.clear()
-                for port_dict in update_data['output_ports'] or []:
-                    # Serialize server
+                incoming_ports = update_data['output_ports'] or []
+                existing_by_id = {p.id: p for p in db_obj.output_ports}
+                incoming_ids = set()
+
+                for port_dict in incoming_ports:
+                    port_id = port_dict.get('id')
                     server_json = None
                     if port_dict.get('server'):
                         server_json = json.dumps(port_dict['server']) if isinstance(port_dict['server'], dict) else port_dict['server']
 
-                    port_obj = OutputPortDb(
-                        name=port_dict['name'],
-                        version=port_dict['version'],
-                        description=port_dict.get('description'),
-                        port_type=port_dict.get('type'),
-                        contract_id=port_dict.get('contract_id'),
-                        asset_type=port_dict.get('asset_type'),
-                        asset_identifier=port_dict.get('asset_identifier'),
-                        status=port_dict.get('status'),
-                        server=server_json,
-                        contains_pii=port_dict.get('contains_pii', False),
-                        auto_approve=port_dict.get('auto_approve', False)
-                    )
+                    if port_id and port_id in existing_by_id:
+                        # Update existing port in place
+                        port_obj = existing_by_id[port_id]
+                        port_obj.name = port_dict['name']
+                        port_obj.version = port_dict['version']
+                        port_obj.description = port_dict.get('description')
+                        port_obj.port_type = port_dict.get('type')
+                        port_obj.contract_id = port_dict.get('contract_id')
+                        port_obj.delivery_method_id = port_dict.get('delivery_method_id')
+                        port_obj.asset_type = port_dict.get('asset_type')
+                        port_obj.asset_identifier = port_dict.get('asset_identifier')
+                        port_obj.status = port_dict.get('status')
+                        port_obj.server = server_json
+                        port_obj.contains_pii = port_dict.get('contains_pii', False)
+                        port_obj.auto_approve = port_dict.get('auto_approve', False)
 
-                    # Add SBOM entries
-                    if port_dict.get('sbom'):
-                        for sbom_dict in port_dict['sbom']:
-                            sbom_obj = SBOMDb(
-                                type=sbom_dict.get('type', 'external'),
-                                url=sbom_dict['url']
-                            )
-                            port_obj.sbom.append(sbom_obj)
+                        # Replace SBOM
+                        port_obj.sbom.clear()
+                        if port_dict.get('sbom'):
+                            for sbom_dict in port_dict['sbom']:
+                                port_obj.sbom.append(SBOMDb(type=sbom_dict.get('type', 'external'), url=sbom_dict['url']))
+                        # Replace InputContracts
+                        port_obj.input_contracts.clear()
+                        if port_dict.get('input_contracts'):
+                            for contract_dict in port_dict['input_contracts']:
+                                port_obj.input_contracts.append(InputContractDb(contract_id=contract_dict['id'], contract_version=contract_dict['version']))
 
-                    # Add InputContract entries
-                    if port_dict.get('input_contracts'):
-                        for contract_dict in port_dict['input_contracts']:
-                            contract_obj = InputContractDb(
-                                contract_id=contract_dict['id'],
-                                contract_version=contract_dict['version']
-                            )
-                            port_obj.input_contracts.append(contract_obj)
+                        incoming_ids.add(port_id)
+                    else:
+                        # Create new port
+                        port_obj = OutputPortDb(
+                            name=port_dict['name'],
+                            version=port_dict['version'],
+                            description=port_dict.get('description'),
+                            port_type=port_dict.get('type'),
+                            contract_id=port_dict.get('contract_id'),
+                            delivery_method_id=port_dict.get('delivery_method_id'),
+                            asset_type=port_dict.get('asset_type'),
+                            asset_identifier=port_dict.get('asset_identifier'),
+                            status=port_dict.get('status'),
+                            server=server_json,
+                            contains_pii=port_dict.get('contains_pii', False),
+                            auto_approve=port_dict.get('auto_approve', False)
+                        )
+                        if port_dict.get('sbom'):
+                            for sbom_dict in port_dict['sbom']:
+                                port_obj.sbom.append(SBOMDb(type=sbom_dict.get('type', 'external'), url=sbom_dict['url']))
+                        if port_dict.get('input_contracts'):
+                            for contract_dict in port_dict['input_contracts']:
+                                port_obj.input_contracts.append(InputContractDb(contract_id=contract_dict['id'], contract_version=contract_dict['version']))
+                        db_obj.output_ports.append(port_obj)
+                        if port_obj.id:
+                            incoming_ids.add(port_obj.id)
 
-                    db_obj.output_ports.append(port_obj)
+                # Remove ports that are no longer in the payload
+                for old_id, old_port in existing_by_id.items():
+                    if old_id not in incoming_ids:
+                        db_obj.output_ports.remove(old_port)
+                        db.delete(old_port)
 
             # 7. Update Management Ports (replace all)
             if 'management_ports' in update_data:

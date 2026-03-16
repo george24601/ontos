@@ -1,10 +1,9 @@
 {
   "home": "ホーム",
   "groups": {
-    "dataProducts": "データ製品",
-    "governance": "ガバナンス",
-    "operations": "運用",
-    "security": "セキュリティ",
-    "system": "システム"
+    "discover": "発見",
+    "build": "構築",
+    "govern": "管理",
+    "deploy": "デプロイ"
   }
 }

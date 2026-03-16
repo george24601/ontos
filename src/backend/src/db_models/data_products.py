@@ -8,6 +8,7 @@ All models follow the ODPS v1.0.0 structure with Databricks-specific extensions 
 """
 
 from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, func, ForeignKey, Date, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from uuid import uuid4
 
@@ -185,6 +186,9 @@ class OutputPortDb(Base):
     port_type = Column(String, nullable=True)  # Type of output port
     contract_id = Column(String, nullable=True, index=True)  # Optional link to contract
 
+    # ==================== Delivery Method ====================
+    delivery_method_id = Column(PG_UUID(as_uuid=True), ForeignKey('delivery_methods.id'), nullable=True, index=True)
+
     # ==================== Databricks Extensions ====================
     asset_type = Column(String, nullable=True, index=True)  # table, view, etc.
     asset_identifier = Column(String, nullable=True, index=True)  # catalog.schema.table
@@ -194,6 +198,7 @@ class OutputPortDb(Base):
     auto_approve = Column(Boolean, default=False)
 
     product = relationship("DataProductDb", back_populates="output_ports")
+    delivery_method = relationship("DeliveryMethodDb", lazy="selectin")
     sbom = relationship("SBOMDb", back_populates="output_port", cascade="all, delete-orphan")
     input_contracts = relationship("InputContractDb", back_populates="output_port", cascade="all, delete-orphan")
 

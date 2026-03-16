@@ -9,9 +9,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Info } from 'lucide-react';
 import type { OutputPort, DataProduct } from '@/types/data-product';
 import type { DataContractListItem } from '@/types/data-contract';
+import type { DeliveryMethodRead } from '@/types/delivery-method';
 import CreateContractInlineDialog from '@/components/data-contracts/create-contract-inline-dialog';
 
 type OutputPortFormProps = {
@@ -31,12 +32,15 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
   const [description, setDescription] = useState('');
   const [type, setType] = useState('');
   const [contractId, setContractId] = useState('');
-  const [assetType, setAssetType] = useState('');
-  const [assetIdentifier, setAssetIdentifier] = useState('');
+  const [deliveryMethodId, setDeliveryMethodId] = useState('');
   const [status, setStatus] = useState('');
   const [containsPii, setContainsPii] = useState(false);
   const [autoApprove, setAutoApprove] = useState(false);
   
+  // Delivery methods
+  const [deliveryMethods, setDeliveryMethods] = useState<DeliveryMethodRead[]>([]);
+  const [isLoadingDeliveryMethods, setIsLoadingDeliveryMethods] = useState(false);
+
   // Contract selection states
   const [contractSelectionMode, setContractSelectionMode] = useState<'none' | 'existing' | 'create'>('none');
   const [contracts, setContracts] = useState<DataContractListItem[]>([]);
@@ -46,32 +50,30 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
   const activeStatuses = ['active', 'approved', 'certified'];
 
   useEffect(() => {
+    if (isOpen) {
+      fetchDeliveryMethods();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen && initial) {
       setName(initial.name || '');
       setVersion(initial.version || '1.0.0');
       setDescription(initial.description || '');
       setType(initial.type || '');
       setContractId(initial.contractId || '');
-      setAssetType(initial.assetType || '');
-      setAssetIdentifier(initial.assetIdentifier || '');
+      setDeliveryMethodId(initial.deliveryMethodId || '');
       setStatus(initial.status || '');
       setContainsPii(initial.containsPii || false);
       setAutoApprove(initial.autoApprove || false);
-      
-      // Set contract selection mode based on initial data
-      if (initial.contractId) {
-        setContractSelectionMode('existing');
-      } else {
-        setContractSelectionMode('none');
-      }
+      setContractSelectionMode(initial.contractId ? 'existing' : 'none');
     } else if (isOpen && !initial) {
       setName('');
       setVersion('1.0.0');
       setDescription('');
       setType('');
       setContractId('');
-      setAssetType('');
-      setAssetIdentifier('');
+      setDeliveryMethodId('');
       setStatus('');
       setContainsPii(false);
       setAutoApprove(false);
@@ -85,19 +87,33 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
     }
   }, [isOpen, contractSelectionMode]);
 
+  const fetchDeliveryMethods = async () => {
+    setIsLoadingDeliveryMethods(true);
+    try {
+      const response = await fetch('/api/delivery-methods?status=active');
+      if (!response.ok) throw new Error('Failed to fetch delivery methods');
+      const data: DeliveryMethodRead[] = await response.json();
+      setDeliveryMethods(data);
+    } catch (error: any) {
+      toast({
+        title: 'Warning',
+        description: 'Could not load delivery methods',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoadingDeliveryMethods(false);
+    }
+  };
+
   const fetchContracts = async () => {
     setIsLoadingContracts(true);
     try {
       const response = await fetch('/api/data-contracts');
       if (!response.ok) throw new Error('Failed to fetch contracts');
-      
       const data: DataContractListItem[] = await response.json();
-      
-      // Filter to only show contracts with appropriate status
       const filteredContracts = data.filter(c => 
         activeStatuses.includes(c.status?.toLowerCase() || '')
       );
-      
       setContracts(filteredContracts);
     } catch (error: any) {
       toast({
@@ -113,45 +129,45 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
   const handleContractCreated = (newContractId: string) => {
     setContractId(newContractId);
     setIsCreateContractOpen(false);
-    fetchContracts(); // Refresh contract list
+    fetchContracts();
   };
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast({ title: 'Validation Error', description: 'Port name is required', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Name is required', variant: 'destructive' });
       return;
     }
 
     if (!version.trim()) {
-      toast({ title: 'Validation Error', description: 'Port version is required', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Version is required', variant: 'destructive' });
       return;
     }
 
     setIsSubmitting(true);
     try {
       const port: OutputPort = {
+        id: initial?.id,
         name: name.trim(),
         version: version.trim(),
         description: description.trim() || undefined,
         type: type.trim() || undefined,
         contractId: contractId.trim() || undefined,
-        assetType: assetType.trim() || undefined,
-        assetIdentifier: assetIdentifier.trim() || undefined,
+        deliveryMethodId: deliveryMethodId || undefined,
         status: status.trim() || undefined,
-        containsPii: containsPii,
-        autoApprove: autoApprove,
+        containsPii,
+        autoApprove,
       };
 
       await onSubmit(port);
       onOpenChange(false);
       toast({
         title: 'Success',
-        description: initial ? 'Output port updated' : 'Output port added',
+        description: initial ? 'Deliverable updated' : 'Deliverable added',
       });
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to save output port',
+        description: error?.message || 'Failed to save deliverable',
         variant: 'destructive',
       });
     } finally {
@@ -164,9 +180,9 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? 'Edit Output Port' : 'Add Output Port'}</DialogTitle>
+          <DialogTitle>{initial ? 'Edit Deliverable' : 'Add Deliverable'}</DialogTitle>
           <DialogDescription>
-            Define an output data endpoint for this data product (ODPS v1.0.0).
+            Define a deliverable for this data product. Assets can be linked after creation.
           </DialogDescription>
         </DialogHeader>
 
@@ -175,13 +191,13 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">
-                Port Name <span className="text-destructive">*</span>
+                Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., customer-analytics-output"
+                placeholder="e.g., Daily Churn Rate"
                 autoFocus
               />
             </div>
@@ -196,15 +212,46 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
                 onChange={(e) => setVersion(e.target.value)}
                 placeholder="1.0.0"
               />
+            </div>
+          </div>
+
+          {/* Delivery Method */}
+          <div className="border-t pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="deliveryMethod">Delivery Method</Label>
+              {isLoadingDeliveryMethods ? (
+                <div className="flex items-center gap-2 p-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading...</span>
+                </div>
+              ) : (
+                <Select value={deliveryMethodId} onValueChange={setDeliveryMethodId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select delivery method..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {deliveryMethods.map((dm) => (
+                      <SelectItem key={dm.id} value={dm.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{dm.name}</span>
+                          {dm.category && (
+                            <Badge variant="outline" className="text-xs">{dm.category}</Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <p className="text-xs text-muted-foreground">
-                Version of this output port (e.g., 1.0.0, 2.1.3)
+                How this deliverable serves data to consumers (e.g., Table Access, Serving Endpoint)
               </p>
             </div>
           </div>
 
-          {/* Optional ODPS Fields */}
+          {/* Optional Fields */}
           <div className="border-t pt-4">
-            <h4 className="text-sm font-medium mb-3">Optional ODPS Fields</h4>
+            <h4 className="text-sm font-medium mb-3">Details</h4>
 
             <div className="space-y-4">
               <div className="space-y-2">
@@ -213,18 +260,28 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what this output port provides"
+                  placeholder="Describe what this deliverable provides"
                   rows={2}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="type">Port Type</Label>
+                <Label htmlFor="type">Type</Label>
                 <Input
                   id="type"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                   placeholder="e.g., table, api, stream"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Input
+                  id="status"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  placeholder="e.g., active, draft"
                 />
               </div>
 
@@ -307,48 +364,18 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
             </div>
           </div>
 
-          {/* Databricks Extensions */}
+          {/* Flags */}
           <div className="border-t pt-4">
-            <h4 className="text-sm font-medium mb-3">Databricks Extensions</h4>
+            <h4 className="text-sm font-medium mb-3">Access & Privacy</h4>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="assetType">Asset Type</Label>
-                <Input
-                  id="assetType"
-                  value={assetType}
-                  onChange={(e) => setAssetType(e.target.value)}
-                  placeholder="e.g., table, view, share"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="assetIdentifier">Asset Identifier</Label>
-                <Input
-                  id="assetIdentifier"
-                  value={assetIdentifier}
-                  onChange={(e) => setAssetIdentifier(e.target.value)}
-                  placeholder="e.g., catalog.schema.table"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Input
-                  id="status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  placeholder="e.g., active, draft"
-                />
-              </div>
-
               <div className="flex items-center justify-between space-y-0 rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <Label htmlFor="containsPii" className="text-base">
                     Contains PII
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Does this output contain personally identifiable information?
+                    Does this deliverable contain personally identifiable information?
                   </p>
                 </div>
                 <Switch
@@ -364,7 +391,7 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
                     Auto Approve
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Automatically approve access requests for this output?
+                    Automatically approve access requests for this deliverable?
                   </p>
                 </div>
                 <Switch
@@ -376,11 +403,11 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
             </div>
           </div>
 
-          {/* Info about SBOM and Input Contracts */}
-          <div className="rounded-lg bg-muted/50 p-4">
+          {/* Info note */}
+          <div className="rounded-lg bg-muted/50 p-4 flex gap-2">
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
             <p className="text-sm text-muted-foreground">
-              <strong>Note:</strong> SBOM (Software Bill of Materials) and Input Contracts can be managed after creating the port.
-              These complex nested entities require separate dialogs.
+              After creating this deliverable, you can link assets (tables, views, datasets, etc.) to it from the detail page.
             </p>
           </div>
         </div>
@@ -390,7 +417,7 @@ export default function OutputPortFormDialog({ isOpen, onOpenChange, onSubmit, i
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : initial ? 'Save Changes' : 'Add Port'}
+            {isSubmitting ? 'Saving...' : initial ? 'Save Changes' : 'Add Deliverable'}
           </Button>
         </DialogFooter>
       </DialogContent>

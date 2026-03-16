@@ -128,7 +128,7 @@ export default function LinkContractToPortDialog({
 
       toast({
         title: 'Contract Linked',
-        description: 'Contract successfully linked to output port'
+        description: 'Contract successfully linked to deliverable'
       });
 
       onSuccess();
@@ -154,16 +154,16 @@ export default function LinkContractToPortDialog({
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Link Contract to Output Port</DialogTitle>
+            <DialogTitle>Link Contract to Deliverable</DialogTitle>
             <DialogDescription>
-              Select an existing contract or create a new one to link to <strong>{currentPort?.name || 'this output port'}</strong>
+              Select an existing contract or create a new one to link to <strong>{currentPort?.name || 'this deliverable'}</strong>
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {currentPort && (
               <div className="rounded-lg bg-muted p-4 space-y-2">
-                <Label className="text-sm font-medium">Output Port</Label>
+                <Label className="text-sm font-medium">Deliverable</Label>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{currentPort.name}</span>
                   <Badge variant="outline">v{currentPort.version}</Badge>

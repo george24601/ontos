@@ -1130,6 +1130,52 @@ async def export_odcs(contract_id: str, db: DBSessionDep, manager: DataContracts
         logger.exception("Failed to list versions for contract %s", contract_id)
         raise HTTPException(status_code=500, detail="Failed to list versions")
 
+@router.post('/data-contracts/{contract_id}/link-assets', response_model=dict)
+async def auto_link_contract_schema_to_assets(
+    contract_id: str,
+    db: DBSessionDep,
+    current_user: AuditCurrentUserDep,
+    manager: DataContractsManager = Depends(get_data_contracts_manager),
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_WRITE)),
+):
+    """Auto-link contract schema objects to matching Table/View assets.
+
+    Creates implementsContract relationships from assets to this contract,
+    and governedBy relationships from parent datasets.
+    """
+    try:
+        username = current_user.username if hasattr(current_user, 'username') else str(current_user)
+        result = manager.auto_link_schema_to_assets(db, contract_id, username)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to auto-link schema to assets for contract %s", contract_id)
+        raise HTTPException(status_code=500, detail="Failed to auto-link schema to assets")
+
+
+@router.get('/data-contracts/{contract_id}/entity-relationships', response_model=dict)
+async def get_contract_entity_relationships(
+    contract_id: str,
+    db: DBSessionDep,
+    manager: DataContractsManager = Depends(get_data_contracts_manager),
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_ONLY)),
+):
+    """Get entity relationships involving this contract (incoming governedBy, etc.)."""
+    try:
+        db_obj = data_contract_repo.get(db, id=contract_id)
+        if not db_obj:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        return manager.get_contract_entity_relationships(db, contract_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get entity relationships for contract %s", contract_id)
+        raise HTTPException(status_code=500, detail="Failed to get entity relationships")
+
+
 @router.post('/data-contracts/{contract_id}/comments', response_model=dict)
 async def add_comment(
     contract_id: str,

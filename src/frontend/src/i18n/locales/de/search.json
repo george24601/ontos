@@ -4,10 +4,11 @@
   "tabs": {
     "askOntos": "Ontos fragen",
     "indexSearch": "Index-Suche",
-    "conceptGraph": "Konzeptgraph",
-    "knowledgeGraph": "Wissensgraph",
+    "viewGraph": "Graph anzeigen",
+    "searchGraph": "Graph durchsuchen",
     "concepts": "Konzepte",
-    "properties": "Eigenschaften"
+    "properties": "Eigenschaften",
+    "knowledgeGraph": "Wissensgraph"
   },
   "noResults": "Keine Ergebnisse gefunden",
   "noResultsHint": "Versuchen Sie, Ihre Suchbegriffe oder Filter anzupassen",

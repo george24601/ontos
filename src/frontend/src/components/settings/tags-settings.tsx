@@ -479,6 +479,17 @@ export default function TagsSettings() {
   }
 
   return (
+    <>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Tag className="w-8 h-8" />
+          Tags
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Manage tag namespaces, configure display settings, and organize tags across the application.
+        </p>
+      </div>
+
     <div className="space-y-6">
       {/* Tag Display Settings */}
       <Card>
@@ -838,5 +849,6 @@ export default function TagsSettings() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

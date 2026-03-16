@@ -235,7 +235,7 @@ export default function DataAssetReviewDetails() {
             <div className="space-y-6">
                 <div className="flex justify-between items-start mb-4">
                     <div>
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/data-asset-reviews')} className="mb-2">
+                        <Button variant="outline" size="sm" onClick={() => navigate('/data-asset-reviews')} className="mb-2">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                         </Button>
                         <h1 className="text-3xl font-bold">Review Request Details</h1>

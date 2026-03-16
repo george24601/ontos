@@ -32,6 +32,7 @@ from src.models.process_workflows import (
     TriggerContext,
     TriggerType,
     EntityType,
+    WorkflowType,
 )
 
 logger = get_logger(__name__)
@@ -53,11 +54,13 @@ def get_workflow_executor(db: Session = Depends(get_db)) -> WorkflowExecutor:
 async def list_workflows(
     request: Request,
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    workflow_type: Optional[str] = Query(None, description="Filter by workflow_type: process | approval"),
     manager: WorkflowsManager = Depends(get_workflows_manager),
     _: bool = Depends(PermissionChecker('settings', FeatureAccessLevel.READ_ONLY)),
 ) -> WorkflowListResponse:
-    """List all process workflows."""
-    workflows = manager.list_workflows(is_active=is_active)
+    """List all process workflows (or approval workflows when workflow_type=approval)."""
+    wf_type = WorkflowType(workflow_type) if workflow_type in ('process', 'approval') else None
+    workflows = manager.list_workflows(is_active=is_active, workflow_type=wf_type)
     return WorkflowListResponse(workflows=workflows, total=len(workflows))
 
 
@@ -296,6 +299,46 @@ async def get_policy_workflow_usage(
         'workflow_count': len(workflows),
         'workflows': workflows,
     }
+
+
+# App-known trigger types for GET /for-trigger/{trigger_type} (workflow looked up by trigger type, not name).
+# All power the same ApprovalWizardDialog. 1:1 match with ON_* process triggers.
+APP_ACTION_TRIGGER_TYPES = frozenset({
+    TriggerType.FOR_APPROVAL_RESPONSE.value,
+    TriggerType.FOR_SUBSCRIBE.value,
+    TriggerType.FOR_REQUEST_REVIEW.value,
+    TriggerType.FOR_REQUEST_ACCESS.value,
+    TriggerType.FOR_REQUEST_PUBLISH.value,
+    TriggerType.FOR_REQUEST_STATUS_CHANGE.value,
+})
+
+
+@router.get("/for-trigger/{trigger_type}", response_model=ProcessWorkflow)
+async def get_workflow_for_trigger(
+    request: Request,
+    trigger_type: str,
+    entity_type: Optional[str] = Query(None, description="Optional entity type to match against workflow trigger entity_types"),
+    manager: WorkflowsManager = Depends(get_workflows_manager),
+    _: bool = Depends(PermissionChecker('settings', FeatureAccessLevel.READ_ONLY)),
+) -> ProcessWorkflow:
+    """Get the first active workflow that declares this trigger type.
+
+    Trigger type is the stable contract; workflow names are for display only.
+    Optionally pass ?entity_type= to narrow the match to workflows whose
+    trigger.entity_types includes the value (or is empty, meaning "all").
+    """
+    if trigger_type not in APP_ACTION_TRIGGER_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trigger_type. Allowed: {sorted(APP_ACTION_TRIGGER_TYPES)}",
+        )
+    workflow = manager.get_workflow_by_trigger_type(trigger_type, entity_type=entity_type)
+    if not workflow:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No active workflow found for trigger type '{trigger_type}'. Load default workflows from Settings.",
+        )
+    return workflow
 
 
 @router.get("/{workflow_id}", response_model=ProcessWorkflow)
@@ -789,13 +832,14 @@ async def handle_workflow_approval(
     Request body:
         - execution_id: str - ID of the paused execution
         - approved: bool - Whether the request was approved
-        - message: Optional[str] - Message from the approver
+        - message: Optional[str] - Message/reason from the approver (e.g. from default approval response workflow)
+        - reason: Optional[str] - Reason for the decision (alias for message)
     """
     try:
         body = await request.json()
         execution_id = body.get('execution_id')
         approved = body.get('approved', False)
-        message = body.get('message')
+        message = body.get('message') or body.get('reason')
         
         if not execution_id:
             raise HTTPException(status_code=400, detail="execution_id is required")
@@ -806,7 +850,11 @@ async def handle_workflow_approval(
         result = executor.resume_workflow(
             execution_id=execution_id,
             step_result=approved,
-            result_data={'message': message, 'decision': 'approved' if approved else 'rejected'},
+            result_data={
+                'message': message,
+                'reason': message,
+                'decision': 'approved' if approved else 'rejected',
+            },
             user_email=user_email,
         )
         

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, AlertCircle, Loader2, ClipboardCheck, ChevronDown, Trash2 } from 'lucide-react';
@@ -42,6 +42,7 @@ export default function DataAssetReviews() {
     const api = useApi();
     const { get, delete: deleteApi } = api;
     const navigate = useNavigate();
+    const { pathname } = useLocation();
     const { toast } = useToast();
     const { currentProject, hasProjectContext } = useProjectContext();
 
@@ -254,7 +255,7 @@ export default function DataAssetReviews() {
                     onRowClick={(row) => {
                         const requestId = row.original.id;
                         if (requestId) {
-                            navigate(`/data-asset-reviews/${requestId}`);
+                            navigate(`${pathname}/${requestId}`);
                         }
                     }}
                 />

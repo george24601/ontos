@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -277,32 +269,30 @@ export default function GitSettings() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FolderGit2 className="h-5 w-5" />
-                {t('settings:git.title', 'Git Repository')}
-              </CardTitle>
-              <CardDescription>
-                {t('settings:git.description', 'Configure Git repository for indirect delivery mode (YAML exports).')}
-              </CardDescription>
-            </div>
-            {getStatusBadge()}
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <GitBranch className="w-8 h-8" />
+              {t('settings:git.title', 'Git Repository')}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {t('settings:git.description', 'Configure Git repository for indirect delivery mode (YAML exports).')}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          {getStatusBadge()}
+        </div>
+      </div>
+
+      <div className="space-y-6">
           {/* Error Alert */}
           {status?.error_message && (
             <Alert variant="destructive">
@@ -410,8 +400,7 @@ export default function GitSettings() {
               </div>
             </div>
           )}
-        </CardContent>
-        <CardFooter className="flex justify-between border-t pt-6">
+        <div className="flex justify-between pt-4">
           <div className="flex gap-2">
             {hasWriteAccess && (
               <Button onClick={handleSaveSettings} disabled={isSaving}>
@@ -478,8 +467,8 @@ export default function GitSettings() {
               </Button>
             )}
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
 
       <GitDiffModal
         open={showDiffModal}

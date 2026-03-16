@@ -78,12 +78,12 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
     return iri.split(/[/#]/).pop() || iri;
   };
   
-  // Calculate outgoing links (this concept points TO others)
+  // Calculate outgoing links: triples where this concept is the SUBJECT
+  // (i.e. what this concept explicitly asserts in the ontology)
   const outgoingLinks = useMemo((): LinkInfo[] => {
     const links: LinkInfo[] = [];
     
-    // Parent (broader) - this concept IS BROADER than parent? No, parent is broader.
-    // Actually: parent_concepts = concepts this is NARROWER than (parents are broader)
+    // rdfs:subClassOf / skos:broader — this concept asserts it is narrower than parent
     concept.parent_concepts?.forEach(iri => {
       const c = conceptMap.get(iri);
       links.push({
@@ -95,17 +95,8 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
       });
     });
     
-    // Child (narrower) - this concept has narrower children
-    concept.child_concepts?.forEach(iri => {
-      const c = conceptMap.get(iri);
-      links.push({
-        iri,
-        label: getLabel(c, iri),
-        relationshipType: 'narrower',
-        direction: 'outgoing',
-        concept: c,
-      });
-    });
+    // child_concepts are NOT shown here — they are the materialized inverse
+    // of other concepts' parent_concepts and appear in "incoming" instead.
     
     // Related
     concept.related_concepts?.forEach(iri => {
@@ -146,14 +137,16 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
     return links;
   }, [concept, conceptMap]);
   
-  // Calculate incoming links (other concepts point TO this one)
+  // Calculate incoming links: triples where this concept is the OBJECT
+  // (i.e. what other concepts assert about this one)
   const incomingLinks = useMemo((): LinkInfo[] => {
     const links: LinkInfo[] = [];
     
     allConcepts.forEach(other => {
       if (other.iri === concept.iri) return;
       
-      // Other has this as parent (other is narrower than this)
+      // Other asserts rdfs:subClassOf / skos:broader pointing to this concept
+      // → the other concept is narrower than this one
       if (other.parent_concepts?.includes(concept.iri)) {
         links.push({
           iri: other.iri,
@@ -164,16 +157,8 @@ export const NodeLinksPanel: React.FC<NodeLinksPanelProps> = ({
         });
       }
       
-      // Other has this as child (other is broader than this)
-      if (other.child_concepts?.includes(concept.iri)) {
-        links.push({
-          iri: other.iri,
-          label: getLabel(other, other.iri),
-          relationshipType: 'broader',
-          direction: 'incoming',
-          concept: other,
-        });
-      }
+      // child_concepts check removed — it is the materialized inverse of
+      // parent_concepts and would duplicate the outgoing "broader" links.
       
       // Other relates to this
       if (other.related_concepts?.includes(concept.iri)) {

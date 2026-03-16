@@ -22,6 +22,7 @@ from src.models.process_workflows import (
     WorkflowExecutionCreate,
     TriggerType,
     EntityType,
+    WorkflowType,
 )
 from src.common.logging import get_logger
 
@@ -36,13 +37,16 @@ class ProcessWorkflowRepository:
         db: Session,
         *,
         is_active: Optional[bool] = None,
+        workflow_type: Optional[WorkflowType] = None,
         include_steps: bool = True
     ) -> List[ProcessWorkflowDb]:
-        """List all workflows, optionally filtered by active status."""
+        """List all workflows, optionally filtered by active status and workflow_type."""
         query = db.query(ProcessWorkflowDb)
         
         if is_active is not None:
             query = query.filter(ProcessWorkflowDb.is_active == is_active)
+        if workflow_type is not None:
+            query = query.filter(ProcessWorkflowDb.workflow_type == workflow_type.value)
         
         if include_steps:
             query = query.options(joinedload(ProcessWorkflowDb.steps))
@@ -66,6 +70,43 @@ class ProcessWorkflowRepository:
             .filter(ProcessWorkflowDb.name == name)
             .first()
         )
+
+    def get_by_trigger_type(
+        self,
+        db: Session,
+        trigger_type: str,
+        *,
+        entity_type: Optional[str] = None,
+        active_only: bool = True,
+    ) -> Optional[ProcessWorkflowDb]:
+        """Get the first active workflow whose trigger.type matches.
+
+        If *entity_type* is given, only workflows whose trigger.entity_types
+        list includes the value (or is empty — meaning "all") are considered.
+        Used for app-known UI actions (for_approval_response, for_subscribe,
+        for_request_review, for_request_access, etc.).
+        """
+        query = (
+            db.query(ProcessWorkflowDb)
+            .options(joinedload(ProcessWorkflowDb.steps))
+            .order_by(ProcessWorkflowDb.name)
+        )
+        if active_only:
+            query = query.filter(ProcessWorkflowDb.is_active == True)
+        workflows = query.all()
+        for wf in workflows:
+            try:
+                trigger_config = json.loads(wf.trigger_config) if wf.trigger_config else {}
+                if trigger_config.get('type') != trigger_type:
+                    continue
+                if entity_type:
+                    et_list = trigger_config.get('entity_types', [])
+                    if et_list and entity_type not in et_list:
+                        continue
+                return wf
+            except (json.JSONDecodeError, TypeError):
+                continue
+        return None
 
     def get_for_trigger(
         self,
@@ -130,6 +171,7 @@ class ProcessWorkflowRepository:
             description=workflow.description,
             trigger_config=workflow.trigger.model_dump_json(),
             scope_config=workflow.scope.model_dump_json() if workflow.scope else None,
+            workflow_type=(getattr(workflow, 'workflow_type', WorkflowType.PROCESS) or WorkflowType.PROCESS).value,
             is_active=workflow.is_active,
             is_default=is_default,
             created_by=created_by,
@@ -179,6 +221,8 @@ class ProcessWorkflowRepository:
             db_workflow.trigger_config = workflow.trigger.model_dump_json()
         if workflow.scope is not None:
             db_workflow.scope_config = workflow.scope.model_dump_json()
+        if workflow.workflow_type is not None:
+            db_workflow.workflow_type = workflow.workflow_type.value
         if workflow.is_active is not None:
             db_workflow.is_active = workflow.is_active
         

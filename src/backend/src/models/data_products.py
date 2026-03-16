@@ -156,6 +156,9 @@ class Server(BaseModel):
 
 class OutputPort(BaseModel):
     """ODPS v1.0.0 Output Port"""
+    # Stable ID (exposed so entity relationships can reference this port)
+    id: Optional[str] = Field(None, description="Stable port ID (preserved across updates)")
+
     # ODPS required fields
     name: str = Field(..., description="Name of the output port")
     version: str = Field(..., description="Version of the output port")
@@ -170,6 +173,10 @@ class OutputPort(BaseModel):
     tags: Optional[List[str]] = Field(None, description="Tags for categorization")
     customProperties: Optional[List[CustomProperty]] = Field(None, description="Custom properties")
     authoritativeDefinitions: Optional[List[AuthoritativeDefinition]] = Field(None, description="Authoritative definitions")
+
+    # Delivery method
+    deliveryMethodId: Optional[str] = Field(None, alias="delivery_method_id", description="Delivery method reference")
+    deliveryMethodName: Optional[str] = Field(None, description="Delivery method name (resolved at query time)")
 
     # Databricks extensions
     assetType: Optional[str] = Field(None, alias="asset_type", description="Type of Databricks asset")

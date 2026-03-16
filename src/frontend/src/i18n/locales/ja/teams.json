@@ -1,5 +1,6 @@
 {
   "title": "チーム",
+  "subtitle": "組織全体のチームとそのメンバーを管理します。",
   "addNewTeam": "新しいチームを追加",
   "editTeam": "チームを編集",
   "deleteTeam": "チームを削除",

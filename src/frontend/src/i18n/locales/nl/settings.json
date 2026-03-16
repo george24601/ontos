@@ -4,9 +4,15 @@
     "general": "Algemeen",
     "databricks": "Databricks",
     "git": "Git",
-    "jobs": "Jobs & Workflows",
+    "jobs": "Jobs",
+    "audit": "Auditlogboek",
+    "businessRoles": "Zakelijke rollen",
+    "assetTypes": "Asset types",
+    "dataDomains": "Domeinen",
+    "teams": "Teams",
+    "projects": "Projecten",
     "roles": "Rollen",
-    "semanticModels": "Semantische Modellen",
+    "rdfSources": "RDF-bronnen",
     "tags": "Tags",
     "search": "Zoeken",
     "mcpTokens": "MCP Tokens",
@@ -109,8 +115,17 @@
       "token": "ghp_... of vergelijkbaar"
     }
   },
+  "nav": {
+    "groups": {
+      "configuration": "Configuratie",
+      "integrations": "Integraties",
+      "operations": "Operaties",
+      "accessControl": "Toegangscontrole",
+      "referenceData": "Referentiegegevens"
+    }
+  },
   "jobs": {
-    "title": "Jobs & Workflows Configuratie",
+    "title": "Jobs Configuratie",
     "description": "Configureer Databricks job cluster en schakel achtergrond workflows in",
     "jobClusterId": {
       "label": "Job Cluster ID (optioneel)",

@@ -73,12 +73,12 @@ export default function InputPortFormDialog({ isOpen, onOpenChange, onSubmit, in
       onOpenChange(false);
       toast({
         title: 'Success',
-        description: initial ? 'Input port updated' : 'Input port added',
+        description: initial ? 'Consumable updated' : 'Consumable added',
       });
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to save input port',
+        description: error?.message || 'Failed to save consumable',
         variant: 'destructive',
       });
     } finally {
@@ -90,7 +90,7 @@ export default function InputPortFormDialog({ isOpen, onOpenChange, onSubmit, in
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? 'Edit Input Port' : 'Add Input Port'}</DialogTitle>
+          <DialogTitle>{initial ? 'Edit Consumable' : 'Add Consumable'}</DialogTitle>
           <DialogDescription>
             Define an input data dependency for this data product (ODPS v1.0.0).
           </DialogDescription>
@@ -99,7 +99,7 @@ export default function InputPortFormDialog({ isOpen, onOpenChange, onSubmit, in
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">
-              Port Name <span className="text-destructive">*</span>
+              Consumable Name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="name"
@@ -121,7 +121,7 @@ export default function InputPortFormDialog({ isOpen, onOpenChange, onSubmit, in
               placeholder="1.0.0"
             />
             <p className="text-xs text-muted-foreground">
-              Version of this input port (e.g., 1.0.0, 2.1.3)
+              Version of this consumable (e.g., 1.0.0, 2.1.3)
             </p>
           </div>
 
@@ -178,7 +178,7 @@ export default function InputPortFormDialog({ isOpen, onOpenChange, onSubmit, in
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : initial ? 'Save Changes' : 'Add Port'}
+            {isSubmitting ? 'Saving...' : initial ? 'Save Changes' : 'Add Consumable'}
           </Button>
         </DialogFooter>
       </DialogContent>

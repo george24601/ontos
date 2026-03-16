@@ -66,35 +66,60 @@ class SearchManager:
         """Get the current search configuration (with hot-reload support)."""
         return self._config_loader.load()
 
+    def _is_item_enabled(self, item: SearchIndexItem) -> bool:
+        """Check whether an item passes feature_id and config-enabled checks."""
+        if not hasattr(item, 'feature_id') or not item.feature_id:
+            return False
+        config = self.config
+        asset_config = config.asset_types.get(item.type)
+        if not asset_config and item.type.startswith("asset-"):
+            asset_config = config.asset_types.get("asset")
+        if asset_config and not asset_config.enabled:
+            return False
+        return True
+
     def build_index(self):
         """Builds or rebuilds the search index by querying searchable managers."""
         logger.info(f"Building search index from {len(self.searchable_managers)} managers...")
-        new_index: List[SearchIndexItem] = [] # Build into a new list
+        new_index: List[SearchIndexItem] = []
         config = self.config
 
         for manager in self.searchable_managers:
             manager_name = manager.__class__.__name__
             try:
-                # Ensure managers populate the new feature_id field
                 items = manager.get_search_index_items()
                 for item in items:
-                    if not hasattr(item, 'feature_id') or not item.feature_id:
-                         logger.warning(f"Search item {item.id} from {manager_name} is missing feature_id. Skipping.")
-                         continue
-                    
-                    # Check if this asset type is enabled in config
-                    asset_config = config.asset_types.get(item.type)
-                    if asset_config and not asset_config.enabled:
-                        logger.debug(f"Skipping item {item.id} - asset type '{item.type}' is disabled")
+                    if not self._is_item_enabled(item):
+                        logger.debug(f"Skipping item {item.id} from {manager_name} (disabled or missing feature_id)")
                         continue
-                    
                     new_index.append(item)
             except Exception as e:
                 logger.error(f"Failed to get search items from {manager_name}: {e}", exc_info=True)
         
-        # Atomically replace the index
         self.index = new_index
         logger.info(f"Search index build complete. Total items: {len(self.index)}")
+
+    def upsert_item(self, item: SearchIndexItem) -> None:
+        """Insert or update a single item in the index."""
+        if not self._is_item_enabled(item):
+            logger.debug(f"upsert_item: skipping {item.id} (disabled or missing feature_id)")
+            return
+        for i, existing in enumerate(self.index):
+            if existing.id == item.id:
+                self.index[i] = item
+                logger.debug(f"Search index: updated {item.id}")
+                return
+        self.index.append(item)
+        logger.debug(f"Search index: added {item.id}")
+
+    def remove_item(self, item_id: str) -> None:
+        """Remove an item from the index by id. No-op if not found."""
+        for i, existing in enumerate(self.index):
+            if existing.id == item_id:
+                self.index.pop(i)
+                logger.debug(f"Search index: removed {item_id}")
+                return
+        logger.debug(f"Search index: {item_id} not found for removal")
 
     def search(
         self, 

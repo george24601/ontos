@@ -105,7 +105,7 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
         'allowed_levels': READ_WRITE_ADMIN_LEVELS # Users request, admins grant
     },
     'data-asset-reviews': {
-        'name': 'Data Asset Review',
+        'name': 'Asset Reviews',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS # Stewards review, admins manage
     },
     'data-catalog': {
@@ -135,7 +135,7 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
         'allowed_levels': ADMIN_ONLY_LEVELS # Only Admins change settings
     },
     'semantic-models': {
-        'name': 'Business Glossary',
+        'name': 'Concept Browser',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS
     },
     'tags': {
@@ -163,6 +163,41 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
     'comments': {
         'name': 'Comments & Ratings',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS  # READ_WRITE to add, ADMIN to manage all
+    },
+    # Reference Data
+    'assets': {
+        'name': 'Assets',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    'business-roles': {
+        'name': 'Business Roles',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    'business-owners': {
+        'name': 'Business Owners',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    'delivery-methods': {
+        'name': 'Delivery Methods',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    # Ontology-driven model
+    'ontology': {
+        'name': 'Ontology Schema',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    'entity_relationships': {
+        'name': 'Entity Relationships',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    'entity_subscriptions': {
+        'name': 'Entity Subscriptions',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
+    },
+    # Schema Import
+    'schema-importer': {
+        'name': 'Schema Importer',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS
     },
     # 'about': { ... } # About page doesn't need explicit permissions here
 

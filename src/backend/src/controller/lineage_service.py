@@ -106,7 +106,7 @@ class LineageService:
             name=table or table_fqn,
             type=AssetType.TABLE,
             catalog=catalog,
-            schema=schema,
+            schema_name=schema,
             is_root=True,
             depth=0
         )
@@ -207,7 +207,7 @@ class LineageService:
                             name=name or other_id,
                             type=asset_type,
                             catalog=catalog,
-                            schema=schema,
+                            schema_name=schema,
                             depth=1,
                             external_system=getattr(other_info, 'external_system', None) if other_info else None
                         )

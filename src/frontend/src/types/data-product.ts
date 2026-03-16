@@ -103,10 +103,10 @@ export interface InputContract {
 }
 
 export interface OutputPort {
-  // UI fields
-  id?: string; // For form tracking
-  links?: Record<string, string>; // Port-level links
-  custom?: Record<string, any>; // Port-level custom properties
+  // Stable ID (preserved across updates for entity relationship support)
+  id?: string;
+  links?: Record<string, string>;
+  custom?: Record<string, any>;
 
   // ODPS required fields
   name: string;
@@ -114,14 +114,18 @@ export interface OutputPort {
 
   // ODPS optional fields
   description?: string;
-  type?: string; // Type of output port
-  contractId?: string; // Optional link to contract
-  contractName?: string; // Resolved contract name
+  type?: string;
+  contractId?: string;
+  contractName?: string;
   sbom?: SBOM[];
   inputContracts?: InputContract[];
   tags?: string[];
   customProperties?: CustomProperty[];
   authoritativeDefinitions?: AuthoritativeDefinition[];
+
+  // Delivery method
+  deliveryMethodId?: string;
+  deliveryMethodName?: string;
 
   // Databricks extensions
   assetType?: string;

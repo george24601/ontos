@@ -85,7 +85,7 @@ export default function ConceptsSearch({
     }
 
     const queryString = params.toString();
-    const newUrl = queryString ? `/search/concepts?${queryString}` : '/search/concepts';
+    const newUrl = queryString ? `${location.pathname}?${queryString}` : location.pathname;
     navigate(newUrl, { replace: true });
   };
 

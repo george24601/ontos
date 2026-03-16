@@ -1,6 +1,7 @@
 from typing import List, Optional, Union
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -323,6 +324,7 @@ class TagsManager(DeliveryMixin, SearchableAsset):
         db.refresh(db_tag)
         # Eager load namespace for the response model
         db.refresh(db_tag, attribute_names=['namespace'])
+        self._update_search_index(db_tag)
         return Tag.from_orm(db_tag)
 
     def get_tag(self, db: Session, *, tag_id: UUID) -> Optional[Tag]:
@@ -378,6 +380,7 @@ class TagsManager(DeliveryMixin, SearchableAsset):
         db.commit()
         db.refresh(updated_db_tag)
         db.refresh(updated_db_tag, attribute_names=['namespace']) # Ensure namespace is loaded for FQN
+        self._update_search_index(updated_db_tag)
         return Tag.from_orm(updated_db_tag)
 
     def delete_tag(self, db: Session, *, tag_id: UUID) -> bool:
@@ -394,6 +397,7 @@ class TagsManager(DeliveryMixin, SearchableAsset):
 
         deleted_count = self._tag_repo.remove(db, id=tag_id)
         if deleted_count:
+            self._notify_index_remove(f"tag::{tag_id}")
             db.commit()
             return True
         return False
@@ -483,6 +487,41 @@ class TagsManager(DeliveryMixin, SearchableAsset):
         ]
 
     # --- SearchableAsset Implementation ---
+    def _build_search_index_item(self, tag_db_obj: TagDb) -> Optional[SearchIndexItem]:
+        """Build a SearchIndexItem from a TagDb model."""
+        if not tag_db_obj.id or not tag_db_obj.name or not tag_db_obj.namespace:
+            logger.warning(
+                f"Skipping tag for search indexing due to missing id, name, or namespace: {tag_db_obj}"
+            )
+            return None
+        tag_api_model = Tag.from_orm(tag_db_obj)
+        extra_data = {
+            "category": tag_api_model.namespace_name or DEFAULT_NAMESPACE_NAME,
+            "status": tag_api_model.status.value if tag_api_model.status else "",
+        }
+        search_query = f"tag:{tag_api_model.fully_qualified_name}"
+        return SearchIndexItem(
+            id=f"tag::{tag_api_model.id}",
+            type="tag",
+            feature_id="tags",
+            title=tag_api_model.fully_qualified_name,
+            description=tag_api_model.description
+            or f"Tag: {tag_api_model.name} in namespace {tag_api_model.namespace_name}",
+            link=f"/search?tab=app&app_query={search_query}",
+            tags=[
+                tag_api_model.name,
+                tag_api_model.namespace_name or DEFAULT_NAMESPACE_NAME,
+                f"status:{tag_api_model.status.value}",
+            ],
+            extra_data=extra_data,
+        )
+
+    def _update_search_index(self, tag_db_obj: TagDb) -> None:
+        """Upsert a single tag into the search index."""
+        item = self._build_search_index_item(tag_db_obj)
+        if item:
+            self._notify_index_upsert(item)
+
     def get_search_index_items(self) -> List[SearchIndexItem]:
         logger.info("TagsManager: Fetching tags for search indexing...")
         items: List[SearchIndexItem] = []
@@ -497,39 +536,9 @@ class TagsManager(DeliveryMixin, SearchableAsset):
                 db_tags = self._tag_repo.get_multi_with_filters(db, limit=10000)
 
                 for tag_db_obj in db_tags:
-                    if not tag_db_obj.id or not tag_db_obj.name or not tag_db_obj.namespace:
-                        logger.warning(
-                            f"Skipping tag for search indexing due to missing id, name, or namespace: {tag_db_obj}"
-                        )
-                        continue
-
-                    tag_api_model = Tag.from_orm(tag_db_obj)  # Use Pydantic model for FQN
-                    
-                    # Build extra_data for configurable search fields
-                    extra_data = {
-                        "category": tag_api_model.namespace_name or DEFAULT_NAMESPACE_NAME,
-                        "status": tag_api_model.status.value if tag_api_model.status else "",
-                    }
-
-                    # Link to search view with tag filter to show all entities with this tag
-                    search_query = f"tag:{tag_api_model.fully_qualified_name}"
-                    items.append(
-                        SearchIndexItem(
-                            id=f"tag::{tag_api_model.id}",
-                            type="tag",
-                            feature_id="tags",
-                            title=tag_api_model.fully_qualified_name,
-                            description=tag_api_model.description
-                            or f"Tag: {tag_api_model.name} in namespace {tag_api_model.namespace_name}",
-                            link=f"/search?tab=app&app_query={search_query}",
-                            tags=[
-                                tag_api_model.name,
-                                tag_api_model.namespace_name or DEFAULT_NAMESPACE_NAME,
-                                f"status:{tag_api_model.status.value}",
-                            ],
-                            extra_data=extra_data,
-                        )
-                    )
+                    item = self._build_search_index_item(tag_db_obj)
+                    if item:
+                        items.append(item)
 
             logger.info(f"TagsManager: Prepared {len(items)} tags for search index.")
             return items

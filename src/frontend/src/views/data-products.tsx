@@ -17,7 +17,7 @@ import { DataProduct, DataProductStatus, DataProductOwner } from '@/types/data-p
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { RelativeDate } from '@/components/common/relative-date';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DataTable } from "@/components/ui/data-table";
 import DataProductCreateDialog from '@/components/data-products/data-product-create-dialog';
 import { usePermissions } from '@/stores/permissions-store';
@@ -81,6 +81,7 @@ export default function DataProducts() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { getDomainIdByName } = useDomains();
   const refreshNotifications = useNotificationsStore((state) => state.refreshNotifications);
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
@@ -233,7 +234,7 @@ export default function DataProducts() {
     fetchProducts();
     // Navigate to details view for newly created product
     if (savedProduct.id && !productToEdit) {
-      navigate(`/data-products/${savedProduct.id}`);
+      navigate(`${pathname}/${savedProduct.id}`);
     }
   };
 
@@ -792,7 +793,7 @@ export default function DataProducts() {
             onRowClick={(row) => {
               const productId = row.original.id;
               if (productId) {
-                navigate(`/data-products/${productId}`);
+                navigate(`${pathname}/${productId}`);
               } else {
                 console.warn("Cannot navigate: Product ID is missing.", row.original);
                 toast({ title: t('navigation.error'), description: t('navigation.missingId'), variant: "default" });

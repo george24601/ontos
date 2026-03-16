@@ -23,12 +23,24 @@
     "name": "Prodotti",
     "description": "Raggruppa e gestisci risorse Databricks correlate con tag."
   },
+  "concepts": {
+    "name": "Concetti",
+    "description": "Sfoglia, cerca e gestisci concetti aziendali, collezioni e gerarchie."
+  },
   "semantic-models": {
-    "name": "Glossario Aziendale",
+    "name": "Browser dei concetti",
     "description": "Esplora i termini del glossario aziendale, concetti e le loro relazioni."
   },
+  "collections": {
+    "name": "Collezioni di concetti",
+    "description": "Organizza concetti e risorse in collezioni logiche."
+  },
+  "process-workflows": {
+    "name": "Workflow",
+    "description": "Configura workflow automatizzati per validazione, approvazione e notifiche."
+  },
   "data-asset-reviews": {
-    "name": "Revisione risorse",
+    "name": "Revisioni risorse",
     "description": "Rivedi e approva risorse Databricks come tabelle, viste e funzioni."
   },
   "compliance": {

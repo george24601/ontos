@@ -23,9 +23,21 @@
     "name": "プロダクト",
     "description": "関連する Databricks アセットをタグでグループ化して管理します。"
   },
+  "concepts": {
+    "name": "コンセプト",
+    "description": "ビジネスコンセプト、コレクション、階層を閲覧、検索、管理します。"
+  },
   "semantic-models": {
-    "name": "ビジネス用語集",
+    "name": "コンセプトブラウザ",
     "description": "ビジネス用語集の用語、概念、およびその関係を探索します。"
+  },
+  "collections": {
+    "name": "コンセプトコレクション",
+    "description": "コンセプトとアセットを論理的なコレクションに整理します。"
+  },
+  "process-workflows": {
+    "name": "ワークフロー",
+    "description": "検証、承認、通知のための自動ワークフローを設定します。"
   },
   "data-asset-reviews": {
     "name": "アセットレビュー",

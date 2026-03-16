@@ -1,10 +1,9 @@
 {
   "home": "Home",
   "groups": {
-    "dataProducts": "Data Products",
-    "governance": "Governance",
-    "operations": "Operations",
-    "security": "Security",
-    "system": "System"
+    "discover": "Discover",
+    "build": "Build",
+    "govern": "Govern",
+    "deploy": "Deploy"
   }
 }

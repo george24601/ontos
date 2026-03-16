@@ -386,6 +386,7 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({
                                             ))}
                                         </div>
                                     </div>
+
                                 </div>
                             </ScrollArea>
                         </TabsContent>

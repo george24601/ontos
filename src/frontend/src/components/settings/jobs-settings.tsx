@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ColumnDef } from '@tanstack/react-table';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/ui/data-table';
 import { JobRunsDialog } from '@/components/settings/job-runs-dialog';
 import WorkflowActions from '@/components/settings/workflow-actions';
 import WorkflowConfigurationDialog from '@/components/settings/workflow-configuration-dialog';
 import { WorkflowStatus } from '@/types/workflows';
 import { WorkflowParameterDefinition } from '@/types/workflow-configurations';
-import { History, Settings as SettingsIcon } from 'lucide-react';
+import { Briefcase, ChevronDown, History, Save, Settings as SettingsIcon } from 'lucide-react';
 
 interface SettingsApiResponse {
   job_cluster_id?: string | null;
@@ -25,6 +27,14 @@ interface SettingsApiResponse {
 }
 
 type WorkflowsMap = Record<string, { id: string; name: string; description?: string }>;
+
+interface MergedWorkflow {
+  id: string;
+  name: string;
+  description?: string;
+  status: WorkflowStatus;
+  enabled: boolean;
+}
 
 export default function JobsSettings() {
   const { t } = useTranslation(['settings', 'common']);
@@ -45,13 +55,11 @@ export default function JobsSettings() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [configurableWorkflows, setConfigurableWorkflows] = useState<Set<string>>(new Set());
 
-  const mergedList = useMemo(() => {
+  const mergedList = useMemo<MergedWorkflow[]>(() => {
     return Object.values(workflows).map(w => ({
       ...w,
       status: statuses[w.id] || {
         workflow_id: w.id,
-        // Until the backend confirms installation via status polling,
-        // treat as not installed to hide actions (requires Save + deploy).
         installed: false,
         is_running: false,
         supports_pause: false,
@@ -76,7 +84,6 @@ export default function JobsSettings() {
         wfList.forEach(w => { toggles[w.id] = enabledSet.has(w.id); });
         setEnabled(toggles);
         
-        // Check which workflows have configurable parameters
         const configurable = new Set<string>();
         for (const wf of wfList) {
           try {
@@ -87,7 +94,6 @@ export default function JobsSettings() {
               configurable.add(wf.id);
             }
           } catch (e) {
-            // Workflow doesn't have configurable parameters or error occurred
             console.debug(`No configurable parameters for ${wf.id}`);
           }
         }
@@ -172,6 +178,7 @@ export default function JobsSettings() {
       toast({ title: t('common:status.error'), description: e?.message || 'Failed to pause', variant: 'destructive' });
     }
   };
+
   const resumeSchedule = async (workflowId: string) => {
     try {
       const res = await post(`/api/jobs/workflows/${encodeURIComponent(workflowId)}/resume`, {});
@@ -182,92 +189,144 @@ export default function JobsSettings() {
     }
   };
 
+  const columns = useMemo<ColumnDef<MergedWorkflow>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          {t('settings:jobs.table.name', 'Name')} <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+    },
+    {
+      accessorKey: 'description',
+      header: t('settings:jobs.table.description', 'Description'),
+      cell: ({ row }) => (
+        <div className="truncate max-w-sm text-sm text-muted-foreground">
+          {row.original.description || '-'}
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: t('settings:jobs.table.status', 'Status'),
+      cell: ({ row }) => {
+        const { status } = row.original;
+        if (!status.installed) {
+          return <Badge variant="outline">{t('settings:jobs.table.notInstalled', 'Not Installed')}</Badge>;
+        }
+        if (status.is_running) {
+          return <Badge variant="default">{t('settings:jobs.table.running', 'Running')}</Badge>;
+        }
+        switch (status.last_result) {
+          case 'SUCCESS':
+            return <Badge variant="default" className="bg-green-600">{t('settings:jobs.table.success', 'Success')}</Badge>;
+          case 'FAILED':
+            return <Badge variant="destructive">{t('settings:jobs.table.failed', 'Failed')}</Badge>;
+          case 'CANCELED':
+            return <Badge variant="secondary">{t('settings:jobs.table.canceled', 'Canceled')}</Badge>;
+          case 'TIMEDOUT':
+            return <Badge variant="secondary">{t('settings:jobs.table.timedOut', 'Timed Out')}</Badge>;
+          default:
+            return <Badge variant="secondary">{t('settings:jobs.table.idle', 'Idle')}</Badge>;
+        }
+      },
+      enableSorting: false,
+    },
+    {
+      id: 'enabled',
+      header: t('settings:jobs.table.enabled', 'Enabled'),
+      cell: ({ row }) => (
+        <Switch
+          checked={row.original.enabled}
+          onCheckedChange={() => toggleWorkflow(row.original.id)}
+          disabled={row.original.status?.is_running}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">{t('settings:jobs.table.actions', 'Actions')}</div>,
+      cell: ({ row }) => {
+        const wf = row.original;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            {wf.status?.installed && wf.enabled && (
+              <WorkflowActions
+                status={wf.status}
+                onStart={() => startRun(wf.id)}
+                onStop={() => stopRun(wf.id)}
+                onPause={() => pauseSchedule(wf.id)}
+                onResume={() => resumeSchedule(wf.id)}
+              />
+            )}
+
+            {wf.status?.installed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => { setSelectedWorkflow({ id: wf.id, name: wf.name }); setJobRunsDialogOpen(true); }}
+                aria-label="History"
+                title={t('settings:jobRuns.viewHistory')}
+              >
+                <History className="h-4 w-4" />
+              </Button>
+            )}
+
+            {configurableWorkflows.has(wf.id) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => { setSelectedWorkflow({ id: wf.id, name: wf.name }); setConfigDialogOpen(true); }}
+                aria-label="Configure"
+                title="Configure workflow parameters"
+              >
+                <SettingsIcon className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        );
+      },
+      enableSorting: false,
+    },
+  ], [configurableWorkflows, t]);
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('settings:jobs.title')}</CardTitle>
-        <CardDescription>{t('settings:jobs.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Briefcase className="w-8 h-8" />
+          {t('settings:jobs.title')}
+        </h1>
+        <p className="text-muted-foreground mt-1">{t('settings:jobs.description')}</p>
+      </div>
+
+      <div className="space-y-4 mb-6">
         <div className="space-y-2">
           <Label htmlFor="job-cluster-id">{t('settings:jobs.jobClusterId.label')}</Label>
           <Input id="job-cluster-id" value={jobClusterId} onChange={(e) => setJobClusterId(e.target.value)} placeholder={t('settings:jobs.jobClusterId.placeholder')} />
         </div>
+      </div>
 
-        {Object.keys(workflows).length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('settings:jobs.noWorkflows')}</p>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <Label>{t('settings:jobs.availableWorkflows.label')}</Label>
-              <p className="text-sm text-muted-foreground">{t('settings:jobs.availableWorkflows.description')}</p>
-            </div>
-            {mergedList.map((wf) => (
-              <div key={wf.id} className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">{wf.name}</h3>
-                  {wf.description && <p className="text-sm text-muted-foreground">{wf.description}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* Action icons render only for installed jobs and when enabled */}
-                  {wf.status?.installed && wf.enabled && (
-                    <WorkflowActions
-                      status={wf.status}
-                      onStart={() => startRun(wf.id)}
-                      onStop={() => stopRun(wf.id)}
-                      onPause={() => pauseSchedule(wf.id)}
-                      onResume={() => resumeSchedule(wf.id)}
-                    />
-                  )}
-
-                  {/* History appears only for installed jobs */}
-                  {wf.status?.installed && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => { setSelectedWorkflow({ id: wf.id, name: wf.name }); setJobRunsDialogOpen(true); }}
-                      aria-label="History"
-                      title={t('settings:jobRuns.viewHistory')}
-                    >
-                      <History className="h-4 w-4" />
-                    </Button>
-                  )}
-
-                  {/* Configure button for workflows with configurable parameters */}
-                  {configurableWorkflows.has(wf.id) && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => { setSelectedWorkflow({ id: wf.id, name: wf.name }); setConfigDialogOpen(true); }}
-                      aria-label="Configure"
-                      title="Configure workflow parameters"
-                    >
-                      <SettingsIcon className="h-4 w-4" />
-                    </Button>
-                  )}
-
-                  {/* Toggle is always at far right */}
-                  <Switch
-                    checked={!!wf.enabled}
-                    onCheckedChange={() => toggleWorkflow(wf.id)}
-                    disabled={wf.status?.is_running}
-                  />
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        <div className="mt-4">
-          <Button onClick={handleSave} disabled={isSaving}>
+      <DataTable
+        columns={columns}
+        data={mergedList}
+        searchColumn="name"
+        storageKey="jobs-workflows-sort"
+        toolbarActions={
+          <Button onClick={handleSave} disabled={isSaving} className="h-9">
+            <Save className="mr-2 h-4 w-4" />
             {isSaving ? t('common:actions.saving') : t('settings:jobs.saveButton')}
           </Button>
-        </div>
-      </CardContent>
+        }
+      />
 
-      {/* Job Runs Dialog */}
       {selectedWorkflow && (
         <JobRunsDialog
           workflowId={selectedWorkflow.id}
@@ -277,7 +336,6 @@ export default function JobsSettings() {
         />
       )}
 
-      {/* Configuration Dialog */}
       {selectedWorkflow && (
         <WorkflowConfigurationDialog
           workflowId={selectedWorkflow.id}
@@ -286,8 +344,6 @@ export default function JobsSettings() {
           onOpenChange={setConfigDialogOpen}
         />
       )}
-    </Card>
+    </>
   );
 }
-
-

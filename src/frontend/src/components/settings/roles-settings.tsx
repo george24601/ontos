@@ -4,9 +4,8 @@ import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole, FeatureConfig, FeatureAccessLevel } from '@/types/settings'; // Import FeatureAccessLevel
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, AlertCircle, ChevronDown, UserPlus } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, AlertCircle, ChevronDown, UserPlus, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import RoleFormDialog from './role-form-dialog'; // Uncomment and import
 import RequestRoleAccessDialog from './request-role-access-dialog'; // Import role access request dialog
@@ -258,32 +257,33 @@ export default function RolesSettings() {
     }
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>{t('roles.title')}</CardTitle>
-                    <CardDescription>{t('roles.description')}</CardDescription>
-                </div>
-                <Button size="sm" className="gap-1" onClick={() => handleOpenDialog()} disabled={!canWrite}>
-                    <Plus className="h-4 w-4" />
-                    {t('roles.actions.addRole')}
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <DataTable
-                    columns={columns}
-                    data={roles}
-                    searchColumn="name"
-                    // Add other DataTable props as needed (pagination, filtering, etc.)
-                />
-            </CardContent>
+        <>
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold flex items-center gap-2">
+                    <Shield className="w-8 h-8" />
+                    {t('roles.title')}
+                </h1>
+                <p className="text-muted-foreground mt-1">{t('roles.description')}</p>
+            </div>
+
+            <DataTable
+                columns={columns}
+                data={roles}
+                searchColumn="name"
+                toolbarActions={
+                    <Button onClick={() => handleOpenDialog()} disabled={!canWrite} className="h-9">
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t('roles.actions.addRole')}
+                    </Button>
+                }
+            />
 
             {isDialogOpen && (
                 <RoleFormDialog
                     isOpen={isDialogOpen}
                     onOpenChange={setIsDialogOpen}
                     initialRole={roleToEdit}
-                    featuresConfig={features} // Use featuresConfig prop for the dialog
+                    featuresConfig={features}
                     onSubmitSuccess={handleDialogSubmitSuccess}
                 />
             )}
@@ -297,6 +297,6 @@ export default function RolesSettings() {
                     roleDescription={roleToRequest.description ?? undefined}
                 />
             )}
-        </Card>
+        </>
     );
 } 

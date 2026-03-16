@@ -415,6 +415,66 @@ class SemanticModelsManager:
         """
         return f"urn:ontos:bnode:{context_name}:{str(bnode)}"
 
+    def _is_skolemized_bnode(self, uri_str: str) -> bool:
+        """Check if a URI string is a skolemized blank node."""
+        return uri_str.startswith("urn:ontos:bnode:")
+
+    def _walk_rdf_list(self, context, list_head) -> List:
+        """Walk an RDF Collection (rdf:List) and return all members.
+        
+        Works with both real BNodes and skolemized blank node URIRefs.
+        """
+        members = []
+        current = list_head
+        nil_str = str(RDF.nil)
+        seen = set()
+        while current and str(current) != nil_str:
+            current_str = str(current)
+            if current_str in seen:
+                break
+            seen.add(current_str)
+            firsts = list(context.objects(current, RDF.first))
+            if firsts:
+                members.append(firsts[0])
+            rests = list(context.objects(current, RDF.rest))
+            current = rests[0] if rests else None
+        return members
+
+    def _extract_parents_from_owl_equivalent_class(self, context, concept_uri: URIRef) -> List[str]:
+        """Extract implicit parent classes from owl:equivalentClass + owl:intersectionOf.
+        
+        OWL semantics: if A ≡ B ∩ C then A ⊑ B and A ⊑ C.
+        Named classes in the intersection are treated as parents;
+        restrictions and other blank node class expressions are skipped.
+        """
+        parents = []
+        for eq_class in context.objects(concept_uri, OWL.equivalentClass):
+            for intersection_list_head in context.objects(eq_class, OWL.intersectionOf):
+                for member in self._walk_rdf_list(context, intersection_list_head):
+                    member_str = str(member)
+                    if (not isinstance(member, BNode)
+                            and not self._is_skolemized_bnode(member_str)
+                            and not member_str.startswith("http://www.w3.org/")
+                            and member_str not in parents):
+                        parents.append(member_str)
+        return parents
+
+    def _find_children_via_owl_equivalent_class(self, context, concept_uri: URIRef) -> List[str]:
+        """Find classes that are implicit children via owl:equivalentClass + owl:intersectionOf.
+        
+        If B ≡ A ∩ ..., then B ⊑ A, so B is a child of A.
+        """
+        children = []
+        concept_str = str(concept_uri)
+        for subj in context.subjects(OWL.equivalentClass, None):
+            subj_str = str(subj)
+            if isinstance(subj, BNode) or self._is_skolemized_bnode(subj_str):
+                continue
+            parents = self._extract_parents_from_owl_equivalent_class(context, subj)
+            if concept_str in parents and subj_str not in children:
+                children.append(subj_str)
+        return children
+
     def _import_graph_to_db(
         self,
         graph: Graph,
@@ -453,19 +513,19 @@ class SemanticModelsManager:
             if isinstance(obj, BNode):
                 object_value = self._skolemize_bnode(obj, context_name)
                 object_is_uri = True
-                object_language = None
-                object_datatype = None
+                object_language = ''
+                object_datatype = ''
             elif isinstance(obj, Literal):
                 object_value = str(obj)
                 object_is_uri = False
-                object_language = obj.language if obj.language else None
-                object_datatype = str(obj.datatype) if obj.datatype else None
+                object_language = obj.language if obj.language else ''
+                object_datatype = str(obj.datatype) if obj.datatype else ''
             else:
                 # URIRef
                 object_value = str(obj)
                 object_is_uri = True
-                object_language = None
-                object_datatype = None
+                object_language = ''
+                object_datatype = ''
             
             triples_to_insert.append({
                 'subject_uri': subject_uri,
@@ -1399,6 +1459,56 @@ class SemanticModelsManager:
 
         return results
 
+    def get_resource_description(
+        self, resource_iri: str, expand_blank_depth: int = 1
+    ) -> Dict[str, Any]:
+        """Get full description of a resource: all direct triples plus expanded blank nodes.
+
+        For SHACL shapes with nested sh:property [ ... ], the blank node contents
+        (path, minInclusive, etc.) are included in expanded form so the UI can show them.
+        """
+        from rdflib import URIRef
+
+        uri = URIRef(resource_iri)
+        triples_out: List[Dict[str, Any]] = []
+
+        def serialize_object(obj: Any) -> tuple[str, str, Any]:
+            """Return (object_value, objectType, subject_ref_for_expansion or None).
+            subject_ref_for_expansion is the node to use for (node, None, None) triples.
+            """
+            if isinstance(obj, Literal):
+                return (str(obj), "literal", None)
+            if isinstance(obj, URIRef):
+                # Skolemized blank nodes are stored as URIs; expand them like bnodes
+                obj_str = str(obj)
+                if obj_str.startswith("urn:ontos:bnode:"):
+                    return (obj_str, "bnode", obj)
+                return (obj_str, "uri", None)
+            if isinstance(obj, BNode):
+                return (str(obj), "bnode", obj)
+            return (str(obj), "literal", None)
+
+        for _s, p, o in self._graph.triples((uri, None, None)):
+            obj_val, obj_type, expand_subj = serialize_object(o)
+            entry: Dict[str, Any] = {
+                "predicate": str(p),
+                "object": obj_val,
+                "objectType": obj_type,
+            }
+            if obj_type == "bnode" and expand_subj is not None and expand_blank_depth >= 1:
+                expanded: List[Dict[str, Any]] = []
+                for _bs, bp, bo in self._graph.triples((expand_subj, None, None)):
+                    bo_val, bo_type, _ = serialize_object(bo)
+                    expanded.append({
+                        "predicate": str(bp),
+                        "object": bo_val,
+                        "objectType": bo_type,
+                    })
+                entry["expanded"] = expanded
+            triples_out.append(entry)
+
+        return {"iri": resource_iri, "triples": triples_out}
+
     # --- App Entities & Incremental Link Updates ---
 
     def _load_app_entities_into_graph(self) -> None:
@@ -1723,6 +1833,9 @@ class SemanticModelsManager:
                     # Check if it has subClassOf but wasn't caught above (inherited class)
                     elif any(context.objects(concept_uri, RDFS.subClassOf)):
                         concept_type = "class"
+                    # Check if it has owl:equivalentClass (defined class)
+                    elif any(context.objects(concept_uri, OWL.equivalentClass)):
+                        concept_type = "class"
                     # Named individuals
                     elif (concept_uri, RDF.type, OWL.NamedIndividual) in context:
                         concept_type = "individual"
@@ -1734,12 +1847,16 @@ class SemanticModelsManager:
                     # Handle rdfs:subClassOf relationships (class-to-class)
                     for parent in context.objects(concept_uri, RDFS.subClassOf):
                         parent_str = str(parent)
-                        if not parent_str.startswith("urn:ontos:bnode:") and not parent_str.startswith("n"):
+                        if not isinstance(parent, BNode) and not self._is_skolemized_bnode(parent_str):
                             parent_concepts.append(parent_str)
+                    # Handle owl:equivalentClass + owl:intersectionOf (A ≡ B ∩ C implies A ⊑ B)
+                    for parent_iri in self._extract_parents_from_owl_equivalent_class(context, concept_uri):
+                        if parent_iri not in parent_concepts:
+                            parent_concepts.append(parent_iri)
                     # Handle rdfs:subPropertyOf relationships (property-to-property)
                     for parent in context.objects(concept_uri, RDFS.subPropertyOf):
                         parent_str = str(parent)
-                        if not parent_str.startswith("urn:ontos:bnode:"):
+                        if not isinstance(parent, BNode) and not self._is_skolemized_bnode(parent_str):
                             parent_concepts.append(parent_str)
                     # Handle SKOS broader relationships
                     for parent in context.objects(concept_uri, SKOS.broader):
@@ -1776,11 +1893,10 @@ class SemanticModelsManager:
                     range_val = None
                     if concept_type == "property":
                         domains = list(context.objects(concept_uri, RDFS.domain))
-                        # Filter out blank nodes
-                        domains = [d for d in domains if not str(d).startswith("urn:ontos:bnode:") and not str(d).startswith("n")]
+                        domains = [d for d in domains if not isinstance(d, BNode) and not self._is_skolemized_bnode(str(d))]
                         domain_val = str(domains[0]) if domains else None
                         ranges = list(context.objects(concept_uri, RDFS.range))
-                        ranges = [r for r in ranges if not str(r).startswith("urn:ontos:bnode:") and not str(r).startswith("n")]
+                        ranges = [r for r in ranges if not isinstance(r, BNode) and not self._is_skolemized_bnode(str(r))]
                         range_val = str(ranges[0]) if ranges else None
 
                     # Extract related concepts (skos:related)
@@ -1865,7 +1981,13 @@ class SemanticModelsManager:
             parent_concepts = []
             # Handle rdfs:subClassOf relationships (class-to-class)
             for parent in context.objects(concept_uri, RDFS.subClassOf):
-                parent_concepts.append(str(parent))
+                parent_str = str(parent)
+                if not isinstance(parent, BNode) and not self._is_skolemized_bnode(parent_str):
+                    parent_concepts.append(parent_str)
+            # Handle owl:equivalentClass + owl:intersectionOf (A ≡ B ∩ C implies A ⊑ B)
+            for parent_iri in self._extract_parents_from_owl_equivalent_class(context, concept_uri):
+                if parent_iri not in parent_concepts:
+                    parent_concepts.append(parent_iri)
             # Handle SKOS broader relationships
             for parent in context.objects(concept_uri, SKOS.broader):
                 parent_concepts.append(str(parent))
@@ -1884,7 +2006,13 @@ class SemanticModelsManager:
             child_concepts = []
             # Handle rdfs:subClassOf relationships (find classes that are subclasses of this one)
             for child in context.subjects(RDFS.subClassOf, concept_uri):
-                child_concepts.append(str(child))
+                child_str = str(child)
+                if not isinstance(child, BNode) and not self._is_skolemized_bnode(child_str):
+                    child_concepts.append(child_str)
+            # Handle owl:equivalentClass + owl:intersectionOf (if B ≡ A ∩ ..., B is a child of A)
+            for child_iri in self._find_children_via_owl_equivalent_class(context, concept_uri):
+                if child_iri not in child_concepts:
+                    child_concepts.append(child_iri)
             # Handle SKOS narrower relationships
             for child in context.subjects(SKOS.broader, concept_uri):
                 child_concepts.append(str(child))
@@ -2772,8 +2900,12 @@ class SemanticModelsManager:
                 # Also check rdfs:subClassOf for classes
                 for parent in context.objects(concept_uri, RDFS.subClassOf):
                     parent_str = str(parent)
-                    if parent_str not in broader:
+                    if not isinstance(parent, BNode) and not self._is_skolemized_bnode(parent_str) and parent_str not in broader:
                         broader.append(parent_str)
+                # Also check owl:equivalentClass + owl:intersectionOf
+                for parent_iri in self._extract_parents_from_owl_equivalent_class(context, concept_uri):
+                    if parent_iri not in broader:
+                        broader.append(parent_iri)
                 
                 # Get governance info
                 status = self._get_literal(context, concept_uri, ONTOS.status)

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DataProduct, InputPort, OutputPort, ManagementPort, TeamMember, Support, SubscriptionResponse, SubscribersListResponse } from '@/types/data-product';
 import DataProductCreateDialog from '@/components/data-products/data-product-create-dialog';
@@ -29,16 +29,26 @@ import ConceptSelectDialog from '@/components/semantic/concept-select-dialog';
 import LinkedConceptChips from '@/components/semantic/linked-concept-chips';
 import type { EntitySemanticLink } from '@/types/semantic-link';
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel';
+import { OwnershipPanel } from '@/components/common/ownership-panel';
 import { CommentSidebar } from '@/components/comments';
 import { RatingPanel } from '@/components/ratings';
 import AccessGrantsPanel from '@/components/access/access-grants-panel';
 import { useDomains } from '@/hooks/use-domains';
 import RequestProductActionDialog from '@/components/data-products/request-product-action-dialog';
 import CommitDraftDialog from '@/components/data-products/commit-draft-dialog';
+import ApprovalWizardDialog from '@/components/workflows/approval-wizard-dialog';
 import EntityCostsPanel from '@/components/costs/entity-costs-panel';
+import EntityQualityPanel from '@/components/quality/entity-quality-panel';
 import LinkContractToPortDialog from '@/components/data-products/link-contract-to-port-dialog';
 import VersioningRecommendationDialog from '@/components/common/versioning-recommendation-dialog';
-import { Link2, Unlink } from 'lucide-react';
+import { Link2, Unlink, GitBranch } from 'lucide-react';
+import { ProductHierarchyPanel } from '@/components/data-products/product-hierarchy-panel';
+import { AssetSelector } from '@/components/common/asset-selector';
+import { EntityRelationshipPanel } from '@/components/common/entity-relationship-panel';
+import { BusinessLineageView } from '@/components/lineage';
+import { ReadinessChecklist } from '@/components/data-products/readiness-checklist';
+import { LineageEditor } from '@/components/common/lineage-editor';
+import { useCopilotContext } from '@/hooks/use-copilot-context';
 
 /**
  * ODPS v1.0.0 Data Product Details View
@@ -65,10 +75,135 @@ const checkApiResponse: CheckApiResponseFn = (response, name) => {
   return response.data as any;
 };
 
+/**
+ * Per-port linked assets sub-component.
+ * Shows assets linked to a specific output port via entity relationships,
+ * and provides a button to link new assets.
+ */
+function PortLinkedAssets({ portId, portName, canEdit }: { portId: string; portName: string; canEdit: boolean }) {
+  const [relationships, setRelationships] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const fetchRelationships = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/entities/OutputPort/${portId}/relationships`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setRelationships(data || []);
+    } catch {
+      // Silently fail for non-critical display
+    } finally {
+      setIsLoading(false);
+    }
+  }, [portId]);
+
+  useEffect(() => {
+    fetchRelationships();
+  }, [fetchRelationships]);
+
+  const handleLinkAssets = async (assets: any[]) => {
+    try {
+      for (const asset of assets) {
+        await fetch('/api/entities/relationships', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_type: 'OutputPort',
+            source_id: portId,
+            target_type: asset.asset_type_name || 'Table',
+            target_id: asset.id,
+            relationship_type: asset.relationshipType || `portHas${asset.asset_type_name || 'Table'}`,
+          }),
+        });
+      }
+      toast({ title: 'Assets linked', description: `${assets.length} asset(s) linked to ${portName}` });
+      fetchRelationships();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to link assets', variant: 'destructive' });
+    }
+  };
+
+  const handleUnlinkAsset = async (relId: string) => {
+    try {
+      const res = await fetch(`/api/entities/relationships/${relId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to unlink asset');
+      toast({ title: 'Asset unlinked' });
+      fetchRelationships();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to unlink asset', variant: 'destructive' });
+    }
+  };
+
+  if (isLoading) return null;
+
+  const linkedAssets = relationships.filter(r => r.source_id === portId);
+
+  return (
+    <div className="mt-2 space-y-1">
+      {linkedAssets.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {linkedAssets.map((rel) => (
+            <Badge
+              key={rel.id}
+              variant="outline"
+              className="text-xs cursor-pointer hover:bg-accent group"
+              onClick={() => {
+                if (rel.target_type && rel.target_id) {
+                  navigate(`/assets/${rel.target_id}`);
+                }
+              }}
+            >
+              {rel.target_name || rel.target_id}
+              {canEdit && (
+                <button
+                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUnlinkAsset(rel.id);
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </Badge>
+          ))}
+        </div>
+      )}
+      {canEdit && (
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 text-muted-foreground"
+            onClick={() => setIsAssetSelectorOpen(true)}
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            Link Asset
+          </Button>
+          <AssetSelector
+            isOpen={isAssetSelectorOpen}
+            onOpenChange={setIsAssetSelectorOpen}
+            onConfirm={handleLinkAssets}
+            relationshipType="portHasTable"
+            relationshipLabel="linked to port"
+            title={`Link Assets to "${portName}"`}
+            description="Select assets to link to this deliverable"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function DataProductDetails() {
   const { t } = useTranslation(['data-products', 'common']);
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const listPath = pathname.replace(/\/[^/]+$/, '');
   const api = useApi();
   const { get, post, delete: deleteApi } = api;
   const { toast } = useToast();
@@ -110,12 +245,15 @@ export default function DataProductDetails() {
 
   // Contract linking states
   const [isLinkContractDialogOpen, setIsLinkContractDialogOpen] = useState(false);
+  const [isLineageEditorOpen, setIsLineageEditorOpen] = useState(false);
   const [selectedPortForLinking, setSelectedPortForLinking] = useState<number | null>(null);
 
   // Subscription state
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionResponse | null>(null);
   const [subscribers, setSubscribers] = useState<SubscribersListResponse | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionWizardOpen, setSubscriptionWizardOpen] = useState(false);
+  const [subscriptionWorkflowId, setSubscriptionWorkflowId] = useState<string | null>(null);
 
   // Clone/Commit draft states
   const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false);
@@ -137,6 +275,12 @@ export default function DataProductDetails() {
 
   // Combined permission check: can write AND can edit in place (or is personal draft)
   const canModify = canWrite && (canEditInPlace || isPersonalDraft);
+
+  useCopilotContext(
+    'Data Product Details',
+    `/data-products/${productId}`,
+    product ? { type: 'data_product', name: product.name || 'Unnamed', id: productId || '' } : null,
+  );
 
   const formatDate = (dateString: string | undefined, fallback: string = 'N/A'): string => {
     if (!dateString) return fallback;
@@ -170,7 +314,7 @@ export default function DataProductDetails() {
     }
     setLoading(true);
     setError(null);
-    setStaticSegments([{ label: t('title'), path: '/data-products' }]);
+    setStaticSegments([{ label: t('title'), path: listPath }]);
     setDynamicTitle(t('details.loading'));
 
     try {
@@ -241,7 +385,7 @@ export default function DataProductDetails() {
     try {
       await deleteApi(`/api/data-products/${productId}`);
       toast({ title: 'Success', description: 'Data product deleted successfully.' });
-      navigate('/data-products');
+      navigate(listPath);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete product';
       toast({ title: 'Error', description: `Failed to delete: ${errorMessage}`, variant: 'destructive' });
@@ -260,7 +404,7 @@ export default function DataProductDetails() {
       if (response.data) {
         toast({ title: 'Draft Created', description: 'Personal draft created. You can now edit it.' });
         // Navigate to the new draft
-        navigate(`/data-products/${response.data.id}`);
+        navigate(`${listPath}/${response.data.id}`);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create draft';
@@ -280,9 +424,9 @@ export default function DataProductDetails() {
       toast({ title: 'Draft Discarded', description: 'Personal draft has been discarded.' });
       // Navigate back to products list or parent product
       if (product.parentProductId) {
-        navigate(`/data-products/${product.parentProductId}`);
+        navigate(`${listPath}/${product.parentProductId}`);
       } else {
-        navigate('/data-products');
+        navigate(listPath);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to discard draft';
@@ -292,8 +436,33 @@ export default function DataProductDetails() {
     }
   };
 
-  // Subscription handlers
-  const handleSubscribe = async () => {
+  // Subscription: open approval wizard (or fallback to direct subscribe)
+  const handleSubscribeClick = async () => {
+    if (!productId) return;
+    try {
+      const res = await get<{ id: string }>('/api/workflows/for-trigger/for_subscribe');
+      if (res.data?.id) {
+        setSubscriptionWorkflowId(res.data.id);
+        setSubscriptionWizardOpen(true);
+      } else {
+        toast({
+          title: 'Approval workflow not configured',
+          description: 'Subscribing directly. Load default workflows in Settings to use the approval flow.',
+          variant: 'default',
+        });
+        await handleSubscribeDirect();
+      }
+    } catch {
+      toast({
+        title: 'Approval workflow not configured',
+        description: 'Subscribing directly. Load default workflows in Settings to use the approval flow.',
+        variant: 'default',
+      });
+      await handleSubscribeDirect();
+    }
+  };
+
+  const handleSubscribeDirect = async () => {
     if (!productId) return;
     setSubscriptionLoading(true);
     try {
@@ -301,12 +470,9 @@ export default function DataProductDetails() {
       if (response.data) {
         setSubscriptionStatus(response.data);
         toast({ title: 'Subscribed', description: 'You will now receive notifications about this product.' });
-        // Refresh subscribers count
         if (canWrite || canAdmin) {
           const subscribersResp = await get<SubscribersListResponse>(`/api/data-products/${productId}/subscribers`);
-          if (subscribersResp.data) {
-            setSubscribers(subscribersResp.data);
-          }
+          if (subscribersResp.data) setSubscribers(subscribersResp.data);
         }
       }
     } catch (err) {
@@ -314,6 +480,23 @@ export default function DataProductDetails() {
       toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setSubscriptionLoading(false);
+    }
+  };
+
+  const handleSubscriptionWizardComplete = async () => {
+    setSubscriptionWizardOpen(false);
+    setSubscriptionWorkflowId(null);
+    toast({ title: 'Subscribed', description: 'You will now receive notifications about this product.' });
+    if (!productId) return;
+    try {
+      const subscriptionResp = await get<SubscriptionResponse>(`/api/data-products/${productId}/subscription`);
+      if (subscriptionResp.data) setSubscriptionStatus(subscriptionResp.data);
+      if (canWrite || canAdmin) {
+        const subscribersResp = await get<SubscribersListResponse>(`/api/data-products/${productId}/subscribers`);
+        if (subscribersResp.data) setSubscribers(subscribersResp.data);
+      }
+    } catch (err) {
+      setSubscriptionStatus({ subscribed: true });
     }
   };
 
@@ -418,10 +601,10 @@ export default function DataProductDetails() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, inputPorts: updatedPorts }),
       });
-      if (!res.ok) throw new Error(`Failed to add input port (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to add consumable (${res.status})`);
       await fetchProductDetails();
     } catch (e: any) {
-      throw new Error(e?.message || 'Failed to add input port');
+      throw new Error(e?.message || 'Failed to add consumable');
     }
   };
 
@@ -435,19 +618,19 @@ export default function DataProductDetails() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, inputPorts: updatedPorts }),
       });
-      if (!res.ok) throw new Error(`Failed to update input port (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to update consumable (${res.status})`);
       await fetchProductDetails();
       setEditingInputPortIndex(null);
-      toast({ title: 'Input Port Updated', description: 'Input port updated successfully.' });
+      toast({ title: 'Consumable Updated', description: 'Consumable updated successfully.' });
     } catch (e: any) {
-      toast({ title: 'Error', description: e?.message || 'Failed to update input port', variant: 'destructive' });
+      toast({ title: 'Error', description: e?.message || 'Failed to update consumable', variant: 'destructive' });
       throw e;
     }
   };
 
   const handleDeleteInputPort = async (index: number) => {
     if (!productId || !product) return;
-    if (!confirm('Delete this input port?')) return;
+    if (!confirm('Delete this consumable?')) return;
     try {
       const updatedPorts = (product.inputPorts || []).filter((_, i) => i !== index);
       const res = await fetch(`/api/data-products/${productId}`, {
@@ -455,11 +638,11 @@ export default function DataProductDetails() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, inputPorts: updatedPorts }),
       });
-      if (!res.ok) throw new Error(`Failed to delete input port (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to delete consumable (${res.status})`);
       await fetchProductDetails();
-      toast({ title: 'Input Port Deleted', description: 'Input port deleted successfully.' });
+      toast({ title: 'Consumable Deleted', description: 'Consumable deleted successfully.' });
     } catch (e: any) {
-      toast({ title: 'Error', description: e?.message || 'Failed to delete input port', variant: 'destructive' });
+      toast({ title: 'Error', description: e?.message || 'Failed to delete consumable', variant: 'destructive' });
     }
   };
 
@@ -472,10 +655,10 @@ export default function DataProductDetails() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, outputPorts: updatedPorts }),
       });
-      if (!res.ok) throw new Error(`Failed to add output port (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to add deliverable (${res.status})`);
       await fetchProductDetails();
     } catch (e: any) {
-      throw new Error(e?.message || 'Failed to add output port');
+      throw new Error(e?.message || 'Failed to add deliverable');
     }
   };
 
@@ -489,19 +672,19 @@ export default function DataProductDetails() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, outputPorts: updatedPorts }),
       });
-      if (!res.ok) throw new Error(`Failed to update output port (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to update deliverable (${res.status})`);
       await fetchProductDetails();
       setEditingOutputPortIndex(null);
-      toast({ title: 'Output Port Updated', description: 'Output port updated successfully.' });
+      toast({ title: 'Deliverable Updated', description: 'Deliverable updated successfully.' });
     } catch (e: any) {
-      toast({ title: 'Error', description: e?.message || 'Failed to update output port', variant: 'destructive' });
+      toast({ title: 'Error', description: e?.message || 'Failed to update deliverable', variant: 'destructive' });
       throw e;
     }
   };
 
   const handleDeleteOutputPort = async (index: number) => {
     if (!productId || !product) return;
-    if (!confirm('Delete this output port?')) return;
+    if (!confirm('Delete this deliverable?')) return;
     try {
       const updatedPorts = (product.outputPorts || []).filter((_, i) => i !== index);
       const res = await fetch(`/api/data-products/${productId}`, {
@@ -509,11 +692,11 @@ export default function DataProductDetails() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, outputPorts: updatedPorts }),
       });
-      if (!res.ok) throw new Error(`Failed to delete output port (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to delete deliverable (${res.status})`);
       await fetchProductDetails();
-      toast({ title: 'Output Port Deleted', description: 'Output port deleted successfully.' });
+      toast({ title: 'Deliverable Deleted', description: 'Deliverable deleted successfully.' });
     } catch (e: any) {
-      toast({ title: 'Error', description: e?.message || 'Failed to delete output port', variant: 'destructive' });
+      toast({ title: 'Error', description: e?.message || 'Failed to delete deliverable', variant: 'destructive' });
     }
   };
 
@@ -778,7 +961,7 @@ export default function DataProductDetails() {
 
   const handleUnlinkContract = async (portIndex: number) => {
     if (!productId || !product) return;
-    if (!confirm('Unlink contract from this output port?')) return;
+    if (!confirm('Unlink contract from this deliverable?')) return;
     
     try {
       const updatedPorts = [...(product.outputPorts || [])];
@@ -804,7 +987,7 @@ export default function DataProductDetails() {
       await fetchProductDetails();
       toast({
         title: 'Contract Unlinked',
-        description: 'Contract successfully unlinked from output port',
+        description: 'Contract successfully unlinked from deliverable',
       });
     } catch (e: any) {
       toast({
@@ -874,7 +1057,7 @@ export default function DataProductDetails() {
       if (!newProduct || !newProduct.id) throw new Error('Invalid response when creating version.');
 
       toast({ title: 'Success', description: `Version ${newVersionString} created!` });
-      navigate(`/data-products/${newProduct.id}`);
+      navigate(`${listPath}/${newProduct.id}`);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to create version.', variant: 'destructive' });
     }
@@ -906,7 +1089,7 @@ export default function DataProductDetails() {
   return (
     <div className="py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => navigate('/data-products')} size="sm">
+        <Button variant="outline" onClick={() => navigate(listPath)} size="sm">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to List
         </Button>
@@ -980,7 +1163,7 @@ export default function DataProductDetails() {
             ) : (
               <Button
                 variant="default"
-                onClick={handleSubscribe}
+                onClick={handleSubscribeClick}
                 disabled={subscriptionLoading}
                 size="sm"
               >
@@ -1138,6 +1321,113 @@ export default function DataProductDetails() {
         </CardContent>
       </Card>
 
+      {/* Deliverables (Output Ports) – primary composition surface */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Deliverables ({product.outputPorts?.length || 0})</span>
+            {canModify && <Button size="sm" onClick={() => setIsOutputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Deliverable</Button>}
+          </CardTitle>
+          <CardDescription>
+            Define deliverables and their delivery methods. Link assets and contracts to each deliverable.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {product.outputPorts && product.outputPorts.length > 0 ? (
+            <div className="space-y-3">
+              {product.outputPorts.map((port, idx) => (
+                <div key={port.id || idx} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{port.name}</span>
+                        <Badge variant="outline" className="text-xs">v{port.version}</Badge>
+                        {port.deliveryMethodName && (
+                          <Badge variant="secondary" className="text-xs">{port.deliveryMethodName}</Badge>
+                        )}
+                        {port.status && (
+                          <Badge variant="outline" className="text-xs">{port.status}</Badge>
+                        )}
+                        {port.containsPii && (
+                          <Badge variant="destructive" className="text-xs">PII</Badge>
+                        )}
+                      </div>
+                      {port.description && <p className="text-sm text-muted-foreground">{port.description}</p>}
+                      {port.contractId ? (
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="secondary" 
+                            className="cursor-pointer hover:bg-secondary/80"
+                            onClick={() => navigate(`/data-contracts/${port.contractId}`)}
+                          >
+                            Contract: {port.contractName || port.contractId}
+                          </Badge>
+                          {canModify && (
+                            <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => handleUnlinkContract(idx)} title="Unlink contract">
+                              <Unlink className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : canModify && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs text-muted-foreground h-7"
+                          onClick={() => handleLinkContract(idx)}
+                        >
+                          <Link2 className="mr-1 h-3 w-3" />
+                          Link contract
+                        </Button>
+                      )}
+
+                      {/* Per-port linked assets */}
+                      {port.id && (
+                        <PortLinkedAssets
+                          portId={port.id}
+                          portName={port.name}
+                          canEdit={canModify}
+                        />
+                      )}
+                    </div>
+                    {canModify && (
+                      <div className="flex gap-1 ml-3 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingOutputPortIndex(idx);
+                            setIsOutputPortDialogOpen(true);
+                          }}
+                          title="Edit deliverable"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteOutputPort(idx)}
+                          className="text-destructive hover:text-destructive"
+                          title="Delete deliverable"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No deliverables defined.{canModify ? ' Add deliverables and link assets when ready.' : ''}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Data Hierarchy: Product > Dataset > Table > Column */}
+      {productId && <ProductHierarchyPanel productId={productId} />}
+
       {/* ODPS Structured Description */}
       {product.description && (
         <Card>
@@ -1173,12 +1463,41 @@ export default function DataProductDetails() {
         </Card>
       )}
 
-      {/* Input Ports Section */}
+      {/* Business Lineage Graph */}
+      {productId && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4" />
+                Business Lineage
+              </span>
+              {canModify && (
+                <Button size="sm" variant="outline" onClick={() => setIsLineageEditorOpen(true)}>
+                  <GitBranch className="mr-2 h-3.5 w-3.5" /> Manage Lineage
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BusinessLineageView
+              entityType="DataProduct"
+              entityId={productId}
+              className="h-[500px]"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Production Readiness Checklist */}
+      {productId && <ReadinessChecklist productId={productId} />}
+
+      {/* Consumables (Input Ports) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Input Ports ({product.inputPorts?.length || 0})</span>
-            {canModify && <Button size="sm" onClick={() => setIsInputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Input Port</Button>}
+            <span>Consumables ({product.inputPorts?.length || 0})</span>
+            {canModify && <Button size="sm" onClick={() => setIsInputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Consumable</Button>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1216,89 +1535,7 @@ export default function DataProductDetails() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No input ports defined</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Output Ports Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Output Ports ({product.outputPorts?.length || 0})</span>
-            {canModify && <Button size="sm" onClick={() => setIsOutputPortDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Output Port</Button>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {product.outputPorts && product.outputPorts.length > 0 ? (
-            <div className="space-y-2">
-              {product.outputPorts.map((port, idx) => (
-                <div key={idx} className="border rounded p-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium">{port.name} (v{port.version})</div>
-                      {port.description && <div className="text-sm text-muted-foreground mt-1">{port.description}</div>}
-                      {port.contractId && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <Badge 
-                            variant="secondary" 
-                            className="cursor-pointer hover:bg-secondary/80"
-                            onClick={() => navigate(`/data-contracts/${port.contractId}`)}
-                          >
-                            Contract: {port.contractName || port.contractId}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                    {canModify && (
-                      <div className="flex gap-2 ml-3">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditingOutputPortIndex(idx);
-                            setIsOutputPortDialogOpen(true);
-                          }}
-                          title={t('common:tooltips.editPort')}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {port.contractId ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleUnlinkContract(idx)}
-                            title={t('common:tooltips.unlinkContract')}
-                          >
-                            <Unlink className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleLinkContract(idx)}
-                            title={t('common:tooltips.linkContract')}
-                          >
-                            <Link2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteOutputPort(idx)}
-                          className="text-destructive hover:text-destructive"
-                          title={t('common:tooltips.deletePort')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No output ports defined</p>
+            <p className="text-sm text-muted-foreground">No consumables defined</p>
           )}
         </CardContent>
       </Card>
@@ -1516,6 +1753,17 @@ export default function DataProductDetails() {
         />
       )}
 
+      {/* Ownership Panel */}
+      <OwnershipPanel objectType="data_product" objectId={productId!} canAssign={canModify} className="mb-6" />
+
+      {/* Entity Relationships Panel */}
+      <EntityRelationshipPanel
+        entityType="DataProduct"
+        entityId={productId!}
+        title="Related Entities"
+        canEdit={canModify}
+      />
+
       {/* Metadata Panel */}
       <EntityMetadataPanel entityId={productId!} entityType="data_product" />
 
@@ -1530,6 +1778,21 @@ export default function DataProductDetails() {
 
       {/* Costs Panel */}
       <EntityCostsPanel entityId={productId!} entityType="data_product" />
+
+      {/* Quality Panel */}
+      <EntityQualityPanel entityId={productId!} entityType="data_product" productAggregation />
+
+      {/* Lineage Editor */}
+      {productId && product && (
+        <LineageEditor
+          isOpen={isLineageEditorOpen}
+          onOpenChange={setIsLineageEditorOpen}
+          entityType="DataProduct"
+          entityId={productId}
+          entityName={product.name || productId}
+          onSuccess={() => fetchProductDetails()}
+        />
+      )}
 
       {/* Dialogs */}
       <DataProductCreateDialog
@@ -1575,6 +1838,20 @@ export default function DataProductDetails() {
         productName={product.name}
         onSuccess={() => fetchProductDetails()}
       />
+
+      {/* Subscription approval wizard */}
+      {subscriptionWizardOpen && productId && subscriptionWorkflowId && (
+        <ApprovalWizardDialog
+          isOpen={subscriptionWizardOpen}
+          onOpenChange={setSubscriptionWizardOpen}
+          entityType="data_product"
+          entityId={productId}
+          preselectedWorkflowId={subscriptionWorkflowId}
+          completionAction="subscribe"
+          autoStartWithPreselected
+          onComplete={handleSubscriptionWizardComplete}
+        />
+      )}
 
       {/* Nested Entity Form Dialogs */}
       <InputPortFormDialog

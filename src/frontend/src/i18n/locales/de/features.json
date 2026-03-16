@@ -23,12 +23,24 @@
     "name": "Produkte",
     "description": "Verwandte Databricks-Assets mit Tags gruppieren und verwalten."
   },
+  "concepts": {
+    "name": "Konzepte",
+    "description": "Durchsuchen, suchen und verwalten Sie Geschäftskonzepte, Sammlungen und Hierarchien."
+  },
   "semantic-models": {
-    "name": "Business Glossar",
+    "name": "Konzept-Browser",
     "description": "Erkunden Sie Geschäftsglossar-Begriffe, Konzepte und ihre Beziehungen."
   },
+  "collections": {
+    "name": "Konzeptsammlungen",
+    "description": "Konzepte und Assets in logische Sammlungen organisieren."
+  },
+  "process-workflows": {
+    "name": "Workflows",
+    "description": "Automatisierte Workflows für Validierung, Genehmigung und Benachrichtigungen konfigurieren."
+  },
   "data-asset-reviews": {
-    "name": "Asset-Prüfung",
+    "name": "Asset-Prüfungen",
     "description": "Databricks-Assets wie Tabellen, Views und Funktionen prüfen und freigeben."
   },
   "compliance": {

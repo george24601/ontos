@@ -120,7 +120,7 @@ export default function LinkProductToContractDialog({
     if (assignmentMode === 'existing' && selectedPortIndex === '') {
       toast({
         title: 'Validation Error',
-        description: 'Please select an output port',
+        description: 'Please select a deliverable',
         variant: 'destructive'
       });
       return;
@@ -187,7 +187,7 @@ export default function LinkProductToContractDialog({
 
       toast({
         title: 'Contract Linked',
-        description: `Contract "${contractName}" successfully linked to product output port`
+        description: `Contract "${contractName}" successfully linked to product deliverable`
       });
 
       onSuccess();
@@ -208,7 +208,7 @@ export default function LinkProductToContractDialog({
         <DialogHeader>
           <DialogTitle>Link Contract to Existing Product</DialogTitle>
           <DialogDescription>
-            Link <strong>{contractName}</strong> to an output port of an existing data product
+            Link <strong>{contractName}</strong> to a deliverable of an existing data product
           </DialogDescription>
         </DialogHeader>
 
@@ -252,27 +252,27 @@ export default function LinkProductToContractDialog({
           {selectedProduct && (
             <>
               <div className="border-t pt-4 space-y-4">
-                <Label>Output Port Assignment</Label>
+                <Label>Deliverable Assignment</Label>
                 
                 <RadioGroup value={assignmentMode} onValueChange={(value: 'existing' | 'new') => setAssignmentMode(value)}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="existing" id="existing" disabled={availablePorts.length === 0} />
                     <Label htmlFor="existing" className={availablePorts.length === 0 ? 'text-muted-foreground' : ''}>
-                      Assign to Existing Port {availablePorts.length === 0 && '(no available ports)'}
+                      Assign to Existing Deliverable {availablePorts.length === 0 && '(no available deliverables)'}
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="new" id="new" />
-                    <Label htmlFor="new">Create New Port</Label>
+                    <Label htmlFor="new">Create New Deliverable</Label>
                   </div>
                 </RadioGroup>
 
                 {assignmentMode === 'existing' && availablePorts.length > 0 && (
                   <div className="space-y-2 ml-6">
-                    <Label htmlFor="port">Select Port</Label>
+                    <Label htmlFor="port">Select Deliverable</Label>
                     <Select value={selectedPortIndex} onValueChange={setSelectedPortIndex}>
                       <SelectTrigger id="port">
-                        <SelectValue placeholder="Choose an output port..." />
+                        <SelectValue placeholder="Choose a deliverable..." />
                       </SelectTrigger>
                       <SelectContent>
                         {availablePorts.map((port) => {
@@ -290,7 +290,7 @@ export default function LinkProductToContractDialog({
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Only showing ports without an assigned contract
+                      Only showing deliverables without an assigned contract
                     </p>
                   </div>
                 )}
@@ -299,7 +299,7 @@ export default function LinkProductToContractDialog({
                   <div className="space-y-4 ml-6">
                     <div className="space-y-2">
                       <Label htmlFor="portName">
-                        Port Name <span className="text-destructive">*</span>
+                        Deliverable Name <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="portName"
@@ -310,7 +310,7 @@ export default function LinkProductToContractDialog({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="portVersion">
-                        Port Version <span className="text-destructive">*</span>
+                        Deliverable Version <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="portVersion"
@@ -332,7 +332,7 @@ export default function LinkProductToContractDialog({
                     <Badge variant="outline">v{selectedProduct.version}</Badge>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Current output ports: {selectedProduct.outputPorts?.length || 0} 
+                    Current deliverables: {selectedProduct.outputPorts?.length || 0} 
                     {' '}({availablePorts.length} available for linking)
                   </div>
                 </div>

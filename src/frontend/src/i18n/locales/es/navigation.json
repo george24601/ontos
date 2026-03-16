@@ -1,10 +1,9 @@
 {
   "home": "Inicio",
   "groups": {
-    "dataProducts": "Productos de datos",
-    "governance": "Gobernanza",
-    "operations": "Operaciones",
-    "security": "Seguridad",
-    "system": "Sistema"
+    "discover": "Descubrir",
+    "build": "Construir",
+    "govern": "Gobernar",
+    "deploy": "Desplegar"
   }
 }

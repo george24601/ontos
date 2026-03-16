@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { useEffect } from 'react';
 import { UserPermissions, FeatureAccessLevel, AppRole } from '@/types/settings'; // Import AppRole
 import { ACCESS_LEVEL_ORDER } from '@/lib/permissions';
-
 interface PermissionsState {
     permissions: UserPermissions; // User's effective permissions (may be overridden)
     actualPermissions: UserPermissions; // User's actual permissions based on groups (never overridden)
@@ -12,12 +11,13 @@ interface PermissionsState {
     requestableRoles: AppRole[];  // List of roles the user can request
     appliedRoleId: string | null; // ID of the role currently being impersonated/applied
     _isInitializing: boolean; // Internal flag to prevent concurrent initializations
+    _initAttempted: boolean; // Prevents infinite retry on failure
     fetchPermissions: () => Promise<void>;
     fetchActualPermissions: () => Promise<void>; // Fetch actual non-overridden permissions
     fetchAvailableRoles: () => Promise<void>; // New action
     fetchRequestableRoles: () => Promise<void>; // Fetch roles the user can request
     fetchAppliedOverride: () => Promise<void>; // New action to read persisted override
-    setRoleOverride: (roleId: string | null) => void; // New action
+    setRoleOverride: (roleId: string | null) => Promise<void>; // Returns Promise so callers can await
     hasPermission: (featureId: string, requiredLevel: FeatureAccessLevel) => boolean;
     getPermissionLevel: (featureId: string) => FeatureAccessLevel;
     initializeStore: () => Promise<void>; // New action
@@ -46,7 +46,8 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
     availableRoles: [],
     requestableRoles: [],
     appliedRoleId: null,
-    _isInitializing: false, // Initialize the flag
+    _isInitializing: false,
+    _initAttempted: false,
 
     fetchPermissions: async () => {
         try {
@@ -148,16 +149,19 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
             return;
         }
 
-        // --- Guard 2: Already successfully loaded? ---
-        // Check if *not* loading AND permissions OR roles exist
+        // --- Guard 2: Already attempted (prevents infinite retry on failure) ---
+        if (get()._initAttempted) {
+            return;
+        }
+
+        // --- Guard 3: Already successfully loaded? ---
         const { isLoading, permissions, actualPermissions, availableRoles } = get();
         const alreadyLoaded = !isLoading && (Object.keys(permissions).length > 0 || Object.keys(actualPermissions).length > 0 || availableRoles.length > 0);
         if (alreadyLoaded) {
             return;
         }
 
-        // Set flags IMMEDIATELY before any async work
-        set({ isLoading: true, _isInitializing: true, error: null });
+        set({ isLoading: true, _isInitializing: true, _initAttempted: true, error: null });
 
         try {
             // Use the instance methods from get() to ensure the latest state is used
@@ -178,27 +182,24 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
         }
     },
 
-    setRoleOverride: (roleId: string | null) => {
-        (async () => {
-            // Optimistic local state update
-            set({ appliedRoleId: roleId });
-            try {
-                await fetch('/api/user/role-override', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role_id: roleId })
-                });
-            } catch { /* ignore */ }
-            // Force-refresh state so views recompute immediately
-            try {
-                await Promise.all([
-                    get().fetchPermissions(),
-                    get().fetchAvailableRoles(),
-                    get().fetchAppliedOverride()
-                ]);
-            } catch { /* ignore */ }
-            // No full reload — views already recompute from refreshed store state
-        })();
+    setRoleOverride: async (roleId: string | null) => {
+        // Optimistic local state update
+        set({ appliedRoleId: roleId });
+        try {
+            await fetch('/api/user/role-override', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role_id: roleId })
+            });
+        } catch { /* ignore */ }
+        // Force-refresh state so views recompute immediately
+        try {
+            await Promise.all([
+                get().fetchPermissions(),
+                get().fetchAvailableRoles(),
+                get().fetchAppliedOverride()
+            ]);
+        } catch { /* ignore */ }
     },
 
     hasPermission: (featureId: string, requiredLevel: FeatureAccessLevel): boolean => {
@@ -227,30 +228,17 @@ const usePermissionsStore = create<PermissionsState>((set, get) => ({
 export const usePermissions = () => {
     const state = usePermissionsStore();
     
-    // --- Refined useEffect for Initialization ---
     useEffect(() => {
-        // Determine if data is needed
-        const hasPermissionsData = Object.keys(state.permissions).length > 0;
-        const hasActualPermissionsData = Object.keys(state.actualPermissions).length > 0;
-        const hasRolesData = state.availableRoles.length > 0;
-        const needsData = !hasPermissionsData && !hasActualPermissionsData && !hasRolesData;
+        if (state._initAttempted || state.isLoading || state._isInitializing) return;
 
-        // Determine if initialization can start
-        const canInitialize = !state.isLoading && !state._isInitializing;
-
-        if (needsData && canInitialize) {
+        const hasData = Object.keys(state.permissions).length > 0
+            || Object.keys(state.actualPermissions).length > 0
+            || state.availableRoles.length > 0;
+        if (!hasData) {
             state.initializeStore();
         }
-
-    }, [
-        // Keep dependencies that signal when state *changes* relevant to initialization
-        state.initializeStore,     // The function itself
-        state.isLoading,           // Whether a load is active
-        state._isInitializing,     // The lock flag
-        state.permissions,         // The permissions data
-        state.actualPermissions,   // The actual permissions data
-        state.availableRoles       // The roles data
-    ]); 
+    }, [state.initializeStore, state._initAttempted, state.isLoading, state._isInitializing,
+        state.permissions, state.actualPermissions, state.availableRoles]);
 
     return state;
 };

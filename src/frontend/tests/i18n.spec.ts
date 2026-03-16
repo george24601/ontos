@@ -75,13 +75,13 @@ test.describe('Internationalization (i18n)', () => {
     await page.goto('/settings');
     await page.waitForLoadState('networkidle');
 
-    // Click on Jobs & Workflows tab
-    const jobsTab = page.getByRole('tab', { name: /jobs & workflows/i });
+    // Click on Jobs tab
+    const jobsTab = page.getByRole('tab', { name: /^jobs$/i });
     await jobsTab.click();
 
     // Verify English labels are present
     await expect(page.getByText('Job Cluster ID')).toBeVisible();
-    await expect(page.getByText('Jobs & Workflows Configuration')).toBeVisible();
+    await expect(page.getByText('Jobs Configuration')).toBeVisible();
 
     // Switch to German
     const languageSelector = page.getByRole('button', { name: /language/i });
@@ -90,7 +90,7 @@ test.describe('Internationalization (i18n)', () => {
 
     // Verify German labels are present
     await expect(page.getByText('Job-Cluster-ID')).toBeVisible();
-    await expect(page.getByText('Jobs & Workflows Konfiguration')).toBeVisible();
+    await expect(page.getByText('Jobs Konfiguration')).toBeVisible();
   });
 
   test('should translate toast messages', async ({ page }) => {

@@ -27,7 +27,6 @@ import {
   ConceptCreate,
   ConceptUpdate,
   ConceptStatus,
-  OwnershipInfo,
   KnowledgeCollection,
 } from '@/types/ontology';
 import {
@@ -35,7 +34,6 @@ import {
   Plus,
   X,
   Link2,
-  User,
   Calendar,
   Shield,
   ArrowUp,
@@ -52,8 +50,6 @@ interface ConceptEditorDialogProps {
   onSave: (data: ConceptCreate | ConceptUpdate, isNew: boolean) => Promise<void>;
   onSubmitForReview?: (concept: OntologyConcept) => Promise<void>;
   onPromote?: (concept: OntologyConcept) => void;
-  onAddOwner?: (concept: OntologyConcept) => void;
-  onRemoveOwner?: (concept: OntologyConcept, userUri: string) => Promise<void>;
   onViewHistory?: (concept: OntologyConcept) => void;
   readOnly?: boolean;
 }
@@ -77,8 +73,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
   onSave,
   onSubmitForReview,
   onPromote,
-  onAddOwner: _onAddOwner,
-  onRemoveOwner: _onRemoveOwner,
   onViewHistory,
   readOnly = false,
 }) => {
@@ -97,7 +91,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
     broader_iris: [] as string[],
     narrower_iris: [] as string[],
     related_iris: [] as string[],
-    owners: [] as OwnershipInfo[],
   });
   
   const conceptTypes = [
@@ -115,16 +108,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
   ];
   const [newSynonym, setNewSynonym] = useState('');
   const [newExample, setNewExample] = useState('');
-  const [newOwnerEmail, setNewOwnerEmail] = useState('');
-  const [newOwnerRole, setNewOwnerRole] = useState('business_owner');
-
-  const ownerRoles = [
-    { value: 'business_owner', label: 'Business Owner' },
-    { value: 'data_steward', label: 'Data Steward' },
-    { value: 'technical_owner', label: 'Technical Owner' },
-    { value: 'sme', label: 'Subject Matter Expert' },
-    { value: 'contributor', label: 'Contributor' },
-  ];
 
   const isNew = !concept;
   const canEdit = !readOnly && (!concept?.status || concept.status === 'draft');
@@ -144,7 +127,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
         broader_iris: concept.parent_concepts || [],
         narrower_iris: concept.child_concepts || [],
         related_iris: concept.related_concepts || [],
-        owners: concept.owners || [],
       });
     } else {
       setFormData({
@@ -160,12 +142,8 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
         broader_iris: [],
         narrower_iris: [],
         related_iris: [],
-        owners: [],
       });
     }
-    // Reset temporary inputs
-    setNewOwnerEmail('');
-    setNewOwnerRole('business_owner');
   }, [concept, collection, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,7 +176,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
             collection_iri: formData.collection_iri,
             ...baseData,
             ...propertyData,
-            owners: formData.owners,
           } as ConceptCreate,
           true
         );
@@ -215,36 +192,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const addOwner = () => {
-    if (!newOwnerEmail.trim()) return;
-    const userUri = newOwnerEmail.includes('@')
-      ? `urn:user:${newOwnerEmail.trim()}`
-      : newOwnerEmail.trim();
-    
-    // Check if already exists
-    if (formData.owners.some((o) => o.user_uri === userUri)) return;
-    
-    setFormData((prev) => ({
-      ...prev,
-      owners: [
-        ...prev.owners,
-        {
-          user_uri: userUri,
-          role: newOwnerRole as OwnershipInfo['role'],
-          assigned_at: new Date().toISOString(),
-        },
-      ],
-    }));
-    setNewOwnerEmail('');
-  };
-
-  const removeOwner = (userUri: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      owners: prev.owners.filter((o) => o.user_uri !== userUri),
-    }));
   };
 
   const addSynonym = () => {
@@ -552,76 +499,6 @@ export const ConceptEditorDialog: React.FC<ConceptEditorDialogProps> = ({
               </div>
 
               <Separator />
-
-              {/* Owners - for both new and existing concepts */}
-              <div className="grid gap-2">
-                <Label className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  {t('Business Owners')}
-                </Label>
-                <div className="flex flex-col gap-2">
-                  {formData.owners.map((owner) => (
-                    <div
-                      key={owner.user_uri}
-                      className="flex items-center justify-between bg-muted px-3 py-2 rounded"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">
-                          {owner.user_uri.replace('urn:user:', '')}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {ownerRoles.find((r) => r.value === owner.role)?.label || owner.role}
-                        </Badge>
-                      </div>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => removeOwner(owner.user_uri)}
-                          className="hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {canEdit && (
-                  <div className="flex gap-2">
-                    <Input
-                      value={newOwnerEmail}
-                      onChange={(e) => setNewOwnerEmail(e.target.value)}
-                      placeholder={t('Email address...')}
-                      className="flex-1"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addOwner();
-                        }
-                      }}
-                    />
-                    <Select value={newOwnerRole} onValueChange={setNewOwnerRole}>
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ownerRoles.map((role) => (
-                          <SelectItem key={role.value} value={role.value}>
-                            {role.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" size="icon" onClick={addOwner}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-                {formData.owners.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {t('No owners assigned. Add a business owner to track accountability.')}
-                  </p>
-                )}
-              </div>
 
               {/* Governance info (for existing concepts) */}
               {!isNew && concept && (

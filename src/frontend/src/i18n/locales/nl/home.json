@@ -24,7 +24,7 @@
         "description": "Totaal dataproducten"
       },
       "semanticModels": {
-        "title": "Business Glossary",
+        "title": "Conceptbrowser",
         "description": "Modellen / Termen"
       },
       "estates": {
@@ -69,7 +69,7 @@
     "noActions": "Geen acties beschikbaar.",
     "actions": {
       "browseProducts": "Blader Dataproducten",
-      "browseGlossary": "Blader Business Glossary",
+      "browseGlossary": "Blader Conceptbrowser",
       "createProduct": "Dataproduct Aanmaken",
       "defineContract": "Datacontract Definiëren",
       "reviewAssets": "Data Assets Beoordelen",

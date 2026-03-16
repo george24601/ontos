@@ -84,19 +84,20 @@ Understanding these foundational concepts will help you effectively use Ontos.
 - **Team Assignment**: Multiple teams can collaborate on a project
 - **Isolation**: Provides logical boundaries for development work
 
-### Datasets
+### Assets & Asset Explorer
 
-**Datasets** are logical groupings of related data assets that represent physical implementations across your data platforms.
+**Assets** are the unified representation of all cataloged objects in Ontos, powered by the ontology-driven data model. Asset types (Dataset, Table, View, Dashboard, API Endpoint, Stream, etc.) are defined in the ontology (`ontos-ontology.ttl`) and synced automatically at startup.
 
-- **Logical Grouping**: Combine related assets (main table + dimensions + lookups + metrics) into a cohesive unit
-- **Physical Instances**: Each dataset can have multiple physical implementations across different systems and environments
-- **Multi-Platform Support**: Native connectivity to Unity Catalog, with pluggable connectors for Snowflake, Kafka, Power BI, and more
-- **Unified Asset Types**: All assets use a common type system (`uc_table`, `uc_metric`, `snowflake_view`, `kafka_topic`, etc.)
-- **Contract Linking**: Datasets can implement Data Contracts, ensuring they meet defined specifications
-- **Lifecycle**: Draft → Active → Deprecated → Retired
-- **Marketplace Ready**: Published datasets appear in the data marketplace for discovery
+- **Ontology-Driven**: Asset types, their fields, and valid relationships are all derived from the OWL ontology
+- **Unified Model**: Replaces bespoke tables for datasets, tables, views, etc. with a single `assets` table using typed properties
+- **Dynamic Forms**: Create and edit any asset type using dynamically generated forms based on the ontology schema
+- **Entity Relationships**: Cross-entity relationships (lineage, containment, consumption) stored in `entity_relationships`
+- **Persona Visibility**: Asset types are filtered per-persona based on ontology annotations
+- **Asset Explorer**: Browse all asset types in a unified sidebar with type-based filtering, available under Data Steward and Data Governance Officer personas
 
-**Key Concept**: A Dataset is the "what exists" (physical reality), while a Data Contract is the "what should exist" (specification). Datasets can span multiple platforms while maintaining a single governance view.
+> **Legacy Note**: The standalone "Datasets" feature is deprecated. Datasets are now stored as
+> Asset entities with `asset_type="Dataset"`. The legacy API at `/api/datasets` remains for
+> backward compatibility.
 
 ### Data Contracts
 
@@ -794,6 +795,12 @@ Personal projects are automatically created for each user when they first use ce
 ---
 
 ## Managing Datasets
+
+> **Note:** The standalone Datasets model is **deprecated**. Datasets are now stored as
+> Asset entities (type "Dataset") in the ontology-driven data model. Use the **Asset Explorer**
+> (available under Data Steward and Data Governance Officer personas) to browse, create,
+> and manage datasets alongside all other asset types. The legacy Datasets API (`/api/datasets`)
+> remains available for backward compatibility but will be removed in a future version.
 
 Datasets are the entry point for bringing your existing data assets into Ontos. They represent logical groupings of related physical tables and views.
 

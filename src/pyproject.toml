@@ -11,7 +11,7 @@ authors = [
     { name="Databricks", email="ontos-support@databricks.com" }
 ]
 license = {text = "Databricks License"}
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 dynamic = ["dependencies"]
 
 [tool.hatch.metadata.hooks.requirements_txt]
@@ -21,11 +21,12 @@ files = ["requirements.txt"]
 packages = ["src/backend"]
 
 [tool.hatch.envs.default]
-python = "3.10"
+python = "3.11"
 
 [tool.hatch.envs.dev]
 type = "virtual"
 builder = true
+python = "3.11"
 dependencies = [
     "pytest>=7.0",
     "pytest-cov>=4.0",

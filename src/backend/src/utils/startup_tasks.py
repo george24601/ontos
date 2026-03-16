@@ -68,6 +68,7 @@ from src.connectors.databricks import DatabricksConnector
 from src.connectors.snowflake import SnowflakeConnector
 from src.connectors.kafka import KafkaConnector
 from src.connectors.powerbi import PowerBIConnector
+from src.connectors.bigquery import BigQueryConnector
 
 logger = get_logger(__name__)
 
@@ -156,11 +157,12 @@ def initialize_managers(app: FastAPI):
             registry.register_instance("databricks", databricks_connector, set_as_default=True)
             logger.info("Registered Databricks connector (default)")
             
-            # Register stub connectors for future platform support
+            # Register additional connectors (lazily instantiated when first accessed)
+            registry.register_class("bigquery", BigQueryConnector)
             registry.register_class("snowflake", SnowflakeConnector)
             registry.register_class("kafka", KafkaConnector)
             registry.register_class("powerbi", PowerBIConnector)
-            logger.info("Registered stub connectors: snowflake, kafka, powerbi")
+            logger.info("Registered connectors: bigquery, snowflake, kafka, powerbi")
             
             logger.info(f"Connector registry initialized with {len(registry.list_registered())} connectors")
         except Exception as e:
@@ -196,6 +198,17 @@ def initialize_managers(app: FastAPI):
 
         # Instantiate SettingsManager first, passing settings
         app.state.settings_manager = SettingsManager(db=db_session, settings=settings, workspace_client=ws_client)
+
+        # Initialise ConnectionsManager — manages external connections (BQ, etc.)
+        from src.controller.connections_manager import ConnectionsManager
+        connections_mgr = ConnectionsManager(db=db_session, workspace_client=ws_client)
+        connections_mgr.ensure_system_databricks_connection()
+        migrated = connections_mgr.migrate_from_app_settings()
+        if migrated:
+            logger.info(f"Migrated {migrated} legacy connector config(s) to connections table")
+        db_session.commit()
+        app.state.connections_manager = connections_mgr
+        logger.info("ConnectionsManager initialized")
 
         # Instantiate other managers, passing the settings_manager instance if needed
         audit_manager = AuditManager(settings=settings, db_session=db_session)
@@ -236,6 +249,17 @@ def initialize_managers(app: FastAPI):
         # Teams and Projects Managers
         app.state.teams_manager = TeamsManager()
         app.state.projects_manager = ProjectsManager()
+
+        # Reference Data Managers
+        from src.controller.assets_manager import AssetsManager
+        from src.controller.business_roles_manager import BusinessRolesManager
+        from src.controller.business_owners_manager import BusinessOwnersManager
+        app.state.assets_manager = AssetsManager()
+        app.state.business_roles_manager = BusinessRolesManager()
+        app.state.business_owners_manager = BusinessOwnersManager()
+        from src.controller.delivery_methods_manager import DeliveryMethodsManager
+        app.state.delivery_methods_manager = DeliveryMethodsManager()
+        logger.info("Reference data managers initialized (Assets, Business Roles, Business Owners, Delivery Methods).")
 
         notifications_manager = getattr(app.state, 'notifications_manager', None)
         # Add other managers: Compliance, Estate, MDM, Security, Entitlements, Catalog Commander...
@@ -293,6 +317,56 @@ def initialize_managers(app: FastAPI):
         #     app.state.metadata_manager = metadata_manager
         #     SEARCHABLE_ASSET_MANAGERS.append(metadata_manager) # If it's searchable
         #     logger.info("MetadataManager initialized.")
+
+        # --- OntologySchemaManager ---
+        try:
+            from src.controller.ontology_schema_manager import OntologySchemaManager
+            app.state.ontology_schema_manager = OntologySchemaManager(
+                semantic_models_manager=app.state.semantic_models_manager
+            )
+            # Wire ontology into AssetsManager for property validation
+            if hasattr(app.state, 'assets_manager'):
+                app.state.assets_manager._ontology = app.state.ontology_schema_manager
+            logger.info("OntologySchemaManager initialized.")
+
+            # Sync ontology-defined asset types to AssetTypeDb
+            with session_factory() as sync_db:
+                try:
+                    sync_result = app.state.ontology_schema_manager.sync_asset_types(sync_db)
+                    logger.info(
+                        f"Ontology asset type sync: {len(sync_result.created)} created, "
+                        f"{len(sync_result.updated)} updated, {len(sync_result.errors)} errors"
+                    )
+                except Exception as e_sync:
+                    logger.error(f"Failed to sync ontology asset types: {e_sync}", exc_info=True)
+        except Exception as e:
+            logger.error(f"Failed to initialize OntologySchemaManager: {e}", exc_info=True)
+
+        # --- OntologyGeneratorManager ---
+        try:
+            from src.controller.ontology_generator_manager import OntologyGeneratorManager
+            app.state.ontology_generator_manager = OntologyGeneratorManager(settings=settings)
+            logger.info("OntologyGeneratorManager initialized.")
+        except Exception as e:
+            logger.error(f"Failed to initialize OntologyGeneratorManager: {e}", exc_info=True)
+
+        # --- EntityRelationshipsManager ---
+        try:
+            from src.controller.entity_relationships_manager import EntityRelationshipsManager
+            app.state.entity_relationships_manager = EntityRelationshipsManager(
+                ontology_schema_manager=app.state.ontology_schema_manager
+            )
+            logger.info("EntityRelationshipsManager initialized.")
+        except Exception as e:
+            logger.error(f"Failed to initialize EntityRelationshipsManager: {e}", exc_info=True)
+
+        # --- EntitySubscriptionsManager ---
+        try:
+            from src.controller.entity_subscriptions_manager import EntitySubscriptionsManager
+            app.state.entity_subscriptions_manager = EntitySubscriptionsManager()
+            logger.info("EntitySubscriptionsManager initialized.")
+        except Exception as e:
+            logger.error(f"Failed to initialize EntitySubscriptionsManager: {e}", exc_info=True)
 
         logger.info("All managers instantiated and stored in app.state.")
 
@@ -384,6 +458,8 @@ async def startup_event_handler(app: FastAPI):
 
             app.state.search_manager = SearchManager(searchable_managers=searchable_managers_instances)
             app.state.search_manager.build_index()
+            for mgr in searchable_managers_instances:
+                mgr.set_search_manager(app.state.search_manager)
             logger.info("Search index initialized and built from DB-backed managers.")
         except Exception as e:
             logger.error(f"Failed initializing or building search index: {e}", exc_info=True)

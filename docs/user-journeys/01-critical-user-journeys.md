@@ -35,10 +35,18 @@ This structure is suited for complex, high-impact data products requiring robust
 
 ## 2. WORKFLOW ANALYSIS
 
-A key decision is whether to define the contract before or after building the product.
+A key decision is whether to define the contract before or after building the product. Both approaches are supported and use the same Draft-state editing model: create the object, then compose and refine it over time on the detail page.
 
-*   **Contracts First:** The team and consumers agree on the data contract (schema, SLOs, terms) *before* implementation begins. This is the recommended approach as it ensures alignment and treats data as a true product with a defined interface. It decouples producers from consumers.
-*   **Products First (or Contract-by-Example):** The team builds the data product first, and the contract is generated or formalized based on the output. This can be faster for exploration but risks creating a product that doesn't meet consumer needs and leads to rework.
+*   **Contracts First:** The team and consumers agree on the data contract (schema, SLOs, terms) *before* implementation begins. This ensures alignment and treats data as a true product with a defined interface. It decouples producers from consumers.
+*   **Products First:** The team creates a Data Product in Draft status, then composes it by adding **Deliverables** (output ports) — each with a specific **Delivery Method** (e.g., "Table Access", "Serving Endpoint", "File Export"). Assets (Tables, Datasets, Views, ML Models, API Endpoints) are linked to individual Deliverables, not to the Data Product directly. This per-deliverable asset linking model makes access semantics explicit: when a consumer requests access to a Deliverable, they are granted access to all its underlying assets according to the Delivery Method. Contracts can be linked to each Deliverable later once the product shape is clear. The team also defines **Consumables** (input ports) to declare the product's upstream data dependencies. This approach is faster for exploration and lets the team compose the product from existing catalog assets before committing to a formal interface.
+
+Both workflows use **Draft-state editing**: the object is created with minimal metadata, then enriched incrementally on the detail page. Ownership, versioning, and lifecycle states (Draft → Active) track progress. There is no wizard or multi-step creation flow — the detail page is the primary editing surface.
+
+### Key Concepts
+
+*   **Deliverables** (Output Ports): Named data outputs of a product, each with a Delivery Method. Assets are linked per Deliverable. Example: A "Customer Churn" product has Deliverables "Daily Churn Rate" (Table Access, 3 tables + 1 dataset), "Weekly Summary" (Table Access, 2 tables), and "ML Predictions" (Serving Endpoint).
+*   **Consumables** (Input Ports): Declared upstream data dependencies that feed into the product's pipelines.
+*   **Delivery Methods**: Reference data defining how data is delivered (e.g., Table Access, Serving Endpoint, File Export, Streaming). Configured under Settings → Reference Data → Delivery Methods.
 
 ### Minimal Workflow (Contracts First)
 

@@ -435,6 +435,96 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         }
 
     # --- Implementation of SearchableAsset --- 
+
+    def _build_search_index_item(self, contract_db_obj, db) -> Optional[SearchIndexItem]:
+        """Build a SearchIndexItem from a contract DB object. Returns None if id or name missing."""
+        contract_id = getattr(contract_db_obj, 'id', None)
+        name = getattr(contract_db_obj, 'name', None)
+        if not contract_id or not name:
+            logger.warning(f"Skipping contract due to missing id or name: {contract_db_obj}")
+            return None
+
+        # Build a concise description from available fields
+        version = getattr(contract_db_obj, 'version', None)
+        status = getattr(contract_db_obj, 'status', None)
+        description_usage = getattr(contract_db_obj, 'description_usage', None)
+        desc_parts: List[str] = []
+        if version:
+            desc_parts.append(str(version))
+        if status:
+            desc_parts.append(str(status))
+        if description_usage:
+            desc_parts.append(str(description_usage))
+        description = " \u2022 ".join([p for p in desc_parts if p])
+
+        # Collect tags from BOTH sources:
+        # 1. Legacy ODCS tags (DataContractTagDb) - from imported contracts
+        # 2. Unified tag system (EntityTagAssociationDb) - app-assigned tags
+        tag_names: List[str] = []
+        
+        # 1. Legacy ODCS tags from contract import
+        try:
+            if getattr(contract_db_obj, 'tags', None):
+                for t in contract_db_obj.tags:
+                    # DataContractTagDb has simple 'name' field for ODCS tags
+                    if getattr(t, 'name', None):
+                        tag_names.append(t.name)
+        except Exception:
+            pass
+        
+        # 2. Unified tag system (EntityTagAssociationDb)
+        try:
+            from src.repositories.tags_repository import entity_tag_repo
+            assigned_tags = entity_tag_repo.get_assigned_tags_for_entity(
+                db=db,
+                entity_id=str(contract_id),
+                entity_type="data_contract"
+            )
+            for tag in assigned_tags:
+                if hasattr(tag, 'fully_qualified_name') and tag.fully_qualified_name:
+                    tag_names.append(tag.fully_qualified_name)
+        except Exception as tag_err:
+            logger.debug(f"Could not load unified tags for contract {contract_id}: {tag_err}")
+
+        # Build extra_data for configurable search fields
+        owner = ""
+        try:
+            if getattr(contract_db_obj, 'owner_team', None) and getattr(contract_db_obj.owner_team, 'name', None):
+                owner = contract_db_obj.owner_team.name
+        except Exception:
+            pass
+
+        domain = ""
+        try:
+            if getattr(contract_db_obj, 'domain', None) and getattr(contract_db_obj.domain, 'name', None):
+                domain = contract_db_obj.domain.name
+        except Exception:
+            pass
+
+        extra_data = {
+            "version": str(version) if version else "",
+            "status": str(status) if status else "",
+            "owner": owner,
+            "domain": domain,
+        }
+
+        return SearchIndexItem(
+            id=f"contract::{contract_id}",
+            type="data-contract",
+            feature_id="data-contracts",
+            title=name,
+            description=description or "",
+            link=f"/data-contracts/{contract_id}",
+            tags=tag_names,
+            extra_data=extra_data,
+        )
+
+    def _update_search_index(self, contract_db_obj, db) -> None:
+        """Upsert a single contract into the search index."""
+        item = self._build_search_index_item(contract_db_obj, db)
+        if item:
+            self._notify_index_upsert(item)
+
     def get_search_index_items(self) -> List[SearchIndexItem]:
         """Fetches data contracts from the database and maps them to SearchIndexItem format."""
         logger.info("Fetching data contracts for search indexing (DB-backed)...")
@@ -449,88 +539,9 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 # Fetch a generous number; adjust if needed
                 contracts_db = data_contract_repo.get_multi(db=db, limit=10000)
                 for contract_db in contracts_db:
-                    contract_id = getattr(contract_db, 'id', None)
-                    name = getattr(contract_db, 'name', None)
-                    if not contract_id or not name:
-                        logger.warning(f"Skipping contract due to missing id or name: {contract_db}")
-                        continue
-
-                    # Build a concise description from available fields
-                    version = getattr(contract_db, 'version', None)
-                    status = getattr(contract_db, 'status', None)
-                    description_usage = getattr(contract_db, 'description_usage', None)
-                    desc_parts: List[str] = []
-                    if version:
-                        desc_parts.append(str(version))
-                    if status:
-                        desc_parts.append(str(status))
-                    if description_usage:
-                        desc_parts.append(str(description_usage))
-                    description = " \u2022 ".join([p for p in desc_parts if p])
-
-                    # Collect tags from BOTH sources:
-                    # 1. Legacy ODCS tags (DataContractTagDb) - from imported contracts
-                    # 2. Unified tag system (EntityTagAssociationDb) - app-assigned tags
-                    tag_names: List[str] = []
-                    
-                    # 1. Legacy ODCS tags from contract import
-                    try:
-                        if getattr(contract_db, 'tags', None):
-                            for t in contract_db.tags:
-                                # DataContractTagDb has simple 'name' field for ODCS tags
-                                if getattr(t, 'name', None):
-                                    tag_names.append(t.name)
-                    except Exception:
-                        pass
-                    
-                    # 2. Unified tag system (EntityTagAssociationDb)
-                    try:
-                        from src.repositories.tags_repository import entity_tag_repo
-                        assigned_tags = entity_tag_repo.get_assigned_tags_for_entity(
-                            db=db,
-                            entity_id=str(contract_id),
-                            entity_type="data_contract"
-                        )
-                        for tag in assigned_tags:
-                            if hasattr(tag, 'fully_qualified_name') and tag.fully_qualified_name:
-                                tag_names.append(tag.fully_qualified_name)
-                    except Exception as tag_err:
-                        logger.debug(f"Could not load unified tags for contract {contract_id}: {tag_err}")
-
-                    # Build extra_data for configurable search fields
-                    owner = ""
-                    try:
-                        if getattr(contract_db, 'owner_team', None) and getattr(contract_db.owner_team, 'name', None):
-                            owner = contract_db.owner_team.name
-                    except Exception:
-                        pass
-
-                    domain = ""
-                    try:
-                        if getattr(contract_db, 'domain', None) and getattr(contract_db.domain, 'name', None):
-                            domain = contract_db.domain.name
-                    except Exception:
-                        pass
-
-                    extra_data = {
-                        "version": str(version) if version else "",
-                        "status": str(status) if status else "",
-                        "owner": owner,
-                        "domain": domain,
-                    }
-
-                    items.append(
-                        SearchIndexItem(
-                            id=f"contract::{contract_id}",
-                            type="data-contract",
-                            feature_id="data-contracts",
-                            title=name,
-                            description=description or "",
-                            link=f"/data-contracts/{contract_id}",
-                            tags=tag_names,
-                            extra_data=extra_data,
-                        )
-                    )
+                    item = self._build_search_index_item(contract_db, db)
+                    if item:
+                        items.append(item)
 
             logger.info(f"Prepared {len(items)} data contracts for search index.")
             return items
@@ -597,6 +608,231 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 ))
         return created
 
+    def _resolve_product_via_relationships(self, db_session, contract_id: str) -> Optional[str]:
+        """Resolve the Data Product linked to this contract via entity relationships.
+
+        Path: DataContract <--governedBy-- Dataset <--hasDataset-- DataProduct
+        """
+        try:
+            from src.db_models.entity_relationships import EntityRelationshipDb
+            from src.db_models.data_products import DataProductDb
+
+            # Find Datasets that are governedBy this contract
+            governed_datasets = (
+                db_session.query(EntityRelationshipDb)
+                .filter(
+                    EntityRelationshipDb.relationship_type == "governedBy",
+                    EntityRelationshipDb.target_type == "DataContract",
+                    EntityRelationshipDb.target_id == contract_id,
+                )
+                .all()
+            )
+            if not governed_datasets:
+                return None
+
+            dataset_ids = [r.source_id for r in governed_datasets]
+
+            # Find DataProducts that hasDataset any of these datasets
+            product_rel = (
+                db_session.query(EntityRelationshipDb)
+                .filter(
+                    EntityRelationshipDb.relationship_type == "hasDataset",
+                    EntityRelationshipDb.source_type == "DataProduct",
+                    EntityRelationshipDb.target_id.in_(dataset_ids),
+                )
+                .first()
+            )
+            if not product_rel:
+                return None
+
+            product = db_session.query(DataProductDb).filter(DataProductDb.id == product_rel.source_id).first()
+            return product.name if product else None
+        except Exception as e:
+            logger.warning(f"Failed to resolve product via entity relationships for contract {contract_id}: {e}")
+            return None
+
+    def get_contract_entity_relationships(self, db_session, contract_id: str) -> Dict[str, Any]:
+        """Return entity relationships involving this contract (as source or target)."""
+        try:
+            from src.db_models.entity_relationships import EntityRelationshipDb
+
+            outgoing = (
+                db_session.query(EntityRelationshipDb)
+                .filter(
+                    EntityRelationshipDb.source_type == "DataContract",
+                    EntityRelationshipDb.source_id == contract_id,
+                )
+                .all()
+            )
+            incoming = (
+                db_session.query(EntityRelationshipDb)
+                .filter(
+                    EntityRelationshipDb.target_type == "DataContract",
+                    EntityRelationshipDb.target_id == contract_id,
+                )
+                .all()
+            )
+
+            def _rel_to_dict(r):
+                return {
+                    "id": str(r.id),
+                    "source_type": r.source_type,
+                    "source_id": r.source_id,
+                    "target_type": r.target_type,
+                    "target_id": r.target_id,
+                    "relationship_type": r.relationship_type,
+                    "properties": r.properties,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+
+            return {
+                "outgoing": [_rel_to_dict(r) for r in outgoing],
+                "incoming": [_rel_to_dict(r) for r in incoming],
+                "total": len(outgoing) + len(incoming),
+            }
+        except Exception as e:
+            logger.warning(f"Failed to get entity relationships for contract {contract_id}: {e}")
+            return {"outgoing": [], "incoming": [], "total": 0}
+
+    def auto_link_schema_to_assets(
+        self,
+        db_session: Session,
+        contract_id: str,
+        current_user: str,
+    ) -> Dict[str, Any]:
+        """Auto-create entity relationships between a contract's schema objects
+        and matching Table/View assets.
+
+        Matches by: SchemaObjectDb.physical_name ↔ AssetDb.location or AssetDb.name
+        Also creates a governedBy relationship from any Dataset that owns
+        the matched table/view back to this contract.
+
+        Returns summary of created relationships.
+        """
+        from src.db_models.entity_relationships import EntityRelationshipDb
+        from src.db_models.assets import AssetDb, AssetTypeDb
+
+        contract = data_contract_repo.get_with_all(db_session, id=contract_id)
+        if not contract:
+            raise ValueError(f"Contract {contract_id} not found")
+
+        if not contract.schema_objects:
+            return {"matched": 0, "created": [], "skipped": []}
+
+        table_type = db_session.query(AssetTypeDb).filter(AssetTypeDb.name == "Table").first()
+        view_type = db_session.query(AssetTypeDb).filter(AssetTypeDb.name == "View").first()
+
+        asset_type_ids = [t.id for t in [table_type, view_type] if t]
+        if not asset_type_ids:
+            return {"matched": 0, "created": [], "skipped": ["No Table/View asset types found"]}
+
+        created = []
+        skipped = []
+
+        for schema_obj in contract.schema_objects:
+            match_name = schema_obj.physical_name or schema_obj.name
+            if not match_name:
+                skipped.append(f"Schema object {schema_obj.id} has no name")
+                continue
+
+            asset = (
+                db_session.query(AssetDb)
+                .filter(
+                    AssetDb.asset_type_id.in_(asset_type_ids),
+                    (AssetDb.location.ilike(f"%{match_name}%")) | (AssetDb.name == match_name),
+                )
+                .first()
+            )
+
+            if not asset:
+                skipped.append(f"No matching asset found for '{match_name}'")
+                continue
+
+            rel_type = "implementsContract"
+            existing = (
+                db_session.query(EntityRelationshipDb)
+                .filter(
+                    EntityRelationshipDb.source_type.in_(["Table", "View"]),
+                    EntityRelationshipDb.source_id == str(asset.id),
+                    EntityRelationshipDb.target_type == "DataContract",
+                    EntityRelationshipDb.target_id == contract_id,
+                    EntityRelationshipDb.relationship_type == rel_type,
+                )
+                .first()
+            )
+            if existing:
+                skipped.append(f"Relationship already exists for '{match_name}'")
+                continue
+
+            asset_type_name = "Table"
+            if view_type and asset.asset_type_id == view_type.id:
+                asset_type_name = "View"
+
+            rel = EntityRelationshipDb(
+                source_type=asset_type_name,
+                source_id=str(asset.id),
+                target_type="DataContract",
+                target_id=contract_id,
+                relationship_type=rel_type,
+                properties={"schema_object_id": schema_obj.id, "schema_object_name": schema_obj.name},
+                created_by=current_user,
+            )
+            db_session.add(rel)
+            created.append({
+                "asset_id": str(asset.id),
+                "asset_name": asset.name,
+                "asset_type": asset_type_name,
+                "schema_object": schema_obj.name,
+                "relationship_type": rel_type,
+            })
+
+            # Also check if this asset has a parent Dataset; if so, create governedBy
+            parent_ds_rel = (
+                db_session.query(EntityRelationshipDb)
+                .filter(
+                    EntityRelationshipDb.relationship_type.in_(["hasTable", "hasView"]),
+                    EntityRelationshipDb.target_id == str(asset.id),
+                )
+                .first()
+            )
+            if parent_ds_rel:
+                ds_gov_existing = (
+                    db_session.query(EntityRelationshipDb)
+                    .filter(
+                        EntityRelationshipDb.source_type == "Dataset",
+                        EntityRelationshipDb.source_id == parent_ds_rel.source_id,
+                        EntityRelationshipDb.target_type == "DataContract",
+                        EntityRelationshipDb.target_id == contract_id,
+                        EntityRelationshipDb.relationship_type == "governedBy",
+                    )
+                    .first()
+                )
+                if not ds_gov_existing:
+                    gov_rel = EntityRelationshipDb(
+                        source_type="Dataset",
+                        source_id=parent_ds_rel.source_id,
+                        target_type="DataContract",
+                        target_id=contract_id,
+                        relationship_type="governedBy",
+                        created_by=current_user,
+                    )
+                    db_session.add(gov_rel)
+                    created.append({
+                        "asset_id": parent_ds_rel.source_id,
+                        "asset_type": "Dataset",
+                        "relationship_type": "governedBy",
+                        "target": contract_id,
+                    })
+
+        if created:
+            db_session.commit()
+
+        return {
+            "matched": len(created),
+            "created": created,
+            "skipped": skipped,
+        }
+
     def build_odcs_from_db(self, db_obj: DataContractDb, db_session=None) -> Dict[str, Any]:
         odcs: Dict[str, Any] = {
             'id': db_obj.id,
@@ -624,12 +860,10 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         if db_obj.tenant:
             odcs['tenant'] = db_obj.tenant
         
-        # Auto-populate dataProduct from linked output ports in Data Products
-        # This maintains the relational integrity of our model while supporting ODCS format
+        # Auto-populate dataProduct from linked output ports or entity relationships
         if db_session is not None:
             try:
                 from src.db_models.data_products import DataProductDb, OutputPortDb
-                # Find data products that have output ports linked to this contract
                 linked_product = (
                     db_session.query(DataProductDb)
                     .join(OutputPortDb, OutputPortDb.product_id == DataProductDb.id)
@@ -638,12 +872,15 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 )
                 if linked_product:
                     odcs['dataProduct'] = linked_product.name
-                elif db_obj.data_product:
-                    # Fallback to stored value if no linked product found (backward compatibility)
-                    odcs['dataProduct'] = db_obj.data_product
+                else:
+                    # Try entity relationships: Contract <--governedBy-- Dataset <--hasDataset-- Product
+                    product_name = self._resolve_product_via_relationships(db_session, db_obj.id)
+                    if product_name:
+                        odcs['dataProduct'] = product_name
+                    elif db_obj.data_product:
+                        odcs['dataProduct'] = db_obj.data_product
             except Exception as e:
-                logger.warning(f"Failed to auto-populate dataProduct from output ports: {e}")
-                # Fallback to stored value
+                logger.warning(f"Failed to auto-populate dataProduct: {e}")
                 if db_obj.data_product:
                     odcs['dataProduct'] = db_obj.data_product
 
@@ -1928,6 +2165,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(created, db)
             return created
             
         except ValueError:
@@ -2146,6 +2384,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 background_tasks=background_tasks,
             )
             
+            self._update_search_index(updated, db)
             return updated
             
         except ValueError:
@@ -2205,6 +2444,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         except Exception as log_err:
             logger.warning(f"Failed to log change for contract deletion: {log_err}")
         
+        self._notify_index_remove(f"contract::{contract_id}")
         return True
     
     def parse_uploaded_file(self, file_content: str, filename: str, content_type: str) -> dict:
@@ -2464,6 +2704,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             
             db.commit()
             db.refresh(created)
+            self._update_search_index(created, db)
             return created
             
         except ValueError:
@@ -3317,7 +3558,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         workflow_id = "dqx_profile_datasets"
         installation = workflow_installation_repo.get_by_workflow_id(db=db, workflow_id=workflow_id)
         if not installation:
-            raise ValueError(f"Workflow '{workflow_id}' not installed. Please install it via Settings > Jobs & Workflows.")
+            raise ValueError(f"Workflow '{workflow_id}' not installed. Please install it via Settings > Jobs.")
         
         # Trigger workflow with parameters
         # Only pass workflow-specific parameters
@@ -4351,6 +4592,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         db.commit()
         db.refresh(clone)
         
+        self._update_search_index(clone, db)
         return clone
     
     # ============================================================================
@@ -4402,6 +4644,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         contract.status = 'proposed'
         db.add(contract)
         db.flush()
+        self._update_search_index(contract, db)
         
         now = datetime.utcnow()
         request_id = str(uuid4())
@@ -4850,6 +5093,8 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             },
         )
         
+        if decision in ('approve', 'reject'):
+            self._update_search_index(contract, db)
         return {"status": contract.status, "message": f"Review decision '{decision}' recorded successfully"}
     
     def handle_publish_response(
@@ -5247,6 +5492,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             contract.updated_at = now
             db.commit()
             db.refresh(contract)
+            self._update_search_index(contract, db)
             
             notification_title = "Status Change Approved"
             notification_desc = f"Your request to change status of contract '{contract.name}' from '{from_status}' to '{target_status}' has been approved."

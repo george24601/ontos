@@ -2,7 +2,7 @@
   "rebuildGraph": "Grafiek opnieuw opbouwen",
   "rebuildingGraph": "Bezig met opbouwen…",
   "rebuildGraphTooltip": "Ontologieën, impliciete bronnen en app-objecten opnieuw laden zodat alles doorzoekbaar is.",
-  "title": "Business Glossary",
+  "title": "Conceptbrowser",
   "subtitle": "Beheer business glossaries en semantische definities",
   "newModel": "Nieuwe Glossary",
   "newTerm": "Nieuwe Term",

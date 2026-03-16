@@ -221,6 +221,7 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
                 # Log error but don't fail the request creation
                 logger.error(f"Failed to trigger workflow for review request {created_api_obj.id}: {workflow_err}", exc_info=True)
 
+            self._update_search_index(created_api_obj)
             return created_api_obj
 
         except SQLAlchemyError as e:
@@ -328,7 +329,9 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
                 except Exception as workflow_err:
                     logger.error(f"Failed to trigger workflow for review status update {updated_db_obj.id}: {workflow_err}", exc_info=True)
             
-            return DataAssetReviewRequestApi.from_orm(updated_db_obj)
+            result = DataAssetReviewRequestApi.from_orm(updated_db_obj)
+            self._update_search_index(result)
+            return result
         except SQLAlchemyError as e:
              logger.error(f"Database error updating status for request {request_id}: {e}")
              raise
@@ -390,6 +393,8 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
         """Deletes a review request and its associated assets."""
         try:
             deleted_obj = self._repo.remove(db=self._db, id=request_id)
+            if deleted_obj is not None:
+                self._notify_index_remove(f"review::{request_id}")
             return deleted_obj is not None
         except SQLAlchemyError as e:
             logger.error(f"Database error deleting review request {request_id}: {e}")
@@ -654,6 +659,43 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
     # and updating the asset status based on results. 
 
     # --- Implementation of SearchableAsset ---
+    def _build_search_index_item(self, review: DataAssetReviewRequestApi) -> Optional[SearchIndexItem]:
+        """Build a SearchIndexItem from a DataAssetReviewRequestApi model."""
+        if not review.id:
+            logger.warning(f"Skipping review due to missing id: {review}")
+            return None
+        title = f"Review Request by {review.requester_email} for {review.reviewer_email}"
+        if review.assets:
+            title += f" ({len(review.assets)} assets)"
+        tags = [review.status.value]
+        tags.append(f"reviewer:{review.reviewer_email}")
+        tags.append(f"requester:{review.requester_email}")
+        if review.assets:
+            tags.extend([asset.status.value for asset in review.assets])
+            tags.extend([asset.asset_fqn for asset in review.assets])
+            tags.extend([asset.asset_type.value for asset in review.assets])
+        extra_data = {
+            "requester": review.requester_email or "",
+            "reviewer": review.reviewer_email or "",
+            "status": review.status.value if review.status else "",
+        }
+        return SearchIndexItem(
+            id=f"review::{review.id}",
+            type="data-asset-review",
+            feature_id="data-asset-reviews",
+            title=title,
+            description=review.notes or f"Review request {review.id}",
+            link=f"/data-asset-reviews/{review.id}",
+            tags=list(set(tags)),
+            extra_data=extra_data,
+        )
+
+    def _update_search_index(self, review: DataAssetReviewRequestApi) -> None:
+        """Upsert a single review request into the search index."""
+        item = self._build_search_index_item(review)
+        if item:
+            self._notify_index_upsert(item)
+
     def get_search_index_items(self) -> List[SearchIndexItem]:
         """Fetches data asset review requests and maps them to SearchIndexItem format."""
         logger.info("Fetching data asset review requests for search indexing...")
@@ -663,42 +705,9 @@ class DataAssetReviewManager(SearchableAsset): # Inherit from SearchableAsset
             reviews_api = self.list_review_requests(limit=10000) # Fetch Pydantic models
 
             for review in reviews_api:
-                if not review.id:
-                    logger.warning(f"Skipping review due to missing id: {review}")
-                    continue
-
-                # Create a descriptive title and potentially tags
-                title = f"Review Request by {review.requester_email} for {review.reviewer_email}"
-                if review.assets:
-                    title += f" ({len(review.assets)} assets)"
-
-                tags = [review.status.value] # Start with the overall status
-                tags.append(f"reviewer:{review.reviewer_email}")
-                tags.append(f"requester:{review.requester_email}")
-                if review.assets:
-                    tags.extend([asset.status.value for asset in review.assets]) # Add individual asset statuses
-                    tags.extend([asset.asset_fqn for asset in review.assets]) # Add asset FQNs as tags
-                    tags.extend([asset.asset_type.value for asset in review.assets]) # Add asset types
-
-                # Build extra_data for configurable search fields
-                extra_data = {
-                    "requester": review.requester_email or "",
-                    "reviewer": review.reviewer_email or "",
-                    "status": review.status.value if review.status else "",
-                }
-
-                items.append(
-                    SearchIndexItem(
-                        id=f"review::{review.id}",
-                        type="data-asset-review",
-                        feature_id="data-asset-reviews",
-                        title=title,
-                        description=review.notes or f"Review request {review.id}",
-                        link=f"/data-asset-reviews/{review.id}",
-                        tags=list(set(tags)),  # Remove duplicate tags
-                        extra_data=extra_data,
-                    )
-                )
+                item = self._build_search_index_item(review)
+                if item:
+                    items.append(item)
             logger.info(f"Prepared {len(items)} data asset reviews for search index.")
             return items
         except Exception as e:

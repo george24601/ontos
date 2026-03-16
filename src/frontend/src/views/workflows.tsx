@@ -31,7 +31,7 @@ import {
   Power,
   PowerOff,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,9 +40,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ColumnDef, Column } from "@tanstack/react-table";
 import { useApi } from '@/hooks/use-api';
-import useBreadcrumbStore from '@/stores/breadcrumb-store';
+import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 import { DataTable } from '@/components/ui/data-table';
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
@@ -98,14 +99,15 @@ export default function Workflows() {
   const { t } = useTranslation(['common']);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { get: apiGet, post: apiPost, delete: apiDeleteApi } = useApi();
-  const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
-  const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const { hasPermission } = usePermissions();
   
   // Check if user has admin access
   const canEdit = hasPermission('process-workflows', FeatureAccessLevel.ADMIN);
   
+  // Workflow type filter: process (event-driven) | approval (wizard-driven)
+  const [workflowTypeFilter, setWorkflowTypeFilter] = useState<'process' | 'approval'>('process');
   // Workflow state
   const [workflows, setWorkflows] = useState<ProcessWorkflow[]>([]);
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(true);
@@ -130,7 +132,9 @@ export default function Workflows() {
   const loadWorkflows = useCallback(async () => {
     setIsLoadingWorkflows(true);
     try {
-      const response = await apiGet<WorkflowListResponse>('/api/workflows');
+      const params = new URLSearchParams();
+      params.set('workflow_type', workflowTypeFilter);
+      const response = await apiGet<WorkflowListResponse>(`/api/workflows?${params.toString()}`);
       if (response.data) {
         setWorkflows(response.data.workflows || []);
       }
@@ -143,7 +147,7 @@ export default function Workflows() {
     } finally {
       setIsLoadingWorkflows(false);
     }
-  }, [apiGet, toast, t]);
+  }, [apiGet, toast, t, workflowTypeFilter]);
 
   const loadExecutions = useCallback(async () => {
     setIsLoadingExecutions(true);
@@ -163,14 +167,7 @@ export default function Workflows() {
   useEffect(() => {
     loadWorkflows();
     loadExecutions();
-    setStaticSegments([]);
-    setDynamicTitle('Workflows');
-
-    return () => {
-      setStaticSegments([]);
-      setDynamicTitle(null);
-    };
-  }, [loadWorkflows, loadExecutions, setStaticSegments, setDynamicTitle]);
+  }, [loadWorkflows, loadExecutions]);
 
   // Workflow handlers
   const handleToggleWorkflowActive = async (workflow: ProcessWorkflow) => {
@@ -272,7 +269,7 @@ export default function Workflows() {
   };
 
   const handleEditWorkflow = (workflow: ProcessWorkflow) => {
-    navigate(`/workflows/${workflow.id}`);
+    navigate(`${pathname}/${workflow.id}`);
   };
 
   const handleLoadDefaultWorkflows = async (updateExisting: boolean = false) => {
@@ -743,7 +740,7 @@ export default function Workflows() {
         <div className="flex items-center gap-2">
           <GitBranch className="h-4 w-4 text-muted-foreground" />
           <button
-            onClick={() => navigate(`/workflows/${row.original.id}`)}
+            onClick={() => navigate(`${pathname}/${row.original.id}`)}
             className="font-medium hover:underline hover:text-primary text-left"
           >
             {row.original.name}
@@ -1039,40 +1036,55 @@ export default function Workflows() {
   const recentFailures = executions.filter(e => e.status === 'failed').length;
 
   return (
-    <div className="py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <GitBranch className="w-8 h-8" />
-          Process Workflows
-        </h1>
-        {canEdit && (
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Clock className="h-4 w-4 mr-2" />
-                  Load Defaults
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Default Workflows</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleLoadDefaultWorkflows(false)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Load New Only
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleLoadDefaultWorkflows(true)}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Reload All Defaults
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button onClick={() => navigate('/workflows/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Workflow
-            </Button>
+    <SettingsPageWrapper title={t('common:labels.workflows', 'Workflows')}>
+      <div className="mb-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <GitBranch className="w-8 h-8" />
+              {t('common:labels.workflows', 'Workflows')}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Configure automated workflows for validation, approval, and notifications.
+            </p>
           </div>
-        )}
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Load Defaults
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Default Workflows</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleLoadDefaultWorkflows(false)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Load New Only
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleLoadDefaultWorkflows(true)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reload All Defaults
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={() => navigate(`${pathname}/new`)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Workflow
+              </Button>
+            </div>
+          )}
+        </div>
+        <div className="mt-4">
+          <Tabs value={workflowTypeFilter} onValueChange={(v) => setWorkflowTypeFilter(v as 'process' | 'approval')}>
+            <TabsList>
+              <TabsTrigger value="process">Process workflows</TabsTrigger>
+              <TabsTrigger value="approval">Approval workflows</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1335,7 +1347,6 @@ export default function Workflows() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </SettingsPageWrapper>
   );
 }
-

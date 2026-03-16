@@ -7,8 +7,8 @@ import type { OntologyConcept } from '@/types/ontology';
  * 1. Preferred language (e.g., user's selected language)
  * 2. English ('en')
  * 3. No language tag ('')
- * 4. Any available label
- * 5. IRI local name (after last # or /)
+ * 4. IRI local name (after last # or /) — matches Protégé behavior
+ * 5. Any available label (last resort, may be in a different language)
  * 
  * @param concept The ontology concept
  * @param preferredLang The preferred language code (e.g., 'en', 'ja', 'de')
@@ -32,7 +32,7 @@ export function resolveLabel(
     return undefined;
   };
   
-  // Priority: preferred lang > English > no lang tag > any available > IRI local name
+  // Priority: preferred lang > English > no lang tag > IRI local name > any available label
   const preferred = findByLang(preferredLang);
   if (preferred) return preferred;
   
@@ -41,16 +41,20 @@ export function resolveLabel(
   
   if (labels['']) return labels[''];  // No language tag
   
-  const anyLabel = Object.values(labels)[0];
-  if (anyLabel) return anyLabel;
+  // Prefer IRI local name over a label in a non-matching language (matches Protégé behavior)
+  const localName = concept.iri.split(/[/#]/).pop();
+  if (localName && localName !== concept.iri) return localName;
   
   // Legacy fallback: use the label field if available
   if (concept.label && concept.label !== concept.iri) {
     return concept.label;
   }
   
-  // Final fallback: extract local name from IRI (after last # or /)
-  return concept.iri.split(/[/#]/).pop() || concept.iri;
+  // Last resort: any available label regardless of language
+  const anyLabel = Object.values(labels)[0];
+  if (anyLabel) return anyLabel;
+  
+  return concept.iri;
 }
 
 /**

@@ -485,6 +485,207 @@ async def get_contracts_for_product(
         logger.exception(f"Error getting contracts for product {product_id}")
         raise HTTPException(status_code=500, detail=f"Failed to get contracts for product: {str(e)}")
 
+# --- Dataset Hierarchy Endpoints (Phase 5) ---
+
+@router.get('/data-products/{product_id}/datasets')
+async def get_product_datasets(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    background_tasks: BackgroundTasks,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_ONLY))
+):
+    """Get all Dataset assets linked to this Data Product via hasDataset relationships."""
+    success = False
+    details = {"product_id": product_id, "action": "get_product_datasets"}
+    try:
+        datasets = manager.get_product_datasets(product_id, db=db)
+        success = True
+        details["count"] = len(datasets)
+        return datasets
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Error getting datasets for product {product_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action="GET_PRODUCT_DATASETS",
+            success=success,
+            details=details,
+        )
+
+
+@router.get('/data-products/{product_id}/hierarchy')
+async def get_product_hierarchy(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    background_tasks: BackgroundTasks,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_ONLY))
+):
+    """Get the full DP > Dataset > Table/View > Column hierarchy for a Data Product."""
+    success = False
+    details = {"product_id": product_id, "action": "get_product_hierarchy"}
+    try:
+        hierarchy = manager.get_product_hierarchy(product_id, db=db)
+        success = True
+        details["dataset_count"] = len(hierarchy.get("datasets", []))
+        return hierarchy
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Error getting hierarchy for product {product_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action="GET_PRODUCT_HIERARCHY",
+            success=success,
+            details=details,
+        )
+
+
+@router.get('/data-products/{product_id}/odps/export')
+async def export_odps(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    background_tasks: BackgroundTasks,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_ONLY)),
+):
+    """Export a Data Product as ODPS v1.0.0 YAML, including entity relationship-based datasets."""
+    from fastapi.responses import Response
+    success = False
+    details = {"product_id": product_id, "action": "export_odps"}
+    try:
+        odps = manager.build_odps_export(product_id, db=db)
+        yaml_content = yaml.dump(odps, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        raw_name = (odps.get("name") or "product").lower().replace(" ", "_")
+        safe_filename = f"{raw_name}-odps.yaml"
+        success = True
+        return Response(
+            content=yaml_content,
+            media_type="application/x-yaml",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_filename}"',
+                "Content-Type": "application/x-yaml; charset=utf-8",
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Failed to export ODPS for product {product_id}")
+        raise HTTPException(status_code=500, detail="Failed to export ODPS")
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action="EXPORT_ODPS",
+            success=success,
+            details=details,
+        )
+
+
+@router.post('/data-products/{product_id}/datasets')
+async def link_dataset_to_product(
+    product_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    background_tasks: BackgroundTasks,
+    body: Dict[str, str] = Body(...),
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Link a Dataset asset to this Data Product via hasDataset relationship.
+    
+    Body: { "dataset_id": "<uuid>" }
+    """
+    success = False
+    dataset_id = body.get("dataset_id", "")
+    details = {"product_id": product_id, "dataset_id": dataset_id, "action": "link_dataset"}
+    try:
+        if not dataset_id:
+            raise HTTPException(status_code=422, detail="dataset_id is required")
+        result = manager.link_dataset(product_id, dataset_id, current_user.username, db=db)
+        success = True
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Error linking dataset {dataset_id} to product {product_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action="LINK_DATASET",
+            success=success,
+            details=details,
+        )
+
+
+@router.delete('/data-products/{product_id}/datasets/{dataset_id}')
+async def unlink_dataset_from_product(
+    product_id: str,
+    dataset_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    background_tasks: BackgroundTasks,
+    manager: DataProductsManager = Depends(get_data_products_manager),
+    _: bool = Depends(PermissionChecker(DATA_PRODUCTS_FEATURE_ID, FeatureAccessLevel.READ_WRITE))
+):
+    """Remove the hasDataset relationship between a Data Product and a Dataset."""
+    success = False
+    details = {"product_id": product_id, "dataset_id": dataset_id, "action": "unlink_dataset"}
+    try:
+        removed = manager.unlink_dataset(product_id, dataset_id, db=db)
+        if not removed:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+        success = True
+        return {"status": "removed"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error unlinking dataset {dataset_id} from product {product_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        background_tasks.add_task(
+            audit_manager.log_action_background,
+            username=current_user.username,
+            ip_address=request.client.host if request.client else None,
+            feature=DATA_PRODUCTS_FEATURE_ID,
+            action="UNLINK_DATASET",
+            success=success,
+            details=details,
+        )
+
+
 # --- Utility Endpoints ---
 
 @router.get('/data-products/statuses', response_model=List[str])

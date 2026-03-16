@@ -23,6 +23,7 @@ from src.models.process_workflows import (
     TriggerType,
     EntityType,
     ScopeType,
+    WorkflowType,
     StepPosition,
     WorkflowValidationResult,
     StepTypeSchema,
@@ -76,8 +77,12 @@ class WorkflowsManager:
                 # Parse trigger
                 trigger_data = wf_data.get('trigger', {})
                 trigger = WorkflowTrigger(
-                    type=TriggerType(trigger_data.get('type', 'manual')),
-                    entity_types=[EntityType(et) for et in trigger_data.get('entity_types', [])],
+                    type=self._safe_trigger_type(trigger_data.get('type', 'manual')),
+                    entity_types=[
+                        et for et in
+                        (self._safe_entity_type(v) for v in trigger_data.get('entity_types', []))
+                        if et is not None
+                    ],
                     from_status=trigger_data.get('from_status'),
                     to_status=trigger_data.get('to_status'),
                     schedule=trigger_data.get('schedule'),
@@ -110,10 +115,12 @@ class WorkflowsManager:
                 if existing:
                     if update_existing and existing.is_default:
                         # Update existing default workflow
+                        wf_type = wf_data.get('workflow_type', 'process')
                         update_data = ProcessWorkflowUpdate(
                             description=wf_data.get('description'),
                             trigger=trigger,
                             scope=scope,
+                            workflow_type=WorkflowType(wf_type) if isinstance(wf_type, str) else wf_type,
                             is_active=wf_data.get('is_active', True),
                             steps=steps,
                         )
@@ -126,11 +133,13 @@ class WorkflowsManager:
                     continue
                 
                 # Create new workflow
+                wf_type = wf_data.get('workflow_type', 'process')
                 workflow = ProcessWorkflowCreate(
                     name=name,
                     description=wf_data.get('description'),
                     trigger=trigger,
                     scope=scope,
+                    workflow_type=WorkflowType(wf_type) if isinstance(wf_type, str) else wf_type,
                     is_active=wf_data.get('is_active', True),
                     steps=steps,
                 )
@@ -150,14 +159,36 @@ class WorkflowsManager:
         
         return result
 
-    def list_workflows(self, *, is_active: Optional[bool] = None) -> List[ProcessWorkflow]:
-        """List all workflows."""
-        db_workflows = process_workflow_repo.list_all(self._db, is_active=is_active)
+    def list_workflows(
+        self,
+        *,
+        is_active: Optional[bool] = None,
+        workflow_type: Optional[WorkflowType] = None,
+    ) -> List[ProcessWorkflow]:
+        """List all workflows, optionally filtered by workflow_type (process | approval)."""
+        db_workflows = process_workflow_repo.list_all(
+            self._db, is_active=is_active, workflow_type=workflow_type
+        )
         return [self._db_to_model(wf) for wf in db_workflows]
 
     def get_workflow(self, workflow_id: str) -> Optional[ProcessWorkflow]:
         """Get a workflow by ID."""
         db_workflow = process_workflow_repo.get(self._db, workflow_id)
+        if not db_workflow:
+            return None
+        return self._db_to_model(db_workflow)
+
+    def get_workflow_by_trigger_type(
+        self, trigger_type: str, *, entity_type: Optional[str] = None
+    ) -> Optional[ProcessWorkflow]:
+        """Get the first active workflow for a given trigger type.
+
+        If *entity_type* is provided the match is narrowed to workflows whose
+        trigger.entity_types includes the value (or is empty — meaning "all").
+        """
+        db_workflow = process_workflow_repo.get_by_trigger_type(
+            self._db, trigger_type, entity_type=entity_type, active_only=True
+        )
         if not db_workflow:
             return None
         return self._db_to_model(db_workflow)
@@ -235,8 +266,12 @@ class WorkflowsManager:
         
         # Create new workflow
         trigger = WorkflowTrigger(
-            type=TriggerType(trigger_config.get('type', 'manual')),
-            entity_types=[EntityType(et) for et in trigger_config.get('entity_types', [])],
+            type=self._safe_trigger_type(trigger_config.get('type', 'manual')),
+            entity_types=[
+                et for et in
+                (self._safe_entity_type(v) for v in trigger_config.get('entity_types', []))
+                if et is not None
+            ],
             from_status=trigger_config.get('from_status'),
             to_status=trigger_config.get('to_status'),
             schedule=trigger_config.get('schedule'),
@@ -260,11 +295,14 @@ class WorkflowsManager:
                 position=StepPosition(**json.loads(step.position)) if step.position else None,
             ))
         
+        wf_type = getattr(existing, 'workflow_type', 'process')
+        wf_type_enum = WorkflowType(wf_type) if isinstance(wf_type, str) and wf_type in ('process', 'approval') else WorkflowType.PROCESS
         new_workflow = ProcessWorkflowCreate(
             name=new_name,
             description=existing.description,
             trigger=trigger,
             scope=scope,
+            workflow_type=wf_type_enum,
             is_active=False,  # Start inactive
             steps=steps,
         )
@@ -521,6 +559,36 @@ class WorkflowsManager:
                 has_fail_branch=True,
             ),
             StepTypeSchema(
+                type=StepType.USER_ACTION,
+                name="User Action",
+                description="Collect user input (reason, acceptances, custom fields). Used in approval workflows.",
+                icon="message-square",
+                config_schema={
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Step title shown in the wizard"},
+                        "description": {"type": "string", "description": "Step description"},
+                        "requires_input": {"type": "boolean", "description": "If true, user must enter something before continuing"},
+                        "minimum_input_length": {"type": "integer", "minimum": 0, "description": "Minimum character length for the primary field"},
+                        "primary_field_id": {"type": "string", "description": "Field to check for requires_input and minimum_input_length (default: first required field or 'reason')"},
+                        "required_fields": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "label": {"type": "string"},
+                                    "type": {"type": "string", "enum": ["text", "checkbox"]},
+                                    "required": {"type": "boolean"},
+                                },
+                            },
+                        },
+                    },
+                },
+                has_pass_branch=True,
+                has_fail_branch=True,
+            ),
+            StepTypeSchema(
                 type=StepType.PASS,
                 name="Pass (Success)",
                 description="Terminal step indicating success",
@@ -545,14 +613,37 @@ class WorkflowsManager:
             ),
         ]
 
+    @staticmethod
+    def _safe_trigger_type(value: str) -> TriggerType:
+        """Parse a trigger type string, falling back to MANUAL for unknown/legacy values."""
+        try:
+            return TriggerType(value)
+        except ValueError:
+            logger.warning("Unknown trigger type '%s' in DB — treating as MANUAL", value)
+            return TriggerType.MANUAL
+
+    @staticmethod
+    def _safe_entity_type(value: str) -> EntityType:
+        """Parse an entity type string, skipping unknown values."""
+        try:
+            return EntityType(value)
+        except ValueError:
+            logger.warning("Unknown entity type '%s' in DB — skipping", value)
+            return None  # type: ignore[return-value]
+
     def _db_to_model(self, db_workflow: ProcessWorkflowDb) -> ProcessWorkflow:
         """Convert database model to Pydantic model."""
         trigger_config = json.loads(db_workflow.trigger_config) if db_workflow.trigger_config else {}
         scope_config = json.loads(db_workflow.scope_config) if db_workflow.scope_config else {}
         
+        parsed_entity_types = [
+            et for et in
+            (self._safe_entity_type(v) for v in trigger_config.get('entity_types', []))
+            if et is not None
+        ]
         trigger = WorkflowTrigger(
-            type=TriggerType(trigger_config.get('type', 'manual')),
-            entity_types=[EntityType(et) for et in trigger_config.get('entity_types', [])],
+            type=self._safe_trigger_type(trigger_config.get('type', 'manual')),
+            entity_types=parsed_entity_types,
             from_status=trigger_config.get('from_status'),
             to_status=trigger_config.get('to_status'),
             schedule=trigger_config.get('schedule'),
@@ -580,12 +671,16 @@ class WorkflowsManager:
                 updated_at=step.updated_at,
             ))
         
+        wf_type = getattr(db_workflow, 'workflow_type', 'process')
+        if isinstance(wf_type, str):
+            wf_type = WorkflowType(wf_type) if wf_type in ('process', 'approval') else WorkflowType.PROCESS
         return ProcessWorkflow(
             id=db_workflow.id,
             name=db_workflow.name,
             description=db_workflow.description,
             trigger=trigger,
             scope=scope,
+            workflow_type=wf_type,
             is_active=db_workflow.is_active,
             is_default=db_workflow.is_default,
             version=db_workflow.version,

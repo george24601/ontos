@@ -1008,7 +1008,7 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                           {/* Input Ports Card */} 
                           <Card>
                               <CardHeader>
-                                <CardTitle>Input Ports</CardTitle>
+                                <CardTitle>Consumables</CardTitle>
                                 <CardDescription>Sources feeding this product. Select tables from the metastore.</CardDescription>
                               </CardHeader>
                               <CardContent className="space-y-4">
@@ -1017,19 +1017,19 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                                       <Button 
                                           variant="ghost" size="icon" 
                                           className="absolute top-1 right-1 h-6 w-6 text-destructive" 
-                                          onClick={() => removeInputPort(index)} type="button" title="Remove Input Port">
+                                          onClick={() => removeInputPort(index)} type="button" title="Remove Consumable">
                                           <X className="h-4 w-4" />
                                       </Button>
                                       <div className="space-y-3">
                                         <div className="grid grid-cols-2 gap-4">
                                           <div>
-                                            <Label htmlFor={`inputPorts.${index}.id`}>Port ID *</Label>
-                                            <Input {...register(`inputPorts.${index}.id`, { required: "Port ID is required" })} />
+                                            <Label htmlFor={`inputPorts.${index}.id`}>Consumable ID *</Label>
+                                            <Input {...register(`inputPorts.${index}.id`, { required: "Consumable ID is required" })} />
                                             {errors.inputPorts?.[index]?.id && <p className="text-sm text-red-600 mt-1">{errors.inputPorts[index].id?.message}</p>}
                                           </div>
                                           <div>
-                                              <Label htmlFor={`inputPorts.${index}.name`}>Port Name *</Label>
-                                              <Input {...register(`inputPorts.${index}.name`, { required: "Port Name is required" })} />
+                                              <Label htmlFor={`inputPorts.${index}.name`}>Consumable Name *</Label>
+                                              <Input {...register(`inputPorts.${index}.name`, { required: "Consumable Name is required" })} />
                                               {errors.inputPorts?.[index]?.name && <p className="text-sm text-red-600 mt-1">{errors.inputPorts[index].name?.message}</p>}
                                           </div>
                                         </div>
@@ -1102,7 +1102,7 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                                                 <TagSelector
                                                     value={field.value || []}
                                                     onChange={field.onChange}
-                                                    placeholder="Search and select tags for this input port..."
+                                                    placeholder="Search and select tags for this consumable..."
                                                     allowCreate={true}
                                                 />
                                               )}
@@ -1124,7 +1124,7 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                                     type="button" variant="outline" 
                                     onClick={() => appendInputPort({ 
                                         id: `input-${inputPortFields.length + 1}`,
-                                        name: 'New Input Port',
+                                        name: 'New Consumable',
                                         version: '1.0.0', // Required ODPS field
                                         contractId: '', // Required ODPS field
                                         sourceSystemId: '',
@@ -1132,7 +1132,7 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                                         links: {}, custom: {}, tags: []
                                     })}
                                   > 
-                                    <Plus className="mr-2 h-4 w-4"/> Add Input Port 
+                                    <Plus className="mr-2 h-4 w-4"/> Add Consumable 
                                 </Button>
                               </CardContent>
                           </Card>
@@ -1140,25 +1140,25 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                           {/* Output Ports Card */} 
                           <Card>
                               <CardHeader>
-                                <CardTitle>Output Ports</CardTitle>
+                                <CardTitle>Deliverables</CardTitle>
                                 <CardDescription>Outputs provided by this data product.</CardDescription>
                               </CardHeader>
                               <CardContent className="space-y-4">
                                 {outputPortFields.map((field, index) => (
                                   <Card key={field.id} className="p-4 pt-8 relative">
-                                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => removeOutputPort(index)} type="button" title="Remove Output Port">
+                                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => removeOutputPort(index)} type="button" title="Remove Deliverable">
                                          <X className="h-4 w-4" />
                                        </Button>
                                        <div className="space-y-3">
                                           <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                              <Label htmlFor={`outputPorts.${index}.id`}>Port ID *</Label>
-                                              <Input {...register(`outputPorts.${index}.id`, { required: "Port ID is required" })} />
+                                              <Label htmlFor={`outputPorts.${index}.id`}>Deliverable ID *</Label>
+                                              <Input {...register(`outputPorts.${index}.id`, { required: "Deliverable ID is required" })} />
                                               {errors.outputPorts?.[index]?.id && <p className="text-sm text-red-600 mt-1">{errors.outputPorts[index].id?.message}</p>}
                                             </div>
                                             <div>
-                                                <Label htmlFor={`outputPorts.${index}.name`}>Port Name *</Label>
-                                                <Input {...register(`outputPorts.${index}.name`, { required: "Port Name is required" })} />
+                                                <Label htmlFor={`outputPorts.${index}.name`}>Deliverable Name *</Label>
+                                                <Input {...register(`outputPorts.${index}.name`, { required: "Deliverable Name is required" })} />
                                                 {errors.outputPorts?.[index]?.name && <p className="text-sm text-red-600 mt-1">{errors.outputPorts[index].name?.message}</p>}
                                             </div>
                                           </div>
@@ -1175,7 +1175,7 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                                                   <TagSelector
                                                       value={field.value || []}
                                                       onChange={field.onChange}
-                                                      placeholder="Search and select tags for this output port..."
+                                                      placeholder="Search and select tags for this deliverable..."
                                                       allowCreate={true}
                                                   />
                                                 )}
@@ -1197,14 +1197,14 @@ const DataProductFormDialog: React.FC<DataProductFormDialogProps> = ({
                                   type="button" variant="outline" 
                                   onClick={() => appendOutputPort({ 
                                       id: `output-${outputPortFields.length + 1}`,
-                                      name: 'New Output Port',
+                                      name: 'New Deliverable',
                                       version: '1.0.0', // Required ODPS field
                                       description: '',
                                       type: 'table', 
                                       links: {}, custom: {}, tags: [] 
                                    })}
                                 > 
-                                  <Plus className="mr-2 h-4 w-4"/> Add Output Port 
+                                  <Plus className="mr-2 h-4 w-4"/> Add Deliverable 
                                 </Button>
                               </CardContent>
                           </Card>

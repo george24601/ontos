@@ -24,7 +24,7 @@
         "description": "Total des produits de données"
       },
       "semanticModels": {
-        "title": "Glossaire Métier",
+        "title": "Navigateur de concepts",
         "description": "Modèles / Termes"
       },
       "estates": {
