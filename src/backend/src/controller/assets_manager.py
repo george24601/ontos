@@ -241,14 +241,14 @@ class AssetsManager(SearchableAsset):
 
     def get_all_assets(
         self, db: Session, *, skip: int = 0, limit: int = 100,
-        asset_type_id: Optional[UUID] = None, platform: Optional[str] = None,
-        domain_id: Optional[str] = None, status: Optional[str] = None,
-        name: Optional[str] = None,
+        asset_type_id: Optional[UUID] = None, asset_type_names: Optional[List[str]] = None,
+        platform: Optional[str] = None, domain_id: Optional[str] = None,
+        status: Optional[str] = None, name: Optional[str] = None,
     ) -> PaginatedAssetSummary:
         """Gets a paginated page of asset summaries."""
         filter_kwargs = dict(
-            asset_type_id=asset_type_id, platform=platform,
-            domain_id=domain_id, status=status, name=name,
+            asset_type_id=asset_type_id, asset_type_names=asset_type_names,
+            platform=platform, domain_id=domain_id, status=status, name=name,
         )
         db_assets = self._asset_repo.get_multi_filtered(
             db, skip=skip, limit=limit, **filter_kwargs,
@@ -520,6 +520,117 @@ class AssetsManager(SearchableAsset):
         except Exception as e:
             logger.error(f"Error indexing assets: {e}", exc_info=True)
         return items
+
+
+    # ------------------------------------------------------------------
+    # Infer schema from asset hierarchy
+    # ------------------------------------------------------------------
+
+    _TABLE_LIKE_TYPES = {"Table", "View", "Dataset"}
+    _CONTAINER_TYPES = {"Schema", "Catalog"}
+
+    def infer_schema_from_asset(
+        self, db: Session, asset_id: UUID
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract ODCS-compatible schema objects from an asset and its children.
+
+        - Table/View/Dataset: returns one schema object with child Column assets as properties.
+        - Schema: returns one schema object per child Table/View with their columns.
+        - Catalog: returns schema objects for all Table/View descendants.
+
+        Each returned dict has: name, physicalName, description, physicalType, properties.
+        """
+        db_asset = self._asset_repo.get_with_relationships(db, asset_id)
+        if not db_asset:
+            raise NotFoundError(f"Asset '{asset_id}' not found")
+
+        type_name = db_asset.asset_type.name if db_asset.asset_type else ""
+
+        if type_name in self._TABLE_LIKE_TYPES:
+            schema_obj = self._build_schema_object(db, db_asset)
+            return [schema_obj] if schema_obj else []
+
+        if type_name in self._CONTAINER_TYPES:
+            return self._collect_schemas_from_container(db, db_asset, depth=2 if type_name == "Catalog" else 1)
+
+        return []
+
+    def _build_schema_object(self, db: Session, db_asset: AssetDb) -> Optional[Dict[str, Any]]:
+        """Build a single ODCS schema object from a Table/View/Dataset asset."""
+        columns = self._get_child_columns(db, db_asset)
+
+        # Also check stored schema in properties
+        if not columns and db_asset.properties and "schema" in db_asset.properties:
+            stored = db_asset.properties["schema"]
+            if isinstance(stored, dict) and "columns" in stored:
+                columns = [
+                    {
+                        "name": c.get("name", ""),
+                        "physicalType": c.get("data_type", ""),
+                        "logicalType": c.get("logical_type", "string"),
+                        "required": not c.get("nullable", True),
+                        "description": c.get("description", ""),
+                        "partitioned": c.get("is_partition_key", False),
+                    }
+                    for c in stored["columns"]
+                ]
+
+        return {
+            "name": db_asset.name,
+            "physicalName": db_asset.location or db_asset.name,
+            "description": db_asset.description or "",
+            "physicalType": (db_asset.asset_type.name if db_asset.asset_type else "table").lower(),
+            "properties": columns,
+        }
+
+    def _get_child_columns(self, db: Session, db_asset: AssetDb) -> List[Dict[str, Any]]:
+        """Get Column children of a table-like asset."""
+        columns: List[Dict[str, Any]] = []
+        if not db_asset.source_relationships:
+            return columns
+
+        for rel in db_asset.source_relationships:
+            if rel.relationship_type != "hasColumn":
+                continue
+            child = self._asset_repo.get_with_relationships(db, rel.target_asset_id)
+            if not child:
+                continue
+            props = child.properties or {}
+            columns.append({
+                "name": child.name,
+                "physicalType": props.get("data_type", ""),
+                "logicalType": props.get("logical_type", "string"),
+                "required": not props.get("nullable", True),
+                "description": child.description or "",
+                "partitioned": props.get("is_partition_key", False),
+            })
+        return columns
+
+    def _collect_schemas_from_container(
+        self, db: Session, db_asset: AssetDb, depth: int
+    ) -> List[Dict[str, Any]]:
+        """Recursively collect schema objects from container assets."""
+        results: List[Dict[str, Any]] = []
+
+        if not db_asset.source_relationships:
+            return results
+
+        for rel in db_asset.source_relationships:
+            if rel.relationship_type not in self._HIERARCHICAL_RELS:
+                continue
+            child = self._asset_repo.get_with_relationships(db, rel.target_asset_id)
+            if not child or not child.asset_type:
+                continue
+            child_type = child.asset_type.name
+            if child_type in self._TABLE_LIKE_TYPES:
+                schema_obj = self._build_schema_object(db, child)
+                if schema_obj:
+                    results.append(schema_obj)
+            elif child_type in self._CONTAINER_TYPES and depth > 0:
+                results.extend(self._collect_schemas_from_container(db, child, depth - 1))
+
+        return results
 
 
 # Singleton instance

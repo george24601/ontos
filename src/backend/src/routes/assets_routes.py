@@ -262,16 +262,18 @@ def get_all_assets(
     skip: int = 0,
     limit: int = 100,
     asset_type_id: Optional[UUID] = Query(None),
+    asset_type_names: Optional[str] = Query(None, description="Comma-separated asset type names"),
     platform: Optional[str] = Query(None),
     domain_id: Optional[str] = Query(None),
     asset_status: Optional[str] = Query(None, alias="status"),
     name: Optional[str] = Query(None),
 ):
     """Lists all assets with optional filters. Returns paginated results."""
+    type_names_list = [t.strip() for t in asset_type_names.split(",")] if asset_type_names else None
     return manager.get_all_assets(
         db=db, skip=skip, limit=limit,
-        asset_type_id=asset_type_id, platform=platform,
-        domain_id=domain_id, status=asset_status, name=name,
+        asset_type_id=asset_type_id, asset_type_names=type_names_list,
+        platform=platform, domain_id=domain_id, status=asset_status, name=name,
     )
 
 
@@ -334,6 +336,25 @@ def update_asset(
             ip_address=request.client.host if request.client else None,
             feature=FEATURE_ID, action="UPDATE_ASSET", success=success, details=details,
         )
+
+
+@assets_router.get(
+    "/{asset_id}/infer-schema",
+    dependencies=[Depends(PermissionChecker(FEATURE_ID, FeatureAccessLevel.READ_ONLY))],
+)
+def infer_schema_from_asset(
+    asset_id: UUID,
+    db: DBSessionDep,
+    manager=Depends(get_assets_manager),
+):
+    """Extract ODCS-compatible schema objects from an asset and its children."""
+    try:
+        return manager.infer_schema_from_asset(db=db, asset_id=asset_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to infer schema from asset %s", asset_id)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to infer schema from asset")
 
 
 @assets_router.get(
