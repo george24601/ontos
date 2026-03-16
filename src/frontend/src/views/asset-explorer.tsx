@@ -18,6 +18,7 @@ import { AssetRead, AssetTypeRead } from '@/types/asset';
 import { EntityTypeDefinition } from '@/types/ontology-schema';
 import { AssetFormDialog } from '@/components/common/asset-form-dialog';
 import AssetImportExportDialog from '@/components/assets/asset-import-export-dialog';
+import { AssetDeleteDialog } from '@/components/assets/asset-delete-dialog';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { RelativeDate } from '@/components/common/relative-date';
@@ -25,10 +26,6 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
@@ -228,22 +225,6 @@ export default function AssetExplorerView() {
     }
     setDeletingId(id);
     setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deletingId || !canAdmin) return;
-    try {
-      const response = await apiDelete(`/api/assets/${deletingId}`);
-      if (response.error) throw new Error(response.error);
-      toast({ title: 'Asset deleted' });
-      fetchAssets(selectedTypeId, pagination, debouncedNameFilter);
-      fetchAssetTypes();
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.message });
-    } finally {
-      setIsDeleteDialogOpen(false);
-      setDeletingId(null);
-    }
   };
 
   const handleBulkDelete = async (selectedRows: AssetRead[]) => {
@@ -659,22 +640,22 @@ export default function AssetExplorerView() {
         />
       )}
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Asset</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. The asset and its relationships will be permanently deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeletingId(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700" disabled={apiIsLoading}>
-              {apiIsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {deletingId && (
+        <AssetDeleteDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            setIsDeleteDialogOpen(open);
+            if (!open) setDeletingId(null);
+          }}
+          assetId={deletingId}
+          assetName={assets.find(a => a.id === deletingId)?.name || ''}
+          onDeleted={() => {
+            fetchAssets(selectedTypeId, pagination, debouncedNameFilter);
+            fetchAssetTypes();
+            setDeletingId(null);
+          }}
+        />
+      )}
 
       <AssetImportExportDialog
         isOpen={isImportExportOpen}

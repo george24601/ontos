@@ -10,6 +10,7 @@ from src.models.assets import (
     AssetCreate, AssetUpdate, AssetRead, AssetSummary,
     AssetRelationshipCreate, AssetRelationshipRead,
     PaginatedAssetSummary,
+    DeletePreviewItem, CascadeDeleteResult,
 )
 from src.db_models.assets import AssetTypeDb, AssetDb, AssetRelationshipDb
 from src.common.errors import ConflictError, NotFoundError, ValidationError
@@ -321,6 +322,107 @@ class AssetsManager(SearchableAsset):
         except Exception as e:
             logger.warning(f"Failed to log change for asset deletion: {e}")
         return read
+
+    # --- Cascade delete operations ---
+
+    def get_delete_preview(self, db: Session, *, asset_id: UUID) -> DeletePreviewItem:
+        """Build a tree of the asset and all hierarchical descendants that would be cascade-deleted."""
+        db_asset = self._asset_repo.get_with_relationships(db, asset_id)
+        if not db_asset:
+            raise NotFoundError(f"Asset '{asset_id}' not found.")
+        visited: set = set()
+        return self._build_delete_tree(db, db_asset, level=0, visited=visited)
+
+    def _build_delete_tree(
+        self, db: Session, db_asset: AssetDb, *, level: int, visited: set,
+        relationship_type: Optional[str] = None,
+    ) -> DeletePreviewItem:
+        visited.add(str(db_asset.id))
+        type_name = db_asset.asset_type.name if db_asset.asset_type else None
+
+        children: List[DeletePreviewItem] = []
+        if db_asset.source_relationships:
+            for rel in db_asset.source_relationships:
+                if rel.relationship_type not in self._HIERARCHICAL_RELS:
+                    continue
+                child_id = str(rel.target_asset_id)
+                if child_id in visited:
+                    continue
+                child_asset = self._asset_repo.get_with_relationships(db, rel.target_asset_id)
+                if child_asset:
+                    children.append(self._build_delete_tree(
+                        db, child_asset,
+                        level=level + 1,
+                        visited=visited,
+                        relationship_type=rel.relationship_type,
+                    ))
+
+        return DeletePreviewItem(
+            id=db_asset.id,
+            name=db_asset.name,
+            asset_type_name=type_name,
+            relationship_type=relationship_type,
+            level=level,
+            children=children,
+        )
+
+    def cascade_delete_assets(
+        self, db: Session, *, asset_ids: List[UUID], current_user_id: str = "system",
+    ) -> CascadeDeleteResult:
+        """Delete multiple assets in leaf-first order within a single transaction."""
+        ordered = self._topological_sort_for_delete(db, asset_ids)
+        result = CascadeDeleteResult()
+        for aid in ordered:
+            try:
+                db_asset = self._asset_repo.get_with_relationships(db, aid)
+                if not db_asset:
+                    result.failed.append({"id": str(aid), "name": "?", "error": "Not found"})
+                    continue
+                name = db_asset.name
+                type_name = db_asset.asset_type.name if db_asset.asset_type else None
+                self._asset_repo.remove(db=db, id=aid)
+                self._notify_index_remove(f"asset::{aid}")
+                logger.info(f"Cascade-deleted asset '{name}' (id: {aid})")
+                try:
+                    change_log_manager.log_change_with_details(
+                        db,
+                        entity_type="asset",
+                        entity_id=str(aid),
+                        action="deleted",
+                        username=current_user_id,
+                        details={"name": name, "asset_type": type_name},
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to log change for cascade-deleted asset {aid}: {e}")
+                result.deleted.append({"id": str(aid), "name": name, "asset_type_name": type_name})
+            except Exception as e:
+                logger.warning(f"Failed to cascade-delete asset {aid}: {e}")
+                result.failed.append({"id": str(aid), "name": "?", "error": str(e)})
+        return result
+
+    def _topological_sort_for_delete(self, db: Session, asset_ids: List[UUID]) -> List[UUID]:
+        """Order asset IDs so children come before parents (leaf-first)."""
+        id_set = {str(aid) for aid in asset_ids}
+        ordered: List[UUID] = []
+        visited: set = set()
+
+        def visit(aid: UUID):
+            aid_str = str(aid)
+            if aid_str in visited or aid_str not in id_set:
+                return
+            visited.add(aid_str)
+            db_asset = self._asset_repo.get_with_relationships(db, aid)
+            if db_asset and db_asset.source_relationships:
+                for rel in db_asset.source_relationships:
+                    if rel.relationship_type in self._HIERARCHICAL_RELS:
+                        child_str = str(rel.target_asset_id)
+                        if child_str in id_set and child_str not in visited:
+                            visit(rel.target_asset_id)
+            ordered.append(aid)
+
+        for aid in asset_ids:
+            visit(aid)
+        return ordered
 
     # --- Relationship operations ---
 
