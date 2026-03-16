@@ -43,6 +43,7 @@ from src.models.data_contracts_api import (
     DataContractCreate,
     DataContractUpdate,
     DataContractRead,
+    DataContractSummary,
     DataContractCommentCreate,
     DataContractCommentRead,
 )
@@ -81,7 +82,7 @@ def get_jobs_manager(request: Request):
 
  
 
-@router.get('/data-contracts', response_model=list[DataContractRead])
+@router.get('/data-contracts', response_model=list[DataContractSummary])
 async def get_contracts(
     db: DBSessionDep,
     domain_id: Optional[str] = None,
@@ -101,26 +102,27 @@ async def get_contracts(
 
         logger.info(f"User {current_user.email if current_user else 'unknown'} fetching contracts (project_id: {project_id}, domain_id: {domain_id}, is_admin: {is_admin})")
 
-        # #region agent log
-        import time as _t; _dbg_list_t0 = _t.time()
-        # #endregion
         result = manager.list_contracts_from_db(
             db,
             domain_id=domain_id,
             project_id=project_id,
             is_admin=is_admin
         )
-        # #region agent log
-        import json as _json
-        _dbg_list_elapsed = _t.time() - _dbg_list_t0
-        _dbg_log = _json.dumps({"sessionId":"89fd1d","hypothesisId":"C","location":"data_contracts_routes.py:get_contracts","message":"list contracts timing","data":{"elapsed_s":round(_dbg_list_elapsed,2),"count":len(result)},"timestamp":int(_t.time()*1000)})
-        with open("/Users/lars.george/Documents/dev/dbapp/ucapp/.cursor/debug-89fd1d.log","a") as _f: _f.write(_dbg_log+"\n")
-        # #endregion
         return result
     except Exception as e:
         error_msg = f"Error retrieving data contracts: {e!s}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+@router.get('/data-contracts/count')
+async def get_contracts_count(
+    db: DBSessionDep,
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_ONLY))
+):
+    """Get total count of data contracts without loading any relationships."""
+    count = db.query(DataContractDb).count()
+    return {"count": count}
+
 
 @router.get('/data-contracts/{contract_id}', response_model=DataContractRead)
 async def get_contract(
@@ -1055,35 +1057,18 @@ async def upload_contract(
             logger.warning(warning)
         
         # Create contract with all nested entities using manager
-        # #region agent log
-        import time as _t; _dbg_upload_t0 = _t.time()
-        # #endregion
         created = manager.create_from_upload(
             db=db,
             parsed_odcs=parsed,
             current_user=current_user.username if current_user else None
         )
-        # #region agent log
-        _dbg_upload_t1 = _t.time()
-        # #endregion
         
         success = True
         created_contract_id = created.id
 
         # Load with relationships for response
         created_with_relations = data_contract_repo.get_with_all(db, id=created.id)
-        # #region agent log
-        _dbg_upload_t2 = _t.time()
-        # #endregion
         result = manager._build_contract_api_model(db, created_with_relations)
-        # #region agent log
-        _dbg_upload_t3 = _t.time()
-        _dbg_sc = len(result.contract_schema) if hasattr(result, 'contract_schema') else 0
-        _dbg_pc = sum(len(s.properties) for s in result.contract_schema) if hasattr(result, 'contract_schema') else 0
-        import json as _json
-        _dbg_log = _json.dumps({"sessionId":"89fd1d","hypothesisId":"B","location":"data_contracts_routes.py:upload_contract","message":"upload timing","data":{"create_from_upload_s":round(_dbg_upload_t1-_dbg_upload_t0,2),"get_with_all_s":round(_dbg_upload_t2-_dbg_upload_t1,2),"build_api_model_s":round(_dbg_upload_t3-_dbg_upload_t2,2),"total_s":round(_dbg_upload_t3-_dbg_upload_t0,2),"schemas":_dbg_sc,"props":_dbg_pc},"timestamp":int(_t.time()*1000)})
-        with open("/Users/lars.george/Documents/dev/dbapp/ucapp/.cursor/debug-89fd1d.log","a") as _f: _f.write(_dbg_log+"\n")
-        # #endregion
         return result
 
     except ValueError as e:
@@ -1133,6 +1118,110 @@ async def get_odcs_schema(_perm: bool = Depends(PermissionChecker('data-contract
 
 
 # ODCS import functionality now handled by /data-contracts/upload endpoint
+
+
+# --- Lazy Schema / Properties Endpoints ---
+
+@router.get('/data-contracts/{contract_id}/schemas')
+async def get_contract_schemas(
+    contract_id: str,
+    db: DBSessionDep,
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_ONLY))
+):
+    """List schema objects for a contract (names + property counts, no properties loaded)."""
+    from sqlalchemy import func as sa_func
+    contract = data_contract_repo.get(db, id=contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    rows = (
+        db.query(
+            SchemaObjectDb.id,
+            SchemaObjectDb.name,
+            SchemaObjectDb.physical_name,
+            SchemaObjectDb.business_name,
+            SchemaObjectDb.physical_type,
+            SchemaObjectDb.description,
+            sa_func.count(SchemaPropertyDb.id).label("property_count")
+        )
+        .outerjoin(SchemaPropertyDb, SchemaPropertyDb.object_id == SchemaObjectDb.id)
+        .filter(SchemaObjectDb.contract_id == contract_id)
+        .group_by(SchemaObjectDb.id)
+        .order_by(SchemaObjectDb.name)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "physicalName": r.physical_name,
+            "businessName": r.business_name,
+            "physicalType": r.physical_type,
+            "description": r.description,
+            "propertyCount": r.property_count,
+        }
+        for r in rows
+    ]
+
+
+@router.get('/data-contracts/{contract_id}/schemas/{schema_name}/properties')
+async def get_schema_properties(
+    contract_id: str,
+    schema_name: str,
+    db: DBSessionDep,
+    skip: int = 0,
+    limit: int = 50,
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_ONLY))
+):
+    """Get paginated properties for a specific schema object."""
+    from sqlalchemy import func as sa_func
+
+    schema_obj = (
+        db.query(SchemaObjectDb)
+        .filter(SchemaObjectDb.contract_id == contract_id, SchemaObjectDb.name == schema_name)
+        .first()
+    )
+    if not schema_obj:
+        raise HTTPException(status_code=404, detail=f"Schema '{schema_name}' not found")
+
+    total = db.query(sa_func.count(SchemaPropertyDb.id)).filter(SchemaPropertyDb.object_id == schema_obj.id).scalar()
+
+    props = (
+        db.query(SchemaPropertyDb)
+        .filter(SchemaPropertyDb.object_id == schema_obj.id)
+        .order_by(SchemaPropertyDb.name)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for p in props:
+        options = {}
+        if p.logical_type_options_json:
+            try:
+                options = json.loads(p.logical_type_options_json)
+            except Exception:
+                pass
+        item = {
+            "name": p.name,
+            "logicalType": p.logical_type or "string",
+            "physicalType": p.physical_type,
+            "required": p.required,
+            "unique": p.unique,
+            "primaryKey": p.primary_key,
+            "primaryKeyPosition": p.primary_key_position,
+            "partitioned": p.partitioned,
+            "partitionKeyPosition": p.partition_key_position,
+            "classification": p.classification,
+            "description": p.transform_description,
+            "businessName": p.business_name,
+            "criticalDataElement": p.critical_data_element,
+        }
+        item.update(options)
+        items.append(item)
+
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
 
 
 @router.get('/data-contracts/{contract_id}/odcs/export')

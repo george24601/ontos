@@ -86,7 +86,7 @@ export default function Home() {
         }));
       });
 
-    fetch('/api/data-contracts')
+    fetch('/api/data-contracts/count')
        .then(response => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
@@ -94,11 +94,11 @@ export default function Home() {
       .then(data => {
         setStats(prev => ({
           ...prev,
-          dataContracts: { count: Array.isArray(data) ? data.length : 0, loading: false, error: null }
+          dataContracts: { count: data.count ?? 0, loading: false, error: null }
         }));
       })
       .catch(error => {
-        console.error('Error fetching data contracts:', error);
+        console.error('Error fetching data contracts count:', error);
         setStats(prev => ({
           ...prev,
           dataContracts: { count: 0, loading: false, error: error.message }
