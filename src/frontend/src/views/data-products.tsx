@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Pencil, Trash2, AlertCircle, Package, ChevronDown, Upload, Loader2, Sparkles, KeyRound, Table as TableIcon, Workflow, Bell, BellOff, HelpCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertCircle, Package, ChevronDown, Upload, Loader2, Sparkles, KeyRound, Table as TableIcon, Workflow, Bell, BellOff, HelpCircle, Eye } from 'lucide-react';
 import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ViewModeToggle } from '@/components/common/view-mode-toggle';
@@ -20,6 +20,7 @@ import { RelativeDate } from '@/components/common/relative-date';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DataTable } from "@/components/ui/data-table";
 import DataProductCreateDialog from '@/components/data-products/data-product-create-dialog';
+import EntityInfoDialog from '@/components/metadata/entity-info-dialog';
 import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import { useNotificationsStore } from '@/stores/notifications-store';
@@ -70,6 +71,8 @@ export default function DataProducts() {
   // const [productTypes, setProductTypes] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<'table' | 'graph'>('table');
+  const [previewProductId, setPreviewProductId] = useState<string | null>(null);
+  const [previewProductTitle, setPreviewProductTitle] = useState('');
 
   // Subscription filter state
   const [showMySubscriptions, setShowMySubscriptions] = useState(false);
@@ -604,6 +607,14 @@ export default function DataProducts() {
             <Button
                 variant="ghost"
                 size="icon"
+                onClick={(e) => { e.stopPropagation(); setPreviewProductId(product.id ?? null); setPreviewProductTitle(product.title ?? ''); }}
+                title="Preview Metadata"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => handleEditClick(product)}
                 disabled={!canWrite || permissionsLoading}
                 title={canWrite ? "Edit" : "Edit (Permission Denied)"}
@@ -810,6 +821,14 @@ export default function DataProducts() {
           )}
         </div>
       )}
+
+      <EntityInfoDialog
+        entityType="data_product"
+        entityId={previewProductId}
+        open={!!previewProductId}
+        onOpenChange={(o) => { if (!o) setPreviewProductId(null); }}
+        title={previewProductTitle}
+      />
 
       {/* Render the Simple Create Dialog */}
       <DataProductCreateDialog

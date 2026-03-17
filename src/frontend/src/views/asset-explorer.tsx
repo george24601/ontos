@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { AssetRead, AssetTypeRead } from '@/types/asset';
 import { EntityTypeDefinition } from '@/types/ontology-schema';
 import { AssetFormDialog } from '@/components/common/asset-form-dialog';
+import EntityInfoDialog from '@/components/metadata/entity-info-dialog';
 import AssetImportExportDialog from '@/components/assets/asset-import-export-dialog';
 import { AssetDeleteDialog } from '@/components/assets/asset-delete-dialog';
 import { useApi } from '@/hooks/use-api';
@@ -74,6 +75,8 @@ export default function AssetExplorerView() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [nameFilter, setNameFilter] = useState('');
   const [debouncedNameFilter, setDebouncedNameFilter] = useState('');
+  const [previewAssetId, setPreviewAssetId] = useState<string | null>(null);
+  const [previewAssetTitle, setPreviewAssetTitle] = useState('');
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -381,6 +384,11 @@ export default function AssetExplorerView() {
                 View details
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={() => { setPreviewAssetId(row.original.id ?? null); setPreviewAssetTitle(row.original.name ?? ''); }}
+              >
+                <Eye className="mr-2 h-4 w-4" /> Preview metadata
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 disabled={!canWrite}
                 onClick={() => { setEditingAsset(row.original); setIsFormOpen(true); }}
               >
@@ -656,6 +664,14 @@ export default function AssetExplorerView() {
           }}
         />
       )}
+
+      <EntityInfoDialog
+        entityType="asset"
+        entityId={previewAssetId}
+        open={!!previewAssetId}
+        onOpenChange={(o) => { if (!o) setPreviewAssetId(null); }}
+        title={previewAssetTitle}
+      />
 
       <AssetImportExportDialog
         isOpen={isImportExportOpen}

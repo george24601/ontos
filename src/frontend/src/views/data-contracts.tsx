@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import TagChip from '@/components/ui/tag-chip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, ChevronRight, KeyRound, HelpCircle, FileText, Table2, Loader2, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertCircle, Upload, ChevronDown, ChevronRight, KeyRound, HelpCircle, FileText, Table2, Loader2, X, Eye } from 'lucide-react';
 import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import DataContractBasicFormDialog from '@/components/data-contracts/data-contract-basic-form-dialog'
@@ -21,6 +21,7 @@ import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import { useProjectContext } from '@/stores/project-store';
 import { DataTable } from '@/components/ui/data-table';
 import { RelativeDate } from '@/components/common/relative-date';
+import EntityInfoDialog from '@/components/metadata/entity-info-dialog';
 
 export default function DataContracts() {
   const { t } = useTranslation(['data-contracts', 'common']);
@@ -37,6 +38,8 @@ export default function DataContracts() {
   const [odcsPaste, setOdcsPaste] = useState<string>('')
   const [importingPaste, setImportingPaste] = useState(false)
   const [showErrorDetail, setShowErrorDetail] = useState(false)
+  const [previewContractId, setPreviewContractId] = useState<string | null>(null);
+  const [previewContractTitle, setPreviewContractTitle] = useState('');
 
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
@@ -418,6 +421,14 @@ export default function DataContracts() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={(e) => { e.stopPropagation(); setPreviewContractId(contract.id ?? null); setPreviewContractTitle(contract.title ?? ''); }}
+              title="Preview Metadata"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={(e) => { e.stopPropagation(); contract.id && navigate(`${pathname}/${contract.id}`) }}
               title={t('common:tooltips.edit')}
             >
@@ -653,6 +664,14 @@ export default function DataContracts() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <EntityInfoDialog
+        entityType="data_contract"
+        entityId={previewContractId}
+        open={!!previewContractId}
+        onOpenChange={(o) => { if (!o) setPreviewContractId(null); }}
+        title={previewContractTitle}
+      />
 
       {/* Basic Form Dialog */}
       <DataContractBasicFormDialog

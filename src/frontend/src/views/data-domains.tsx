@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, PlusCircle, AlertCircle, BoxSelect, TableIcon, WorkflowIcon, Loader2, ChevronDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, AlertCircle, BoxSelect, TableIcon, WorkflowIcon, Loader2, ChevronDown, Eye } from 'lucide-react';
 import { ListViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -27,6 +27,7 @@ import DataDomainGraphView from '@/components/data-domains/data-domain-graph-vie
 import { ViewModeToggle } from '@/components/common/view-mode-toggle';
 import { useProjectContext } from '@/stores/project-store';
 import { useTranslation } from 'react-i18next';
+import EntityInfoDialog from '@/components/metadata/entity-info-dialog';
 
 // Placeholder for Graph View
 // const DataDomainGraphViewPlaceholder = () => (
@@ -56,6 +57,8 @@ export default function DataDomainsView() {
   const [deletingDomainId, setDeletingDomainId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'graph'>('table');
+  const [previewDomainId, setPreviewDomainId] = useState<string | null>(null);
+  const [previewDomainTitle, setPreviewDomainTitle] = useState('');
 
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
   const { toast } = useToast();
@@ -263,6 +266,9 @@ export default function DataDomainsView() {
               <DropdownMenuItem onClick={() => handleNavigateToDomain(domain.id)}>
                 {t('viewDetails')}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setPreviewDomainId(domain.id ?? null); setPreviewDomainTitle(domain.name ?? ''); }}>
+                <Eye className="mr-2 h-4 w-4" /> Preview metadata
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleOpenEditDialog(domain)} disabled={!canWrite}>
                 {t('editDomain')}
               </DropdownMenuItem>
@@ -342,6 +348,14 @@ export default function DataDomainsView() {
           )}
         </div>
       )}
+
+      <EntityInfoDialog
+        entityType="data_domain"
+        entityId={previewDomainId}
+        open={!!previewDomainId}
+        onOpenChange={(o) => { if (!o) setPreviewDomainId(null); }}
+        title={previewDomainTitle}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
