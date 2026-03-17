@@ -110,7 +110,7 @@ function PortLinkedAssets({ portId, portName, canEdit }: { portId: string; portN
   const handleLinkAssets = async (assets: any[]) => {
     try {
       for (const asset of assets) {
-        await fetch('/api/entities/relationships', {
+        const res = await fetch('/api/entity-relationships', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -121,6 +121,7 @@ function PortLinkedAssets({ portId, portName, canEdit }: { portId: string; portN
             relationship_type: asset.relationshipType || `portHas${asset.asset_type_name || 'Table'}`,
           }),
         });
+        if (!res.ok) throw new Error(`Failed to link asset: ${res.statusText}`);
       }
       toast({ title: 'Assets linked', description: `${assets.length} asset(s) linked to ${portName}` });
       fetchRelationships();
@@ -131,7 +132,7 @@ function PortLinkedAssets({ portId, portName, canEdit }: { portId: string; portN
 
   const handleUnlinkAsset = async (relId: string) => {
     try {
-      const res = await fetch(`/api/entities/relationships/${relId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/entity-relationships/${relId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to unlink asset');
       toast({ title: 'Asset unlinked' });
       fetchRelationships();

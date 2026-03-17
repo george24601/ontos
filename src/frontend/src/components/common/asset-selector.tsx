@@ -84,13 +84,14 @@ export function AssetSelector({
     }
     setLoading(true);
     try {
-      let url = `/api/assets?search=${encodeURIComponent(query)}&limit=20`;
+      let url = `/api/assets?name=${encodeURIComponent(query)}&limit=20`;
       if (targetAssetTypes && targetAssetTypes.length > 0) {
-        url += `&asset_type=${encodeURIComponent(targetAssetTypes.join(','))}`;
+        url += `&asset_type_names=${encodeURIComponent(targetAssetTypes.join(','))}`;
       }
-      const response = await apiGet<AssetSearchResult[]>(url);
-      if (!response.error && Array.isArray(response.data)) {
-        const filtered = response.data.filter(a => !excludeAssetIds.includes(a.id));
+      const response = await apiGet<{ items: AssetSearchResult[]; total: number }>(url);
+      const items = response.data?.items;
+      if (!response.error && Array.isArray(items)) {
+        const filtered = items.filter(a => !excludeAssetIds.includes(a.id));
         setResults(filtered);
       } else {
         setResults([]);
@@ -126,7 +127,7 @@ export function AssetSelector({
       relationshipType,
     }));
     onConfirm(assets);
-    resetState();
+    onOpenChange(false);
   };
 
   const resetState = () => {
