@@ -5,21 +5,18 @@ interface ComplianceTrendMiniProps {
   className?: string;
 }
 
-// Default mock data: compliance scores over 30 days
-const DEFAULT_DATA = [
-  75, 76, 78, 79, 80, 81, 82, 83, 84, 85,
-  86, 87, 88, 89, 90, 89, 88, 87, 86, 85,
-  84, 85, 86, 87, 88, 89, 88, 87, 86, 87
-];
-
 export default function ComplianceTrendMini({
-  data = DEFAULT_DATA,
+  data,
   className = ''
 }: ComplianceTrendMiniProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Use default data if provided data is empty or invalid
-  const chartData = !data || data.length === 0 ? DEFAULT_DATA : data;
+  // Don't render if no data is provided
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  const chartData = data;
 
   const width = 280;
   const height = 110;
