@@ -21,12 +21,15 @@ import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 import { useTranslation } from 'react-i18next';
+import { AssetTypeFormDialog } from '@/components/asset-types/asset-type-form-dialog';
 
 export default function AssetTypesView() {
   const [assetTypes, setAssetTypes] = useState<AssetTypeRead[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingAssetType, setEditingAssetType] = useState<AssetTypeRead | null>(null);
 
   const { t } = useTranslation(['asset-types', 'common']);
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
@@ -156,7 +159,7 @@ export default function AssetTypesView() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t('table.actions')}</DropdownMenuLabel>
-            <DropdownMenuItem disabled={!canWrite}>{t('editAssetType')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!canWrite} onClick={() => { setEditingAssetType(row.original); setIsFormOpen(true); }}>{t('editAssetType')}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => openDeleteDialog(row.original.id)}
@@ -202,12 +205,19 @@ export default function AssetTypesView() {
           searchColumn="name"
           storageKey="asset-types-sort"
           toolbarActions={
-            <Button onClick={() => {}} disabled={!canWrite || apiIsLoading} className="h-9">
+            <Button onClick={() => { setEditingAssetType(null); setIsFormOpen(true); }} disabled={!canWrite || apiIsLoading} className="h-9">
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addNew')}
             </Button>
           }
         />
       )}
+
+      <AssetTypeFormDialog
+        isOpen={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        assetType={editingAssetType}
+        onSubmitSuccess={fetchAssetTypes}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

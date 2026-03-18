@@ -46,5 +46,27 @@
   "emptyState": {
     "title": "No business roles defined yet",
     "description": "Create your first business role (e.g., Data Owner, Domain Owner)."
+  },
+  "form": {
+    "createTitle": "Create Business Role",
+    "createDescription": "Add a new business role that can be assigned to users.",
+    "editTitle": "Edit Business Role",
+    "editDescription": "Update the details of this business role.",
+    "create": "Create",
+    "update": "Save Changes",
+    "noCategory": "No category",
+    "placeholders": {
+      "name": "e.g., Data Owner",
+      "description": "Describe the responsibilities of this role...",
+      "category": "Select a category"
+    },
+    "toasts": {
+      "created": "Business Role Created",
+      "createdDescription": "\"{{name}}\" has been created.",
+      "updated": "Business Role Updated",
+      "updatedDescription": "\"{{name}}\" has been updated.",
+      "createFailed": "Failed to Create",
+      "updateFailed": "Failed to Update"
+    }
   }
 }

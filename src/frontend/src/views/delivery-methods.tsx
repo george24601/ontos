@@ -21,12 +21,15 @@ import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 import { useTranslation } from 'react-i18next';
+import { DeliveryMethodFormDialog } from '@/components/delivery-methods/delivery-method-form-dialog';
 
 export default function DeliveryMethodsView() {
   const [methods, setMethods] = useState<DeliveryMethodRead[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingMethod, setEditingMethod] = useState<DeliveryMethodRead | null>(null);
 
   const { t } = useTranslation(['delivery-methods', 'common']);
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
@@ -149,7 +152,7 @@ export default function DeliveryMethodsView() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t('table.actions')}</DropdownMenuLabel>
-            <DropdownMenuItem disabled={!canWrite}>{t('editMethod')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!canWrite} onClick={() => { setEditingMethod(row.original); setIsFormOpen(true); }}>{t('editMethod')}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => openDeleteDialog(row.original.id)}
@@ -195,12 +198,19 @@ export default function DeliveryMethodsView() {
           searchColumn="name"
           storageKey="delivery-methods-sort"
           toolbarActions={
-            <Button onClick={() => {}} disabled={!canWrite || apiIsLoading} className="h-9">
+            <Button onClick={() => { setEditingMethod(null); setIsFormOpen(true); }} disabled={!canWrite || apiIsLoading} className="h-9">
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addNew')}
             </Button>
           }
         />
       )}
+
+      <DeliveryMethodFormDialog
+        isOpen={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        method={editingMethod}
+        onSubmitSuccess={fetchMethods}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

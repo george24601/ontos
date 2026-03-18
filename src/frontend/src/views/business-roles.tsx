@@ -21,12 +21,15 @@ import { usePermissions } from '@/stores/permissions-store';
 import { FeatureAccessLevel } from '@/types/settings';
 import SettingsPageWrapper from '@/components/settings/settings-page-wrapper';
 import { useTranslation } from 'react-i18next';
+import { BusinessRoleFormDialog } from '@/components/business-roles/business-role-form-dialog';
 
 export default function BusinessRolesView() {
   const [roles, setRoles] = useState<BusinessRoleRead[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<BusinessRoleRead | null>(null);
 
   const { t } = useTranslation(['business-roles', 'common']);
   const { get: apiGet, delete: apiDelete, loading: apiIsLoading } = useApi();
@@ -149,7 +152,7 @@ export default function BusinessRolesView() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t('table.actions')}</DropdownMenuLabel>
-            <DropdownMenuItem disabled={!canWrite}>{t('editRole')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!canWrite} onClick={() => { setEditingRole(row.original); setIsFormOpen(true); }}>{t('editRole')}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => openDeleteDialog(row.original.id)}
@@ -195,12 +198,19 @@ export default function BusinessRolesView() {
           searchColumn="name"
           storageKey="business-roles-sort"
           toolbarActions={
-            <Button onClick={() => {}} disabled={!canWrite || apiIsLoading} className="h-9">
+            <Button onClick={() => { setEditingRole(null); setIsFormOpen(true); }} disabled={!canWrite || apiIsLoading} className="h-9">
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addNew')}
             </Button>
           }
         />
       )}
+
+      <BusinessRoleFormDialog
+        isOpen={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        role={editingRole}
+        onSubmitSuccess={fetchRoles}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

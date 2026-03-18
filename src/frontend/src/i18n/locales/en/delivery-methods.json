@@ -46,5 +46,27 @@
   "emptyState": {
     "title": "No delivery methods defined yet",
     "description": "Create your first delivery method (e.g., Table Access, Serving Endpoint, File Export)."
+  },
+  "form": {
+    "createTitle": "Create Delivery Method",
+    "createDescription": "Add a new delivery method for data distribution.",
+    "editTitle": "Edit Delivery Method",
+    "editDescription": "Update the details of this delivery method.",
+    "create": "Create",
+    "update": "Save Changes",
+    "noCategory": "No category",
+    "placeholders": {
+      "name": "e.g., Table Access",
+      "description": "Describe how data is delivered...",
+      "category": "Select a category"
+    },
+    "toasts": {
+      "created": "Delivery Method Created",
+      "createdDescription": "\"{{name}}\" has been created.",
+      "updated": "Delivery Method Updated",
+      "updatedDescription": "\"{{name}}\" has been updated.",
+      "createFailed": "Failed to Create",
+      "updateFailed": "Failed to Update"
+    }
   }
 }

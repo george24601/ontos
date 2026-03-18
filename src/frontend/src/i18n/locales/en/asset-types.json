@@ -47,5 +47,31 @@
   "emptyState": {
     "title": "No asset types defined yet",
     "description": "Create your first asset type to start defining asset templates."
+  },
+  "form": {
+    "createTitle": "Create Asset Type",
+    "createDescription": "Add a new asset type template.",
+    "editTitle": "Edit Asset Type",
+    "editDescription": "Update the details of this asset type.",
+    "create": "Create",
+    "update": "Save Changes",
+    "noCategory": "No category",
+    "labels": {
+      "icon": "Icon"
+    },
+    "placeholders": {
+      "name": "e.g., Dashboard",
+      "description": "Describe this asset type...",
+      "category": "Select a category",
+      "icon": "e.g., BarChart"
+    },
+    "toasts": {
+      "created": "Asset Type Created",
+      "createdDescription": "\"{{name}}\" has been created.",
+      "updated": "Asset Type Updated",
+      "updatedDescription": "\"{{name}}\" has been updated.",
+      "createFailed": "Failed to Create",
+      "updateFailed": "Failed to Update"
+    }
   }
 }
