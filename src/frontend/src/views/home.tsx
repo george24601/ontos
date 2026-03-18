@@ -13,7 +13,7 @@ import RequestRoleSection from '@/components/home/request-role-section';
 import QuickActions from '@/components/home/quick-actions';
 import RecentActivity from '@/components/home/recent-activity';
 import { useUserStore } from '@/stores/user-store';
-import OverviewTile from '@/components/home/overview-tile';
+import ConnectedOverviewTile from '@/components/home/connected-overview-tile';
 import { tileRegistry, tileOrder } from '@/tiles';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -90,23 +90,9 @@ export default function Home() {
               </div>
             ) : availableTiles.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {availableTiles.map((tile) => {
-                  const data = tile.useTileData();
-                  return (
-                    <OverviewTile
-                      key={tile.id}
-                      icon={tile.icon}
-                      title={t(tile.titleKey)}
-                      value={data.value}
-                      loading={data.loading}
-                      error={data.error}
-                      link={tile.link}
-                      description={t(tile.descriptionKey)}
-                    >
-                      {tile.renderContent?.(data)}
-                    </OverviewTile>
-                  );
-                })}
+                {availableTiles.map((tile) => (
+                  <ConnectedOverviewTile key={tile.id} tile={tile} />
+                ))}
               </div>
             ) : (
               <p className="text-muted-foreground text-center col-span-full">
