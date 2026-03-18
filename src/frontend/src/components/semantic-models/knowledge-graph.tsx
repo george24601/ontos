@@ -288,10 +288,14 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       (c) => c.concept_type === 'class' || c.concept_type === 'concept' || c.concept_type === 'property'
     );
 
-    // Identify root nodes (nodes with no parents)
-    const rootNodes = visibleConcepts.filter(
-      (c) => !c.parent_concepts || c.parent_concepts.length === 0
-    );
+    // Build concept map for fast lookups
+    const conceptMap = new Map(visibleConcepts.map(c => [c.iri, c]));
+
+    // Identify root nodes: no parents, OR all parents are outside the visible set
+    const rootNodes = visibleConcepts.filter((c) => {
+      if (!c.parent_concepts || c.parent_concepts.length === 0) return true;
+      return c.parent_concepts.every(parentIri => !conceptMap.has(parentIri));
+    });
 
     // Generate colors for each root
     const rootColors = new Map<string, string>();
@@ -299,8 +303,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       rootColors.set(root.iri, DOMAIN_COLORS[index % DOMAIN_COLORS.length]);
     });
 
-    // Build concept map and find root for each node
-    const conceptMap = new Map(visibleConcepts.map(c => [c.iri, c]));
     const nodeToRoot = new Map<string, string>();
 
     const findRoot = (iri: string, visited = new Set<string>()): string | null => {
@@ -311,6 +313,11 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       if (!concept) return null;
       
       if (!concept.parent_concepts || concept.parent_concepts.length === 0) {
+        return iri;
+      }
+
+      // All parents external → this is a root in the visible set
+      if (concept.parent_concepts.every(p => !conceptMap.has(p))) {
         return iri;
       }
       

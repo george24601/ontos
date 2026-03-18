@@ -56,25 +56,40 @@ export default function OntologyHomeView() {
     return Array.from(sources).sort();
   }, [groupedConcepts, groupedProperties]);
 
-  // Filter concepts based on hidden sources
+  // Per-source concept counts (unaffected by filter/dedup — shows what each source contains)
+  const sourceConceptCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const [source, concepts] of Object.entries(groupedConcepts)) {
+      counts[source] = (counts[source] || 0) + concepts.length;
+    }
+    for (const [source, props] of Object.entries(groupedProperties)) {
+      counts[source] = (counts[source] || 0) + props.length;
+    }
+    return counts;
+  }, [groupedConcepts, groupedProperties]);
+
+  // Filter concepts: apply source filter FIRST, then deduplicate by IRI.
+  // This prevents cross-source deduplication from hiding concepts when the
+  // user selects only one of several sources that share the same IRIs.
   const filteredConcepts = useMemo(() => {
     const allConcepts = Object.values(groupedConcepts).flat();
     const allProperties = showProperties ? Object.values(groupedProperties).flat() : [];
+    const all = [...allConcepts, ...allProperties];
+
+    const sourceFiltered = hiddenSources.length === 0
+      ? all
+      : all.filter(item => !item.source_context || !hiddenSources.includes(item.source_context));
 
     const seenIris = new Set<string>();
     const combined: OntologyConcept[] = [];
-    for (const item of [...allConcepts, ...allProperties]) {
+    for (const item of sourceFiltered) {
       if (!showProperties && item.concept_type === 'property') continue;
       if (!seenIris.has(item.iri)) {
         seenIris.add(item.iri);
         combined.push(item);
       }
     }
-
-    if (hiddenSources.length === 0) return combined;
-    return combined.filter(
-      (item) => !item.source_context || !hiddenSources.includes(item.source_context)
-    );
+    return combined;
   }, [groupedConcepts, groupedProperties, hiddenSources, showProperties]);
 
   // Breadcrumbs
@@ -179,8 +194,8 @@ export default function OntologyHomeView() {
         <div className="flex-1 flex flex-col">
           {/* Filter Panel */}
           <GlossaryFilterPanel
-            groupedConcepts={groupedConcepts}
             filteredConcepts={filteredConcepts}
+            sourceConceptCounts={sourceConceptCounts}
             availableSources={availableSources}
             hiddenSources={hiddenSources}
             onToggleSource={toggleSource}

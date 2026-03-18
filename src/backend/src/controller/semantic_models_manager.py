@@ -112,6 +112,11 @@ class SemanticModelsManager:
         self._graph = ConjunctiveGraph()
         # Cache for expensive operations (TTL: 5 minutes)
         self._cache: Dict[str, CachedResult] = {}
+        # In-memory caches populated during rebuild — always authoritative
+        # when set, bypassing the file-based persistent cache.
+        self._cached_concepts: Optional[List[OntologyConcept]] = None
+        self._cached_taxonomies: Optional[List] = None
+        self._cached_stats: Optional[TaxonomyStats] = None
         logger.info(f"SemanticModelsManager initialized with data_dir: {self._data_dir}")
         # Load file-based taxonomies immediately
         try:
@@ -919,6 +924,12 @@ class SemanticModelsManager:
                 # Remove temp directory
                 temp_dir.rmdir()
 
+                # Update in-memory caches so subsequent API calls
+                # see the freshly computed data immediately.
+                self._cached_concepts = all_concepts
+                self._cached_taxonomies = taxonomies
+                self._cached_stats = stats
+
                 logger.info("Persistent caches built successfully")
 
             except Exception as e:
@@ -1628,7 +1639,11 @@ class SemanticModelsManager:
     
     def get_taxonomies(self) -> List[SemanticModelOntology]:
         """Get all available taxonomies/ontologies with their metadata"""
-        # Check persistent cache first
+        # Prefer in-memory cache (always fresh after rebuild)
+        if self._cached_taxonomies is not None:
+            return self._cached_taxonomies
+
+        # Cold start: fall back to persistent file cache
         cache_file = self._data_dir / "cache" / "taxonomies.json"
         if cache_file.exists():
             try:
@@ -1638,7 +1653,6 @@ class SemanticModelsManager:
             except Exception as e:
                 logger.warning(f"Failed to load taxonomies from persistent cache: {e}")
 
-        # Fallback to live computation
         logger.warning("Persistent cache not found for taxonomies, computing live")
         taxonomies = self._compute_taxonomies()
         return taxonomies
@@ -2164,7 +2178,11 @@ class SemanticModelsManager:
     
     def get_taxonomy_stats(self) -> TaxonomyStats:
         """Get statistics about loaded taxonomies"""
-        # Check persistent cache first
+        # Prefer in-memory cache (always fresh after rebuild)
+        if self._cached_stats is not None:
+            return self._cached_stats
+
+        # Cold start: fall back to persistent file cache
         cache_file = self._data_dir / "cache" / "stats.json"
         if cache_file.exists():
             try:
@@ -2174,7 +2192,6 @@ class SemanticModelsManager:
             except Exception as e:
                 logger.warning(f"Failed to load stats from persistent cache: {e}")
 
-        # Fallback to live computation
         logger.warning("Persistent cache not found for stats, computing live")
         taxonomies = self.get_taxonomies()
         all_concepts = self.get_concepts_by_taxonomy()
@@ -2187,20 +2204,23 @@ class SemanticModelsManager:
         Group key is derived from OntologyConcept.source_context, or 'Unassigned' when missing.
         Concepts in each group are sorted by label (fallback to IRI).
         """
-        # Check persistent cache first
-        cache_file = self._data_dir / "cache" / "concepts_all.json"
-        if cache_file.exists():
-            try:
-                with open(cache_file, "r") as f:
-                    data = json.load(f)
-                    concepts = [OntologyConcept(**item) for item in data]
-            except Exception as e:
-                logger.warning(f"Failed to load concepts from persistent cache: {e}")
-                concepts = self.get_concepts_by_taxonomy()
+        # Prefer in-memory cache (always fresh after rebuild)
+        if self._cached_concepts is not None:
+            concepts = self._cached_concepts
         else:
-            # Fallback to live computation
-            logger.warning("Persistent cache not found for concepts, computing live")
-            concepts = self.get_concepts_by_taxonomy()
+            # Cold start: fall back to persistent file cache
+            cache_file = self._data_dir / "cache" / "concepts_all.json"
+            if cache_file.exists():
+                try:
+                    with open(cache_file, "r") as f:
+                        data = json.load(f)
+                        concepts = [OntologyConcept(**item) for item in data]
+                except Exception as e:
+                    logger.warning(f"Failed to load concepts from persistent cache: {e}")
+                    concepts = self.get_concepts_by_taxonomy()
+            else:
+                logger.warning("Persistent cache not found for concepts, computing live")
+                concepts = self.get_concepts_by_taxonomy()
 
         # Group concepts by source_context
         grouped: Dict[str, List[OntologyConcept]] = {}

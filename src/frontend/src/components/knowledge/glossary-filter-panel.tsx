@@ -27,13 +27,13 @@ import {
   Languages,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OntologyConcept, GroupedConcepts } from '@/types/ontology';
+import type { OntologyConcept } from '@/types/ontology';
 import { getAvailableLanguages, getLanguageDisplayName } from '@/lib/ontology-utils';
 
 interface GlossaryFilterPanelProps {
   // Data for computing counts
-  groupedConcepts: GroupedConcepts;
   filteredConcepts: OntologyConcept[];
+  sourceConceptCounts: Record<string, number>;
   // Source filtering
   availableSources: string[];
   hiddenSources: string[];
@@ -56,8 +56,8 @@ interface GlossaryFilterPanelProps {
 }
 
 export const GlossaryFilterPanel: React.FC<GlossaryFilterPanelProps> = ({
-  groupedConcepts,
   filteredConcepts,
+  sourceConceptCounts,
   availableSources,
   hiddenSources,
   onToggleSource,
@@ -133,9 +133,7 @@ export const GlossaryFilterPanel: React.FC<GlossaryFilterPanelProps> = ({
           <div className="flex flex-wrap gap-2">
             {availableSources.map((source) => {
               const isVisible = !hiddenSources.includes(source);
-              const conceptCount = Object.values(groupedConcepts)
-                .flat()
-                .filter((c) => c.source_context === source).length;
+              const conceptCount = sourceConceptCounts[source] || 0;
               return (
                 <label
                   key={source}
