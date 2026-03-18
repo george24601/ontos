@@ -54,14 +54,13 @@ These tables use an `entity_type` + `entity_id` pattern to link to any entity.
 | `EntityQualityPanel` | `components/quality/entity-quality-panel.tsx` | `entityType`, `entityId`, `productAggregation?` |
 | `EntityMetadataPanel` | `components/metadata/entity-metadata-panel.tsx` | `entityType`, `entityId` |
 | `OwnershipPanel` | `components/common/ownership-panel.tsx` | `objectType`, `objectId` |
-| `EntityRelationshipPanel` | `components/common/entity-relationship-panel.tsx` | `entityType`, `entityId` |
+| `EntityTreePanel` | `components/common/entity-tree-panel.tsx` | `entityType`, `entityId` |
 | `CommentSidebar` | `components/comments/comment-sidebar.tsx` | `entityType`, `entityId` |
 | `RatingPanel` | `components/ratings/rating-panel.tsx` | `entityType`, `entityId` |
 | `AccessGrantsPanel` | `components/access/access-grants-panel.tsx` | `entityType`, `entityId` |
 | `BusinessLineageGraph` | `components/common/business-lineage-graph.tsx` | `entityType`, `entityId` |
 | `LineageEditor` | `components/common/lineage-editor.tsx` | `entityType`, `entityId` |
 | `ImpactAnalysisPanel` | `components/common/impact-analysis-panel.tsx` | `entityType`, `entityId` |
-| `ProductHierarchyPanel` | `components/data-products/product-hierarchy-panel.tsx` | `productId` (DataProduct only) |
 | `VersionHistoryPanel` | `components/data-contracts/version-history-panel.tsx` | `contractId` (DataContract only) |
 | `NodeLinksPanel` | `components/knowledge/node-links-panel.tsx` | concept props (Concept only) |
 
@@ -90,7 +89,6 @@ Legend: **Y** = yes, show/support | **—** = no, hide/skip | **Σ** = show summ
 | **Ownership** | Y | Y | Y | — | Y | — |
 | **Lineage** | — | Y | Y | — | — | — |
 | **Impact Analysis** | — | — | — | Y | — | — |
-| **Hierarchy** | — | Y | — | — | — | — |
 | **Version History** | — | — | Y | — | — | — |
 
 ### Notes – Tier 1

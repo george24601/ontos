@@ -44,13 +44,15 @@ import EntityQualityPanel from '@/components/quality/entity-quality-panel';
 import LinkContractToPortDialog from '@/components/data-products/link-contract-to-port-dialog';
 import VersioningRecommendationDialog from '@/components/common/versioning-recommendation-dialog';
 import { Link2, Unlink, GitBranch } from 'lucide-react';
-import { ProductHierarchyPanel } from '@/components/data-products/product-hierarchy-panel';
 import { AssetSelector } from '@/components/common/asset-selector';
-import { EntityRelationshipPanel } from '@/components/common/entity-relationship-panel';
+import { EntityTreePanel } from '@/components/common/entity-tree-panel';
 import { BusinessLineageView } from '@/components/lineage';
 import { ReadinessChecklist } from '@/components/data-products/readiness-checklist';
 import { LineageEditor } from '@/components/common/lineage-editor';
 import { useCopilotContext } from '@/hooks/use-copilot-context';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
+import type { QualitySummary } from '@/types/quality';
 
 /**
  * ODPS v1.0.0 Data Product Details View
@@ -265,6 +267,9 @@ export default function DataProductDetails() {
   const [subscriptionWizardOpen, setSubscriptionWizardOpen] = useState(false);
   const [subscriptionWorkflowId, setSubscriptionWorkflowId] = useState<string | null>(null);
 
+  // Quality summary for sidebar
+  const [qualitySummary, setQualitySummary] = useState<QualitySummary | null>(null);
+
   // Clone/Commit draft states
   const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
@@ -367,14 +372,16 @@ export default function DataProductDetails() {
     setDynamicTitle(t('details.loading'));
 
     try {
-      const [productResp, linksResp] = await Promise.all([
+      const [productResp, linksResp, qualityResp] = await Promise.all([
         get<DataProduct>(`/api/data-products/${productId}`),
         get<EntitySemanticLink[]>(`/api/semantic-links/entity/data_product/${productId}`),
+        get<QualitySummary>(`/api/data-products/${productId}/quality-summary`).catch(() => ({ data: null, error: null })),
       ]);
 
       const productData = checkApiResponse(productResp, 'Product Details');
       setProduct(productData);
       setLinks(Array.isArray(linksResp.data) ? linksResp.data : []);
+      setQualitySummary(qualityResp.data ?? null);
 
       // Fetch subscription status for current user
       try {
@@ -1300,132 +1307,220 @@ export default function DataProductDetails() {
         </Alert>
       )}
 
-      {/* Basic Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center">
-            <Package className="mr-3 h-7 w-7 text-primary" />
-            {product.name || 'Unnamed Product'}
-          </CardTitle>
-          <CardDescription className="pt-1">
-            {product.description?.purpose || 'No description provided'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid md:grid-cols-3 gap-x-6 gap-y-2">
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Status:</Label>
-              <Badge variant={getStatusColor(product.status)} className="text-xs">
-                {product.status || t('common:states.notAvailable')}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Version:</Label>
-              <Badge variant="outline" className="text-xs">{product.version || t('common:states.notAvailable')}</Badge>
-            </div>
-            {(viewMode !== 'minimal' || product.domain) && (
+      {/* Basic Info + Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
+        {/* Basic Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold flex items-center">
+              <Package className="mr-3 h-7 w-7 text-primary" />
+              {product.name || 'Unnamed Product'}
+            </CardTitle>
+            <CardDescription className="pt-1">
+              {product.description?.purpose || 'No description provided'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid md:grid-cols-3 gap-x-6 gap-y-2">
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">Domain:</Label>
-                {product.domain && getDomainIdByName(domainLabel) ? (
-                  <span
-                    className="text-xs cursor-pointer text-primary hover:underline truncate"
-                    onClick={() => navigate(`/data-domains/${getDomainIdByName(domainLabel)}`)}
-                  >
-                    {domainLabel}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">{domainLabel}</span>
-                )}
+                <Label className="text-xs text-muted-foreground min-w-[4rem]">Status:</Label>
+                <Badge variant={getStatusColor(product.status)} className="text-xs">
+                  {product.status || t('common:states.notAvailable')}
+                </Badge>
               </div>
-            )}
-            {(viewMode !== 'minimal' || ((product as any).project_id && product.project_name)) && (
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">Project:</Label>
-                {(product as any).project_id && product.project_name ? (
-                  <span
-                    className="text-xs cursor-pointer text-primary hover:underline truncate"
-                    onClick={() => navigate(`/projects/${(product as any).project_id}`)}
-                    title={`Project ID: ${(product as any).project_id}`}
-                  >
-                    {product.project_name}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
-                )}
+                <Label className="text-xs text-muted-foreground min-w-[4rem]">Version:</Label>
+                <Badge variant="outline" className="text-xs">{product.version || t('common:states.notAvailable')}</Badge>
               </div>
-            )}
-            {(viewMode !== 'minimal' || product.tenant) && (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">Tenant:</Label>
-                <span className="text-xs text-muted-foreground truncate">{product.tenant || t('common:states.notAssigned')}</span>
-              </div>
-            )}
-            {(viewMode !== 'minimal' || (product.owner_team_id && product.owner_team_name)) && (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
-                {product.owner_team_id && product.owner_team_name ? (
-                  <span
-                    className="text-xs cursor-pointer text-primary hover:underline truncate"
-                    onClick={() => navigate(`/teams/${product.owner_team_id}`)}
-                    title={`Team ID: ${product.owner_team_id}`}
-                  >
-                    {product.owner_team_name}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
-                )}
-              </div>
-            )}
-            {viewMode !== 'minimal' && (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">API Ver:</Label>
-                {product.apiVersion ? (
-                  <Badge variant="outline" className="text-xs">{product.apiVersion}</Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground">N/A</span>
-                )}
-              </div>
-            )}
-            {(viewMode !== 'minimal' || product.created_at) && (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">Created:</Label>
-                <span className="text-xs text-muted-foreground truncate">{formatDate(product.created_at)}</span>
-              </div>
-            )}
-            {(viewMode !== 'minimal' || product.updated_at) && (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground min-w-[4rem]">Updated:</Label>
-                <span className="text-xs text-muted-foreground truncate">{formatDate(product.updated_at)}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-2 border-t">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 min-w-0">
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Tags:</Label>
-                <div className="flex flex-wrap gap-1">
-                  {(product.tags || []).length > 0 ? (
-                    (product.tags || []).map((tag, index) => (
-                      <TagChip key={index} tag={tag} size="sm" />
-                    ))
+              {(viewMode !== 'minimal' || product.domain) && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">Domain:</Label>
+                  {product.domain && getDomainIdByName(domainLabel) ? (
+                    <span
+                      className="text-xs cursor-pointer text-primary hover:underline truncate"
+                      onClick={() => navigate(`/data-domains/${getDomainIdByName(domainLabel)}`)}
+                    >
+                      {domainLabel}
+                    </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">No tags</span>
+                    <span className="text-xs text-muted-foreground">{domainLabel}</span>
                   )}
                 </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Linked Business Concepts:</Label>
-                <LinkedConceptChips
-                  links={links}
-                  onRemove={canModify ? removeLink : undefined}
-                  trailing={canModify ? <Button size="sm" variant="outline" onClick={() => setIriDialogOpen(true)} className="h-6 text-xs">Add</Button> : undefined}
-                />
+              )}
+              {(viewMode !== 'minimal' || ((product as any).project_id && product.project_name)) && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">Project:</Label>
+                  {(product as any).project_id && product.project_name ? (
+                    <span
+                      className="text-xs cursor-pointer text-primary hover:underline truncate"
+                      onClick={() => navigate(`/projects/${(product as any).project_id}`)}
+                      title={`Project ID: ${(product as any).project_id}`}
+                    >
+                      {product.project_name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
+                  )}
+                </div>
+              )}
+              {(viewMode !== 'minimal' || product.tenant) && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">Tenant:</Label>
+                  <span className="text-xs text-muted-foreground truncate">{product.tenant || t('common:states.notAssigned')}</span>
+                </div>
+              )}
+              {(viewMode !== 'minimal' || (product.owner_team_id && product.owner_team_name)) && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
+                  {product.owner_team_id && product.owner_team_name ? (
+                    <span
+                      className="text-xs cursor-pointer text-primary hover:underline truncate"
+                      onClick={() => navigate(`/teams/${product.owner_team_id}`)}
+                      title={`Team ID: ${product.owner_team_id}`}
+                    >
+                      {product.owner_team_name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{t('common:states.notAssigned')}</span>
+                  )}
+                </div>
+              )}
+              {viewMode !== 'minimal' && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">API Ver:</Label>
+                  {product.apiVersion ? (
+                    <Badge variant="outline" className="text-xs">{product.apiVersion}</Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </div>
+              )}
+              {(viewMode !== 'minimal' || product.created_at) && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">Created:</Label>
+                  <span className="text-xs text-muted-foreground truncate">{formatDate(product.created_at)}</span>
+                </div>
+              )}
+              {(viewMode !== 'minimal' || product.updated_at) && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground min-w-[4rem]">Updated:</Label>
+                  <span className="text-xs text-muted-foreground truncate">{formatDate(product.updated_at)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Tags:</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {(product.tags || []).length > 0 ? (
+                      (product.tags || []).map((tag, index) => (
+                        <TagChip key={index} tag={tag} size="sm" />
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No tags</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Linked Business Concepts:</Label>
+                  <LinkedConceptChips
+                    links={links}
+                    onRemove={canModify ? removeLink : undefined}
+                    trailing={canModify ? <Button size="sm" variant="outline" onClick={() => setIriDialogOpen(true)} className="h-6 text-xs">Add</Button> : undefined}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Sidebar: Contacts + Quality */}
+        <div className="space-y-4">
+          {/* Contacts */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Contacts</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(() => {
+                const contacts = product.team?.members?.filter(
+                  (m) => m.role && ['owner', 'data owner', 'data steward', 'steward'].includes(m.role.toLowerCase())
+                );
+                if (contacts && contacts.length > 0) {
+                  return contacts.map((member, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                          {(member.name || member.username || '?')
+                            .split(/[\s.@]+/)
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((p) => p[0].toUpperCase())
+                            .join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{member.name || member.username}</div>
+                        <div className="text-xs text-muted-foreground">{member.role}</div>
+                      </div>
+                    </div>
+                  ));
+                }
+                if (product.owner_team_name) {
+                  return (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                          {product.owner_team_name.split(/\s+/).slice(0, 2).map((p) => p[0].toUpperCase()).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{product.owner_team_name}</div>
+                        <div className="text-xs text-muted-foreground">Owner Team</div>
+                      </div>
+                    </div>
+                  );
+                }
+                return <span className="text-xs text-muted-foreground">No contacts assigned</span>;
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Overall Data Quality */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Overall Data Quality (0-100%)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {qualitySummary && qualitySummary.items_count > 0 ? (
+                <div className="space-y-2">
+                  <div
+                    style={{
+                      '--progress-color': qualitySummary.overall_score_percent >= 80
+                        ? '#22c55e'
+                        : qualitySummary.overall_score_percent >= 50
+                          ? '#eab308'
+                          : '#ef4444',
+                    } as React.CSSProperties}
+                  >
+                    <Progress
+                      value={qualitySummary.overall_score_percent}
+                      className="h-3 [&>div]:!bg-[var(--progress-color)]"
+                    />
+                  </div>
+                  <div className="text-lg font-semibold">
+                    {Math.round(qualitySummary.overall_score_percent)}%
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">No quality data available</span>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Deliverables (Output Ports) – primary composition surface */}
       <Card>
@@ -1530,9 +1625,6 @@ export default function DataProductDetails() {
           )}
         </CardContent>
       </Card>
-
-      {/* Data Hierarchy: Product > Dataset > Table > Column */}
-      {productId && <ProductHierarchyPanel productId={productId} />}
 
       {/* ODPS Structured Description */}
       {product.description && (
@@ -1872,9 +1964,9 @@ export default function DataProductDetails() {
         <OwnershipPanel objectType="data_product" objectId={productId!} canAssign={canModify} className="mb-6" />
       )}
 
-      {/* Entity Relationships Panel */}
+      {/* Entity Relationships Panel (tree-based with drill-down) */}
       {shouldShowSection('entity-relationships') && (
-        <EntityRelationshipPanel
+        <EntityTreePanel
           entityType="DataProduct"
           entityId={productId!}
           title="Related Entities"

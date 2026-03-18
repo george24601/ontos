@@ -24,7 +24,7 @@ import { LineageEditor } from '@/components/common/lineage-editor';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { RelativeDate } from '@/components/common/relative-date';
-import { EntityRelationshipPanel } from '@/components/common/entity-relationship-panel';
+import { EntityTreePanel } from '@/components/common/entity-tree-panel';
 import { OwnershipPanel } from '@/components/common/ownership-panel';
 import { CommentSidebar } from '@/components/comments';
 import { RatingPanel } from '@/components/ratings';
@@ -458,7 +458,7 @@ export default function AssetDetailView() {
           {!isBusinessTerm && <PropertiesCard properties={asset.properties} />}
 
           {/* Quick relationship summary on overview */}
-          <EntityRelationshipPanel
+          <EntityTreePanel
             entityType={ontologyTypeName}
             entityId={asset.id}
             title="Relationships"
@@ -486,7 +486,7 @@ export default function AssetDetailView() {
             </Button>
           </div>
           {relViewMode === 'table' ? (
-            <EntityRelationshipPanel
+            <EntityTreePanel
               entityType={ontologyTypeName}
               entityId={asset.id}
               title="All Entity Relationships"

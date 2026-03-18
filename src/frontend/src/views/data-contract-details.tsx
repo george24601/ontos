@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast'
 import EntityMetadataPanel from '@/components/metadata/entity-metadata-panel'
 import EntityQualityPanel from '@/components/quality/entity-quality-panel'
 import { OwnershipPanel } from '@/components/common/ownership-panel'
-import { EntityRelationshipPanel } from '@/components/common/entity-relationship-panel'
+import { EntityTreePanel } from '@/components/common/entity-tree-panel'
 import { CommentSidebar } from '@/components/comments'
 import ConceptSelectDialog from '@/components/semantic/concept-select-dialog'
 import LinkedConceptChips from '@/components/semantic/linked-concept-chips'
@@ -35,8 +35,10 @@ import QualityRuleFormDialog from '@/components/data-contracts/quality-rule-form
 import TeamMemberFormDialog from '@/components/data-contracts/team-member-form-dialog'
 import ServerConfigFormDialog from '@/components/data-contracts/server-config-form-dialog'
 import SLAFormDialog from '@/components/data-contracts/sla-form-dialog'
-import DatasetLookupDialog from '@/components/data-contracts/dataset-lookup-dialog'
-import DatasetInstanceLookupDialog from '@/components/data-contracts/dataset-instance-lookup-dialog'
+import InferFromCatalogDialog from '@/components/data-contracts/infer-from-catalog-dialog'
+import type { CatalogSchemaResult } from '@/components/data-contracts/infer-from-catalog-dialog'
+import InferFromAssetDialog from '@/components/data-contracts/infer-from-asset-dialog'
+import type { InferredSchemaObject } from '@/components/data-contracts/infer-from-asset-dialog'
 import CreateFromContractDialog from '@/components/data-products/create-from-contract-dialog'
 import DqxSchemaSelectDialog from '@/components/data-contracts/dqx-schema-select-dialog'
 import DqxSuggestionsDialog from '@/components/data-contracts/dqx-suggestions-dialog'
@@ -211,6 +213,10 @@ export default function DataContractDetails() {
   const [loadingSchemaProps, setLoadingSchemaProps] = useState(false)
   const PROPS_PAGE_SIZE = 50
 
+  // All properties for the edit dialog (fetched with limit=0, bypasses pagination)
+  const [allSchemaProperties, setAllSchemaProperties] = useState<Record<string, SchemaProperty[]>>({})
+  const [loadingEditProperties, setLoadingEditProperties] = useState(false)
+
   // Linked products state
   const [linkedProducts, setLinkedProducts] = useState<DataProduct[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
@@ -280,8 +286,8 @@ export default function DataContractDetails() {
   const [_activePropertyForAuthDef, _setActivePropertyForAuthDef] = useState<{ schemaId: string; propertyId: string } | null>(null)
 
   // Dialog states for CRUD operations
-  const [isDatasetLookupOpen, setIsDatasetLookupOpen] = useState(false)
-  const [isDatasetInstanceLookupOpen, setIsDatasetInstanceLookupOpen] = useState(false)
+  const [isInferFromCatalogOpen, setIsInferFromCatalogOpen] = useState(false)
+  const [isInferFromAssetOpen, setIsInferFromAssetOpen] = useState(false)
   const [isBasicFormOpen, setIsBasicFormOpen] = useState(false)
   const [isSchemaFormOpen, setIsSchemaFormOpen] = useState(false)
   const [isQualityRuleFormOpen, setIsQualityRuleFormOpen] = useState(false)
@@ -446,6 +452,27 @@ export default function DataContractDetails() {
       setLoadingSchemaProps(false)
     }
   }, [contractId, fetchSchemaSemanticLinks])
+
+  const fetchAllSchemaProperties = useCallback(async (schemaName: string): Promise<SchemaProperty[]> => {
+    if (!contractId || !schemaName) return []
+    setLoadingEditProperties(true)
+    try {
+      const res = await fetch(
+        `/api/data-contracts/${contractId}/schemas/${encodeURIComponent(schemaName)}/properties?skip=0&limit=0`
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const items: SchemaProperty[] = data.items ?? []
+        setAllSchemaProperties(prev => ({ ...prev, [schemaName]: items }))
+        return items
+      }
+    } catch (e) {
+      console.warn('Failed to fetch all schema properties for', schemaName, ':', e)
+    } finally {
+      setLoadingEditProperties(false)
+    }
+    return []
+  }, [contractId])
 
   const fetchDetails = async () => {
     if (!contractId) return
@@ -841,6 +868,15 @@ export default function DataContractDetails() {
     }
   }
 
+  // Pre-fetch all properties then open the schema edit dialog
+  const handleEditSchema = async (schemaIndex: number) => {
+    const schemaName = contract?.schema?.[schemaIndex]?.name
+    if (!schemaName) return
+    await fetchAllSchemaProperties(schemaName)
+    setEditingSchemaIndex(schemaIndex)
+    setIsSchemaFormOpen(true)
+  }
+
   // Schema CRUD handlers
   const handleAddSchema = async (schema: SchemaObject) => {
     if (!contract) return
@@ -856,12 +892,15 @@ export default function DataContractDetails() {
     setEditingSchemaIndex(null)
   }
 
-  // Enrich schema with property-level semantic links from propertyLinks so the Edit Schema dialog loads them
+  // Enrich schema with property-level semantic links from propertyLinks so the Edit Schema dialog loads them.
+  // Properties are sourced from allSchemaProperties (fetched with limit=0 before opening the edit dialog)
+  // rather than contract.schema[].properties which is always [] due to lazy loading.
   const schemaFormInitial = useMemo(() => {
     if (editingSchemaIndex === null || !contract?.schema?.[editingSchemaIndex]) return undefined
     const baseSchema = contract.schema[editingSchemaIndex]
     const SEMANTIC_ASSIGNMENT_TYPE = 'http://databricks.com/ontology/uc/semanticAssignment'
-    const enrichedProperties = (baseSchema.properties || []).map((prop: any) => {
+    const sourceProperties = allSchemaProperties[baseSchema.name] || baseSchema.properties || []
+    const enrichedProperties = sourceProperties.map((prop: any) => {
       const propertyKey = `${baseSchema.name}#${prop.name}`
       const links: EntitySemanticLink[] = propertyLinks[propertyKey] || []
       const authoritativeDefinitions = links.length > 0
@@ -877,7 +916,7 @@ export default function DataContractDetails() {
       }
     })
     return { ...baseSchema, properties: enrichedProperties }
-  }, [contract, editingSchemaIndex, propertyLinks])
+  }, [contract, editingSchemaIndex, propertyLinks, allSchemaProperties])
 
   const handleDeleteSchema = async (index: number) => {
     if (!contract) return
@@ -1254,66 +1293,81 @@ export default function DataContractDetails() {
     })
   }
 
-  // Handler for inferring schema from Unity Catalog dataset
-  const handleInferFromDataset = async (table: { full_name: string }) => {
-    const datasetPath = table.full_name
-    const logicalName = datasetPath.split('.').pop() || datasetPath
-
+  // Handler for inferring schema from a connected catalog (via schema-importer)
+  const handleInferFromCatalog = async (schemas: CatalogSchemaResult[]) => {
     setIsInferringSchema(true)
     try {
-      // Fetch columns from Unity Catalog
-      const res = await fetch(`/api/catalogs/dataset/${encodeURIComponent(datasetPath)}`)
-      if (!res.ok) throw new Error('Failed to load dataset schema')
-      const data = await res.json()
-
-      // Map Unity Catalog columns to ODCS schema properties
-      const properties = Array.isArray(data?.schema)
-        ? data.schema.map((c: any) => ({
-            name: String(c.name || ''),
-            physicalType: String(c.physicalType || c.type || ''),
-            logicalType: String(c.logicalType || c.logical_type || 'string'),
-            required: c.nullable === undefined ? undefined : !Boolean(c.nullable),
-            description: String(c.comment || ''),
-            partitioned: Boolean(c.partitioned),
-            partitionKeyPosition: c.partitionKeyPosition || undefined,
-          }))
-        : []
-
-      // Create new schema object with Unity Catalog metadata
-      const newSchema: SchemaObject = {
-        name: logicalName,
-        physicalName: datasetPath, // Use Unity Catalog three-part name (catalog.schema.table)
-        properties: properties,
-        description: data.table_info?.comment || undefined,
-        physicalType: data.table_info?.table_type || 'table',
+      for (const schema of schemas) {
+        const newSchema: SchemaObject = {
+          name: schema.name,
+          physicalName: schema.physicalName,
+          description: schema.description || undefined,
+          physicalType: schema.physicalType || 'table',
+          properties: schema.properties.map(p => ({
+            name: p.name,
+            physicalType: p.physicalType,
+            logicalType: p.logicalType || 'string',
+            required: p.required,
+            description: p.description,
+            partitioned: p.partitioned,
+          })),
+        }
+        await handleAddSchema(newSchema)
       }
 
-      // Add schema to contract
-      await handleAddSchema(newSchema)
-      
-      const columnCount = properties.length
-      toast({ 
-        title: 'Schema inferred successfully', 
-        description: `Added ${logicalName} with ${columnCount} columns from Unity Catalog` 
+      const totalCols = schemas.reduce((sum, s) => sum + s.properties.length, 0)
+      toast({
+        title: 'Schema inferred successfully',
+        description: `Added ${schemas.length} schema${schemas.length > 1 ? 's' : ''} with ${totalCols} total columns`,
       })
-      
-      setIsDatasetLookupOpen(false)
+      setIsInferFromCatalogOpen(false)
     } catch (e) {
-      toast({ 
-        title: 'Failed to infer schema', 
-        description: e instanceof Error ? e.message : 'Could not fetch dataset metadata', 
-        variant: 'destructive' 
+      toast({
+        title: 'Failed to infer schema',
+        description: e instanceof Error ? e.message : 'Could not infer schema from catalog',
+        variant: 'destructive',
       })
     } finally {
       setIsInferringSchema(false)
     }
   }
 
-  // Handler for inferring schema from a Dataset Instance
-  const handleInferFromDatasetInstance = async (instance: { physical_path: string }, _dataset: { name: string }) => {
-    // Reuse the same logic as handleInferFromDataset using the instance's physical_path
-    await handleInferFromDataset({ full_name: instance.physical_path })
-    setIsDatasetInstanceLookupOpen(false)
+  // Handler for inferring schema from an existing Ontos asset
+  const handleInferFromAsset = async (schemas: InferredSchemaObject[]) => {
+    setIsInferringSchema(true)
+    try {
+      for (const schema of schemas) {
+        const newSchema: SchemaObject = {
+          name: schema.name,
+          physicalName: schema.physicalName,
+          description: schema.description || undefined,
+          physicalType: schema.physicalType || 'table',
+          properties: schema.properties.map(p => ({
+            name: p.name,
+            physicalType: p.physicalType,
+            logicalType: p.logicalType || 'string',
+            required: p.required,
+            description: p.description,
+            partitioned: p.partitioned,
+          })),
+        }
+        await handleAddSchema(newSchema)
+      }
+
+      const totalCols = schemas.reduce((sum, s) => sum + s.properties.length, 0)
+      toast({
+        title: 'Schema inferred successfully',
+        description: `Added ${schemas.length} schema${schemas.length > 1 ? 's' : ''} with ${totalCols} total columns from asset`,
+      })
+    } catch (e) {
+      toast({
+        title: 'Failed to infer schema',
+        description: e instanceof Error ? e.message : 'Could not infer schema from asset',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsInferringSchema(false)
+    }
   }
 
   const handleApprove = async () => {
@@ -1837,13 +1891,13 @@ export default function DataContractDetails() {
               </Button>
               {canEditInPlace && (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => setIsDatasetLookupOpen(true)} disabled={isInferringSchema}>
+                  <Button size="sm" variant="outline" onClick={() => setIsInferFromCatalogOpen(true)} disabled={isInferringSchema}>
                     {isInferringSchema ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Database className="h-4 w-4 mr-1.5" />}
-                    {isInferringSchema ? 'Inferring...' : 'Infer from Unity Catalog'}
+                    {isInferringSchema ? 'Inferring...' : 'Infer from Catalog'}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setIsDatasetInstanceLookupOpen(true)} disabled={isInferringSchema}>
-                    <Table2 className="h-4 w-4 mr-1.5" />
-                    Infer from Dataset
+                  <Button size="sm" variant="outline" onClick={() => setIsInferFromAssetOpen(true)} disabled={isInferringSchema}>
+                    <Package className="h-4 w-4 mr-1.5" />
+                    Infer from Asset
                   </Button>
                   <Button size="sm" onClick={() => { setEditingSchemaIndex(null); setIsSchemaFormOpen(true); }}>
                     <Plus className="h-4 w-4 mr-1.5" />
@@ -1886,7 +1940,7 @@ export default function DataContractDetails() {
             <Alert className="mb-4">
               <Loader2 className="h-4 w-4 animate-spin" />
               <AlertDescription>
-                Inferring schema from Unity Catalog... This may take a moment.
+                Inferring schema... This may take a moment.
               </AlertDescription>
             </Alert>
           )}
@@ -1900,13 +1954,13 @@ export default function DataContractDetails() {
               </div>
               {canEditInPlace && (
                 <div className="flex gap-3 justify-center flex-wrap">
-                  <Button variant="outline" onClick={() => setIsDatasetLookupOpen(true)} disabled={isInferringSchema}>
+                  <Button variant="outline" onClick={() => setIsInferFromCatalogOpen(true)} disabled={isInferringSchema}>
                     {isInferringSchema ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-                    {isInferringSchema ? 'Inferring Schema...' : 'Infer from Unity Catalog'}
+                    {isInferringSchema ? 'Inferring Schema...' : 'Infer from Catalog'}
                   </Button>
-                  <Button variant="outline" onClick={() => setIsDatasetInstanceLookupOpen(true)} disabled={isInferringSchema}>
-                    <Table2 className="h-4 w-4 mr-2" />
-                    Infer from Dataset
+                  <Button variant="outline" onClick={() => setIsInferFromAssetOpen(true)} disabled={isInferringSchema}>
+                    <Package className="h-4 w-4 mr-2" />
+                    Infer from Asset
                   </Button>
                   <Button onClick={() => { setEditingSchemaIndex(null); setIsSchemaFormOpen(true); }}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -1956,8 +2010,8 @@ export default function DataContractDetails() {
                     )}
                     {canEditInPlace && (
                       <>
-                        <Button size="sm" variant="ghost" onClick={() => { setEditingSchemaIndex(0); setIsSchemaFormOpen(true); }}>
-                          <Pencil className="h-4 w-4" />
+                        <Button size="sm" variant="ghost" disabled={loadingEditProperties} onClick={() => handleEditSchema(0)}>
+                          {loadingEditProperties ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => handleDeleteSchema(0)} className="text-destructive hover:text-destructive">
                           <Trash2 className="h-4 w-4" />
@@ -2091,8 +2145,8 @@ export default function DataContractDetails() {
                       )}
                       {canEditInPlace && (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => { setEditingSchemaIndex(selectedSchemaIndex); setIsSchemaFormOpen(true); }}>
-                            <Pencil className="h-4 w-4" />
+                          <Button size="sm" variant="ghost" disabled={loadingEditProperties} onClick={() => handleEditSchema(selectedSchemaIndex)}>
+                            {loadingEditProperties ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => handleDeleteSchema(selectedSchemaIndex)} className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
@@ -2232,8 +2286,8 @@ export default function DataContractDetails() {
                       )}
                       {canEditInPlace && (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => { setEditingSchemaIndex(selectedSchemaIndex); setIsSchemaFormOpen(true); }}>
-                            <Pencil className="h-4 w-4" />
+                          <Button size="sm" variant="ghost" disabled={loadingEditProperties} onClick={() => handleEditSchema(selectedSchemaIndex)}>
+                            {loadingEditProperties ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => handleDeleteSchema(selectedSchemaIndex)} className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
@@ -2927,7 +2981,7 @@ export default function DataContractDetails() {
 
       {/* Entity Relationships Panel */}
       {shouldShowSection('metadata-panel') && contract.id && (
-        <EntityRelationshipPanel
+        <EntityTreePanel
           entityType="DataContract"
           entityId={contract.id}
           title="Related Entities"
@@ -3033,18 +3087,16 @@ export default function DataContractDetails() {
         />
       )}
 
-      <DatasetLookupDialog
-        isOpen={isDatasetLookupOpen}
-        onOpenChange={setIsDatasetLookupOpen}
-        onSelect={handleInferFromDataset}
+      <InferFromCatalogDialog
+        isOpen={isInferFromCatalogOpen}
+        onOpenChange={setIsInferFromCatalogOpen}
+        onInfer={handleInferFromCatalog}
       />
 
-      <DatasetInstanceLookupDialog
-        isOpen={isDatasetInstanceLookupOpen}
-        onOpenChange={setIsDatasetInstanceLookupOpen}
-        onSelect={handleInferFromDatasetInstance}
-        title="Infer Schema from Dataset"
-        description="Select a dataset and one of its physical instances to infer the schema"
+      <InferFromAssetDialog
+        isOpen={isInferFromAssetOpen}
+        onOpenChange={setIsInferFromAssetOpen}
+        onInfer={handleInferFromAsset}
       />
 
       {contract && (
