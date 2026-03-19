@@ -192,6 +192,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns: tableColumns,
+    autoResetPageIndex: false,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -222,9 +223,23 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  // Reset pagination to first page when filters change (needed because autoResetPageIndex is false)
+  const prevGlobalFilter = React.useRef(globalFilter);
+  const prevColumnFilters = React.useRef(columnFilters);
+  React.useEffect(() => {
+    const filtersChanged =
+      prevGlobalFilter.current !== globalFilter ||
+      prevColumnFilters.current !== columnFilters;
+    prevGlobalFilter.current = globalFilter;
+    prevColumnFilters.current = columnFilters;
+    if (filtersChanged) {
+      table.setPageIndex(0);
+    }
+  }, [globalFilter, columnFilters, table]);
+
   const selectedRowsData = React.useMemo(() =>
     table.getFilteredSelectedRowModel().rows.map(row => row.original),
-    [rowSelection, table] // Ensure table is dependency if getFilteredSelectedRowModel changes
+    [rowSelection, table]
   );
 
   // Function to format column ID for display

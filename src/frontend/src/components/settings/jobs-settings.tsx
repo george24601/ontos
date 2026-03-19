@@ -112,7 +112,10 @@ export default function JobsSettings() {
       try {
         const res = await get<Record<string, WorkflowStatus>>('/api/jobs/workflows/statuses');
         if (!cancelled && res.data) {
-          setStatuses(res.data);
+          setStatuses(prev => {
+            if (JSON.stringify(prev) === JSON.stringify(res.data)) return prev;
+            return res.data!;
+          });
         }
       } catch (e) {
         if (!cancelled) {
