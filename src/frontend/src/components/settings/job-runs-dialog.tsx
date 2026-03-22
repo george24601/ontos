@@ -117,7 +117,7 @@ export function JobRunsDialog({ workflowId, workflowName, open, onOpenChange }: 
 
                 return (
                   <React.Fragment key={run.id}>
-                    <TableRow className="hover:bg-gray-50">
+                    <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-800">
                       <TableCell className="font-mono text-sm">{run.run_id}</TableCell>
                       <TableCell>{run.run_name || '-'}</TableCell>
                       <TableCell>
@@ -125,13 +125,13 @@ export function JobRunsDialog({ workflowId, workflowName, open, onOpenChange }: 
                           {hasStateMessage && (
                             <button
                               onClick={() => toggleExpanded(run.id)}
-                              className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+                              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
                               aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
                             >
                               {isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-gray-600" />
+                                <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                               ) : (
-                                <ChevronRight className="h-4 w-4 text-gray-600" />
+                                <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                               )}
                             </button>
                           )}
@@ -152,16 +152,16 @@ export function JobRunsDialog({ workflowId, workflowName, open, onOpenChange }: 
                         {run.notified_at ? (
                           <Check className="h-4 w-4 text-green-600 inline" />
                         ) : (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-gray-300 dark:text-gray-600">-</span>
                         )}
                       </TableCell>
                     </TableRow>
                     {hasStateMessage && isExpanded && (
-                      <TableRow className="bg-gray-50 border-t-0">
+                      <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-t-0">
                         <TableCell colSpan={6} className="py-3 px-6">
-                          <div className="text-sm text-gray-700">
-                            <span className="font-medium text-gray-900">State Message:</span>
-                            <div className="mt-1 p-2 bg-white rounded border border-gray-200 font-mono text-xs whitespace-pre-wrap">
+                          <div className="text-sm text-gray-700 dark:text-gray-300">
+                            <span className="font-medium text-gray-900 dark:text-white">State Message:</span>
+                            <div className="mt-1 p-2 bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 font-mono text-xs whitespace-pre-wrap">
                               {run.state_message}
                             </div>
                           </div>
