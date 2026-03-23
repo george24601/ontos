@@ -283,6 +283,17 @@ def get_workspace_client(settings: Optional[Settings] = None, timeout: int = 30)
     Returns:
         Cached workspace client instance with verified connectivity and telemetry
     """
+    # CI/E2E testing mode: return a mock client to avoid real Databricks connections
+    if os.getenv('MOCK_WORKSPACE_CLIENT', '').lower() == 'true':
+        if 'mock_ws' in _CLIENT_CACHE:
+            return _CLIENT_CACHE['mock_ws'][0]
+        from unittest.mock import MagicMock
+        mock = MagicMock(spec=WorkspaceClient)
+        mock.current_user.me.return_value = MagicMock(user_name="ci-test@example.com", display_name="CI Test User")
+        logger.info("Using MOCK workspace client (MOCK_WORKSPACE_CLIENT=true)")
+        _CLIENT_CACHE['mock_ws'] = (mock, 'mock', time.time())
+        return mock
+
     if settings is None:
         settings = get_settings()
 

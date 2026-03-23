@@ -5,8 +5,8 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 10_000 },
   testDir: './src/tests',
-  retries: 0,
-  reporter: 'list',
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? 'html' : 'list',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
