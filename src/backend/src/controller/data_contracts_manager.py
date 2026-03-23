@@ -2278,13 +2278,56 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             
             # Handle schema objects if provided
             if data_dict.get('contract_schema') is not None or data_dict.get('schema') is not None:
-                # Remove existing schema objects for this contract
-                db.query(SchemaObjectDb).filter(SchemaObjectDb.contract_id == contract_id).delete()
-                
-                # Create new schema objects
-                schema_data = data_dict.get('contract_schema') or data_dict.get('schema')
-                if schema_data:
-                    self._create_schema_objects(db, contract_id, schema_data, current_user)
+                schema_data = data_dict.get('contract_schema') or data_dict.get('schema') or []
+
+                # Build map of existing schemas by name so we can preserve
+                # properties for schemas sent with an empty properties list
+                # (the frontend lazy-loads properties and doesn't include them
+                # in the contract-level payload).
+                existing_schemas = {
+                    s.name: s
+                    for s in db.query(SchemaObjectDb).filter(
+                        SchemaObjectDb.contract_id == contract_id
+                    ).all()
+                }
+                incoming_names = set()
+                schemas_to_create = []
+
+                for s in schema_data:
+                    s_dict = s.model_dump() if hasattr(s, 'model_dump') else s
+                    name = s_dict.get('name', '')
+                    incoming_names.add(name)
+                    props = s_dict.get('properties', [])
+
+                    if name in existing_schemas and not props:
+                        # Schema exists and payload has no properties → preserve
+                        # existing DB row (and its properties); update metadata only.
+                        existing = existing_schemas[name]
+                        if s_dict.get('physicalName') or s_dict.get('physical_name'):
+                            existing.physical_name = s_dict.get('physicalName') or s_dict.get('physical_name')
+                        if s_dict.get('businessName'):
+                            existing.business_name = s_dict['businessName']
+                        if s_dict.get('physicalType'):
+                            existing.physical_type = s_dict['physicalType']
+                        if s_dict.get('description'):
+                            existing.description = s_dict['description']
+                    else:
+                        # New schema or schema with updated properties → recreate
+                        if name in existing_schemas:
+                            db.query(SchemaObjectDb).filter(
+                                SchemaObjectDb.id == existing_schemas[name].id
+                            ).delete()
+                        schemas_to_create.append(s_dict)
+
+                # Remove schemas no longer in the payload
+                for name, existing in existing_schemas.items():
+                    if name not in incoming_names:
+                        db.query(SchemaObjectDb).filter(
+                            SchemaObjectDb.id == existing.id
+                        ).delete()
+
+                if schemas_to_create:
+                    self._create_schema_objects(db, contract_id, schemas_to_create, current_user)
             
             # Handle quality rules if provided
             if data_dict.get('qualityRules') is not None:
@@ -3499,6 +3542,36 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             # Allow any transition if current status not in map (backward compatibility)
             if current_status in valid_transitions:
                 raise ValueError(f"Invalid status transition from {current_status} to {new_status}")
+        
+        # Run before_status_change workflows (gating)
+        try:
+            from src.common.workflow_triggers import get_trigger_registry
+            from src.models.process_workflows import EntityType as WFEntityType
+            trigger_registry = get_trigger_registry(db)
+            gate_passed, gate_executions = trigger_registry.before_status_change(
+                entity_type=WFEntityType.DATA_CONTRACT,
+                entity_id=contract_id,
+                from_status=current_status,
+                to_status=new_status,
+                entity_name=contract.name,
+                entity_data={"name": contract.name, "status": current_status},
+                user_email=current_user,
+            )
+            if not gate_passed:
+                failed = [e for e in gate_executions if e.status.value != 'succeeded']
+                reasons = "; ".join(
+                    e.step_results.get(e.current_step_id or '', {}).get('error', e.status.value)
+                    for e in failed
+                    if e.step_results
+                ) or "Workflow validation failed"
+                raise ValueError(
+                    f"Status transition from '{current_status}' to '{new_status}' "
+                    f"blocked by workflow: {reasons}"
+                )
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.warning(f"before_status_change trigger error (non-fatal): {e}")
         
         try:
             updated = data_contract_repo.update(
@@ -5156,10 +5229,12 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         if decision == 'approve':
             if contract.status.lower() != 'approved':
                 raise ValueError("Contract must be APPROVED to publish")
+            was_published = contract.published
             contract.published = True
             notification_title = "Contract Published to Marketplace"
             notification_desc = f"Your contract '{contract.name}' has been published to the marketplace."
         else:  # deny
+            was_published = None
             notification_title = "Contract Publish Request Denied"
             notification_desc = f"Your publish request for contract '{contract.name}' was denied."
         
@@ -5168,6 +5243,22 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         
         db.add(contract)
         db.flush()
+
+        # Fire on_publish trigger when newly published
+        if decision == 'approve' and not was_published:
+            try:
+                from src.common.workflow_triggers import get_trigger_registry
+                from src.models.process_workflows import EntityType as WFEntityType
+                trigger_registry = get_trigger_registry(db)
+                trigger_registry.on_publish(
+                    entity_type=WFEntityType.DATA_CONTRACT,
+                    entity_id=contract_id,
+                    entity_name=contract.name,
+                    entity_data={"name": contract.name, "status": contract.status},
+                    user_email=approver_email,
+                )
+            except Exception as e:
+                logger.warning(f"on_publish trigger error (non-fatal): {e}")
         
         # Mark actionable notification as handled
         try:

@@ -6,6 +6,12 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
+class NotificationChannel(str, Enum):
+    IN_APP = "in_app"
+    EMAIL = "email"
+    WEBHOOK = "webhook"
+
+
 class NotificationType(str, Enum):
     INFO = "info"
     SUCCESS = "success"
@@ -82,3 +88,33 @@ class NotificationUpdate(BaseModel):
     read: Optional[bool] = None
     data: Optional[Dict[str, Any]] = None
     updated_at: Optional[datetime] = None
+
+
+class NotificationTemplate(BaseModel):
+    """A reusable notification template with variable placeholders."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    title_template: str
+    body_template: str
+    notification_type: NotificationType = NotificationType.INFO
+    is_default: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class NotificationTemplateCreate(BaseModel):
+    name: str
+    title_template: str
+    body_template: str
+    notification_type: NotificationType = NotificationType.INFO
+    is_default: bool = False
+
+
+class NotificationTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    title_template: Optional[str] = None
+    body_template: Optional[str] = None
+    notification_type: Optional[NotificationType] = None
+    is_default: Optional[bool] = None

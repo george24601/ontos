@@ -544,6 +544,36 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                     f"Allowed transitions: {', '.join(allowed) if allowed else 'none'}"
                 )
             
+            # Run before_status_change workflows (gating)
+            try:
+                from src.common.workflow_triggers import get_trigger_registry
+                from src.models.process_workflows import EntityType as WFEntityType
+                trigger_registry = get_trigger_registry(self._db)
+                gate_passed, gate_executions = trigger_registry.before_status_change(
+                    entity_type=WFEntityType.DATA_PRODUCT,
+                    entity_id=product_id,
+                    from_status=current_status,
+                    to_status=new_status_lower,
+                    entity_name=product_db.name,
+                    entity_data={"name": product_db.name, "status": current_status},
+                    user_email=current_user,
+                )
+                if not gate_passed:
+                    failed = [e for e in gate_executions if e.status.value != 'succeeded']
+                    reasons = "; ".join(
+                        e.step_results.get(e.current_step_id or '', {}).get('error', e.status.value)
+                        for e in failed
+                        if e.step_results
+                    ) or "Workflow validation failed"
+                    raise ValueError(
+                        f"Status transition from '{current_status}' to '{new_status_lower}' "
+                        f"blocked by workflow: {reasons}"
+                    )
+            except ValueError:
+                raise
+            except Exception as e:
+                logger.warning(f"before_status_change trigger error (non-fatal): {e}")
+            
             # Update status
             old_status = product_db.status
             product_db.status = new_status_lower
@@ -722,7 +752,24 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                     )
 
             # Use transition_status for validation and update
-            return self.transition_status(product_id, 'active', current_user)
+            result = self.transition_status(product_id, 'active', current_user)
+
+            # Fire on_publish trigger
+            try:
+                from src.common.workflow_triggers import get_trigger_registry
+                from src.models.process_workflows import EntityType as WFEntityType
+                trigger_registry = get_trigger_registry(self._db)
+                trigger_registry.on_publish(
+                    entity_type=WFEntityType.DATA_PRODUCT,
+                    entity_id=product_id,
+                    entity_name=product_db.name,
+                    entity_data={"name": product_db.name, "status": "active"},
+                    user_email=current_user,
+                )
+            except Exception as e:
+                logger.warning(f"on_publish trigger error (non-fatal): {e}")
+
+            return result
 
         except ValueError as e:
             logger.error(f"Validation error publishing product {product_id}: {e}")

@@ -15,6 +15,7 @@ export type TriggerType =
   | 'manual'
   | 'before_create'   // Pre-creation validation (inline/blocking)
   | 'before_update'   // Pre-update validation (inline/blocking)
+  | 'before_status_change'  // Pre-status-change validation (inline/blocking)
   // Request triggers
   | 'on_request_review'
   | 'on_request_access'
@@ -26,6 +27,9 @@ export type TriggerType =
   // Subscription triggers
   | 'on_subscribe'
   | 'on_unsubscribe'
+  // Publication triggers (separate from lifecycle status)
+  | 'on_publish'
+  | 'on_unpublish'
   // Access lifecycle triggers
   | 'on_expiring'
   | 'on_revoke'
@@ -118,10 +122,13 @@ export interface ApprovalStepConfig {
   require_all?: boolean;
 }
 
+export type NotificationChannel = 'in_app' | 'email' | 'webhook';
+
 export interface NotificationStepConfig {
   recipients: string;
   template: string;
   custom_message?: string;
+  channels?: NotificationChannel[];
 }
 
 export interface AssignTagStepConfig {

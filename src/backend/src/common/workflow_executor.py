@@ -37,6 +37,50 @@ from src.common.logging import get_logger
 logger = get_logger(__name__)
 
 
+def substitute_template(template: str, context: 'StepContext') -> str:
+    """Replace ${variable} and {{variable}} placeholders with context values.
+    
+    Supports:
+      ${entity_name}, ${entity_type}, ${entity_id}, ${user_email},
+      ${workflow_name}, ${workflow_id}, ${execution_id},
+      ${entity.field}, ${step_results.step_id.field}
+    """
+    import re
+
+    substitutions = {
+        'entity_type': context.entity_type,
+        'entity_id': context.entity_id,
+        'entity_name': context.entity_name or '',
+        'user_email': context.user_email or '',
+        'workflow_name': context.workflow_name,
+        'workflow_id': context.workflow_id,
+        'execution_id': context.execution_id,
+    }
+
+    for key, value in context.entity.items():
+        if isinstance(value, (str, int, float, bool)):
+            substitutions[f'entity.{key}'] = str(value)
+
+    for step_id, step_data in context.step_results.items():
+        if isinstance(step_data, dict):
+            for key, value in step_data.items():
+                if isinstance(value, (str, int, float, bool)):
+                    substitutions[f'step_results.{step_id}.{key}'] = str(value)
+                elif isinstance(value, dict):
+                    for k, v in value.items():
+                        if isinstance(v, (str, int, float, bool)):
+                            substitutions[f'step_results.{step_id}.{key}.{k}'] = str(v)
+
+    def _replace(match):
+        var_name = match.group(1)
+        return substitutions.get(var_name, match.group(0))
+
+    # Support both ${var} and {{var}} syntax
+    result = re.sub(r'\$\{([^}]+)\}', _replace, template)
+    result = re.sub(r'\{\{([^}]+)\}\}', _replace, result)
+    return result
+
+
 @dataclass
 class StepContext:
     """Context for step execution."""
@@ -278,9 +322,10 @@ class NotificationStepHandler(StepHandler):
             # Resolve recipients
             resolved_recipients = self._resolve_recipients(recipients, context)
             
-            # Build notification message
-            message = custom_message or self._get_template_message(template, context)
-            title = self._get_template_title(template, context)
+            # Build notification message with variable substitution
+            raw_message = custom_message or self._get_template_message(template, context)
+            message = substitute_template(raw_message, context)
+            title = substitute_template(self._get_template_title(template, context), context)
             
             # Determine notification type based on template
             notification_type = self._get_notification_type(template)
@@ -296,31 +341,83 @@ class NotificationStepHandler(StepHandler):
             elif template in ('request_approved', 'request_rejected'):
                 can_delete = True
             
-            # Create notifications for each recipient
-            created_count = 0
-            for recipient_id, role_uuid in resolved_recipients:
-                try:
-                    notification = Notification(
-                        id=str(uuid4()),
-                        created_at=datetime.utcnow(),
-                        type=notification_type,
-                        title=title,
-                        subtitle=f"{context.entity_type}: {context.entity_name}",
-                        description=message,
-                        recipient=recipient_id,
-                        recipient_role_id=role_uuid,
-                        action_type=action_type,
-                        action_payload=action_payload,
-                        can_delete=can_delete,
-                        read=False,
-                    )
-                    notification_repo.create(db=self._db, obj_in=notification)
-                    created_count += 1
-                    logger.info(f"Notification created for {recipient_id}: {title}")
-                except Exception as e:
-                    logger.warning(f"Failed to create notification for {recipient_id}: {e}")
+            # Resolve channels: step config overrides global defaults
+            channels = self._config.get('channels') or self._get_default_channels()
             
-            if created_count == 0:
+            created_count = 0
+            email_count = 0
+
+            # --- in_app channel ---
+            if 'in_app' in channels:
+                for recipient_id, role_uuid in resolved_recipients:
+                    try:
+                        notification = Notification(
+                            id=str(uuid4()),
+                            created_at=datetime.utcnow(),
+                            type=notification_type,
+                            title=title,
+                            subtitle=f"{context.entity_type}: {context.entity_name}",
+                            description=message,
+                            recipient=recipient_id,
+                            recipient_role_id=role_uuid,
+                            action_type=action_type,
+                            action_payload=action_payload,
+                            can_delete=can_delete,
+                            read=False,
+                        )
+                        notification_repo.create(db=self._db, obj_in=notification)
+                        created_count += 1
+                        logger.info(f"Notification created for {recipient_id}: {title}")
+                    except Exception as e:
+                        logger.warning(f"Failed to create notification for {recipient_id}: {e}")
+
+            # --- email channel ---
+            if 'email' in channels:
+                try:
+                    from src.common.email_service import EmailService
+                    email_svc = EmailService.from_settings(self._db)
+                    if email_svc:
+                        email_addrs = [r[0] for r in resolved_recipients if '@' in r[0]]
+                        if email_addrs:
+                            sent = email_svc.send(
+                                to=email_addrs,
+                                subject=title,
+                                body_text=message,
+                            )
+                            if sent:
+                                email_count = len(email_addrs)
+                    else:
+                        logger.debug("Email channel requested but email not configured")
+                except Exception as e:
+                    logger.warning(f"Email channel failed: {e}")
+
+            # --- webhook channel delegates to WebhookStepHandler internally ---
+            if 'webhook' in channels:
+                webhook_url = self._config.get('webhook_url')
+                if webhook_url:
+                    try:
+                        import json as _json
+                        import urllib.request
+                        payload = _json.dumps({
+                            'title': title,
+                            'message': message,
+                            'entity_type': context.entity_type,
+                            'entity_id': context.entity_id,
+                            'entity_name': context.entity_name,
+                        }).encode()
+                        req = urllib.request.Request(
+                            webhook_url,
+                            data=payload,
+                            headers={'Content-Type': 'application/json'},
+                            method='POST',
+                        )
+                        with urllib.request.urlopen(req, timeout=10):
+                            pass
+                    except Exception as e:
+                        logger.warning(f"Webhook notification failed: {e}")
+
+            total = created_count + email_count
+            if total == 0:
                 return StepResult(
                     passed=False,
                     error="Failed to create any notifications",
@@ -335,11 +432,26 @@ class NotificationStepHandler(StepHandler):
                     'template': template,
                     'message': message,
                     'created_count': created_count,
+                    'email_count': email_count,
+                    'channels': channels,
                 }
             )
         except Exception as e:
             logger.exception(f"Notification step failed: {e}")
             return StepResult(passed=False, error=str(e))
+
+    def _get_default_channels(self) -> List[str]:
+        """Read global default notification channels from settings."""
+        try:
+            import json as _json
+            from src.db_models.settings import SettingDb
+            row = self._db.query(SettingDb).filter(SettingDb.key == "notification_channel_defaults").first()
+            if row:
+                cfg = _json.loads(row.value) if isinstance(row.value, str) else row.value
+                return cfg.get("channels", ["in_app"])
+        except Exception:
+            pass
+        return ["in_app"]
 
     def _lookup_role_id(self, role_name: str) -> Optional[str]:
         """Look up a role by name (flexible matching) and return its UUID."""
@@ -440,7 +552,7 @@ class NotificationStepHandler(StepHandler):
 
 
 class AssignTagStepHandler(StepHandler):
-    """Handler for tag assignment steps."""
+    """Handler for tag assignment steps — persists via TagsManager."""
 
     def execute(self, context: StepContext) -> StepResult:
         key = self._config.get('key', '')
@@ -451,7 +563,6 @@ class AssignTagStepHandler(StepHandler):
             return StepResult(passed=False, error="No tag key configured")
         
         try:
-            # Resolve value
             if value_source:
                 resolved_value = self._resolve_value_source(value_source, context)
             else:
@@ -460,19 +571,37 @@ class AssignTagStepHandler(StepHandler):
             if not resolved_value:
                 return StepResult(passed=False, error="Could not resolve tag value")
             
-            # Assign tag to entity
-            # TODO: Integrate with TagsManager
             logger.info(f"Assigning tag {key}={resolved_value} to {context.entity_type} {context.entity_id}")
+
+            # Persist via TagsManager
+            persisted = False
+            try:
+                from src.controller.tags_manager import TagsManager
+                tags_mgr = TagsManager(self._db)
+                tag = tags_mgr.get_tag_by_fqn(db=self._db, fqn=key)
+                if tag:
+                    tags_mgr.add_tag_to_entity(
+                        db=self._db,
+                        entity_id=context.entity_id,
+                        entity_type=context.entity_type,
+                        tag_id=tag.id,
+                        assigned_value=resolved_value,
+                        user_email=context.user_email,
+                    )
+                    persisted = True
+                else:
+                    logger.warning(f"Tag '{key}' not found by FQN — context updated only")
+            except Exception as e:
+                logger.warning(f"TagsManager integration failed (context still updated): {e}")
             
-            # Update entity tags in context
             if 'tags' not in context.entity:
                 context.entity['tags'] = {}
             context.entity['tags'][key] = resolved_value
             
             return StepResult(
                 passed=True,
-                message=f"Assigned tag {key}={resolved_value}",
-                data={'key': key, 'value': resolved_value}
+                message=f"Assigned tag {key}={resolved_value}" + (" (persisted)" if persisted else " (context only)"),
+                data={'key': key, 'value': resolved_value, 'persisted': persisted}
             )
         except Exception as e:
             logger.exception(f"Assign tag step failed: {e}")
@@ -493,7 +622,7 @@ class AssignTagStepHandler(StepHandler):
 
 
 class RemoveTagStepHandler(StepHandler):
-    """Handler for tag removal steps."""
+    """Handler for tag removal steps — persists via TagsManager."""
 
     def execute(self, context: StepContext) -> StepResult:
         key = self._config.get('key', '')
@@ -502,17 +631,34 @@ class RemoveTagStepHandler(StepHandler):
             return StepResult(passed=False, error="No tag key configured")
         
         try:
-            # Remove tag from entity
-            # TODO: Integrate with TagsManager
             logger.info(f"Removing tag {key} from {context.entity_type} {context.entity_id}")
+
+            # Persist via TagsManager
+            persisted = False
+            try:
+                from src.controller.tags_manager import TagsManager
+                tags_mgr = TagsManager(self._db)
+                tag = tags_mgr.get_tag_by_fqn(db=self._db, fqn=key)
+                if tag:
+                    ok = tags_mgr.remove_tag_from_entity(
+                        db=self._db,
+                        entity_id=context.entity_id,
+                        entity_type=context.entity_type,
+                        tag_id=tag.id,
+                        user_email=context.user_email,
+                    )
+                    persisted = ok
+                else:
+                    logger.warning(f"Tag '{key}' not found by FQN — context updated only")
+            except Exception as e:
+                logger.warning(f"TagsManager integration failed (context still updated): {e}")
             
-            # Update entity tags in context
             if 'tags' in context.entity and key in context.entity['tags']:
                 del context.entity['tags'][key]
             
             return StepResult(
                 passed=True,
-                message=f"Removed tag {key}",
+                message=f"Removed tag {key}" + (" (persisted)" if persisted else " (context only)"),
                 data={'key': key}
             )
         except Exception as e:
@@ -573,10 +719,25 @@ class ScriptStepHandler(StepHandler):
             logger.exception(f"Script step failed: {e}")
             return StepResult(passed=False, error=str(e))
 
+    _SAFE_BUILTINS = {
+        'len': len, 'str': str, 'int': int, 'float': float, 'bool': bool,
+        'list': list, 'dict': dict, 'tuple': tuple, 'set': set,
+        'range': range, 'enumerate': enumerate, 'zip': zip,
+        'sorted': sorted, 'reversed': reversed,
+        'min': min, 'max': max, 'sum': sum, 'abs': abs, 'round': round,
+        'any': any, 'all': all,
+        'isinstance': isinstance, 'type': type,
+        'print': print, 'repr': repr, 'hasattr': hasattr, 'getattr': getattr,
+        'ValueError': ValueError, 'TypeError': TypeError, 'KeyError': KeyError,
+        'True': True, 'False': False, 'None': None,
+    }
+
     def _execute_python(self, code: str, context: StepContext, timeout: int) -> StepResult:
-        """Execute Python code in a sandboxed environment."""
-        # Build safe context
+        """Execute Python code with safe builtins and a thread-based timeout."""
+        import threading
+
         safe_globals = {
+            '__builtins__': self._SAFE_BUILTINS,
             'entity': context.entity.copy(),
             'entity_type': context.entity_type,
             'entity_id': context.entity_id,
@@ -584,35 +745,82 @@ class ScriptStepHandler(StepHandler):
             'user_email': context.user_email,
             'step_results': context.step_results.copy(),
         }
-        
+
         local_vars: Dict[str, Any] = {}
-        
-        try:
-            # Execute with timeout would require threading/subprocess
-            # For now, simple exec with limited builtins
-            exec(code, {'__builtins__': {}}, local_vars)
-            
-            result = local_vars.get('result', {'passed': True})
-            if isinstance(result, dict):
-                return StepResult(
-                    passed=result.get('passed', True),
-                    message=result.get('message'),
-                    data=result.get('data'),
-                )
-            else:
-                return StepResult(passed=bool(result))
-        except Exception as e:
-            return StepResult(passed=False, error=str(e))
+        exec_error: List[Exception] = []
+
+        def _run():
+            try:
+                exec(code, safe_globals, local_vars)
+            except Exception as e:
+                exec_error.append(e)
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+        thread.join(timeout=timeout)
+
+        if thread.is_alive():
+            return StepResult(passed=False, error=f"Script timed out after {timeout}s")
+
+        if exec_error:
+            return StepResult(passed=False, error=str(exec_error[0]))
+
+        result = local_vars.get('result', {'passed': True})
+        if isinstance(result, dict):
+            return StepResult(
+                passed=result.get('passed', True),
+                message=result.get('message'),
+                data=result.get('data'),
+            )
+        return StepResult(passed=bool(result))
 
     def _execute_sql(self, code: str, context: StepContext, timeout: int) -> StepResult:
-        """Execute SQL code (placeholder - needs proper implementation)."""
-        # TODO: Implement SQL execution via workspace client
-        logger.warning("SQL execution not yet implemented")
-        return StepResult(
-            passed=True,
-            message="SQL execution not yet implemented",
-            data={'sql': code}
-        )
+        """Execute SQL via Databricks statement_execution API."""
+        try:
+            from src.common.workspace_client import get_workspace_client
+            ws = get_workspace_client()
+
+            # Resolve SQL warehouse ID from settings
+            from src.db_models.settings import SettingDb
+            import json as _json
+            wh_row = self._db.query(SettingDb).filter(SettingDb.key == "sql_warehouse_id").first()
+            if not wh_row or not wh_row.value:
+                return StepResult(passed=False, error="No SQL warehouse configured in Settings")
+            warehouse_id = wh_row.value.strip().strip('"')
+
+            # Substitute variables in SQL
+            resolved_sql = substitute_template(code, context)
+
+            resp = ws.statement_execution.execute_statement(
+                statement=resolved_sql,
+                warehouse_id=warehouse_id,
+                wait_timeout="50s",
+            )
+
+            status_state = resp.status.state.value if resp.status else "UNKNOWN"
+            if status_state in ("SUCCEEDED",):
+                row_count = resp.manifest.total_row_count if resp.manifest else 0
+                return StepResult(
+                    passed=True,
+                    message=f"SQL executed successfully ({row_count} rows)",
+                    data={
+                        'sql': resolved_sql,
+                        'row_count': row_count,
+                        'state': status_state,
+                    },
+                )
+            else:
+                error_msg = ""
+                if resp.status and resp.status.error:
+                    error_msg = resp.status.error.message or str(resp.status.error)
+                return StepResult(
+                    passed=False,
+                    error=f"SQL execution {status_state}: {error_msg}",
+                    data={'sql': resolved_sql, 'state': status_state},
+                )
+        except Exception as e:
+            logger.exception(f"SQL execution failed: {e}")
+            return StepResult(passed=False, error=str(e))
 
 
 class PassStepHandler(StepHandler):
@@ -1069,42 +1277,8 @@ class WebhookStepHandler(StepHandler):
             return StepResult(passed=False, error=str(e))
 
     def _substitute_template(self, template: str, context: StepContext) -> str:
-        """Replace ${variable} placeholders with context values."""
-        import re
-        
-        # Build substitution map
-        substitutions = {
-            'entity_type': context.entity_type,
-            'entity_id': context.entity_id,
-            'entity_name': context.entity_name or '',
-            'user_email': context.user_email or '',
-            'workflow_name': context.workflow_name,
-            'workflow_id': context.workflow_id,
-            'execution_id': context.execution_id,
-        }
-        
-        # Add entity fields
-        for key, value in context.entity.items():
-            if isinstance(value, (str, int, float, bool)):
-                substitutions[f'entity.{key}'] = str(value)
-        
-        # Add step results (for accessing previous step data)
-        for step_id, step_data in context.step_results.items():
-            if isinstance(step_data, dict):
-                for key, value in step_data.items():
-                    if isinstance(value, (str, int, float, bool)):
-                        substitutions[f'step_results.{step_id}.{key}'] = str(value)
-                    elif isinstance(value, dict):
-                        for k, v in value.items():
-                            if isinstance(v, (str, int, float, bool)):
-                                substitutions[f'step_results.{step_id}.{key}.{k}'] = str(v)
-        
-        # Replace ${var} patterns
-        def replace_var(match):
-            var_name = match.group(1)
-            return substitutions.get(var_name, match.group(0))
-        
-        return re.sub(r'\$\{([^}]+)\}', replace_var, template)
+        """Delegate to module-level substitute_template."""
+        return substitute_template(template, context)
 
     def _execute_via_uc_connection(
         self,

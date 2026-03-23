@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -254,6 +255,8 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
   const [description, setDescription] = useState('');
   const [triggerType, setTriggerType] = useState<TriggerType>('on_create');
   const [entityTypes, setEntityTypes] = useState<EntityType[]>(['table']);
+  const [triggerFromStatus, setTriggerFromStatus] = useState('');
+  const [triggerToStatus, setTriggerToStatus] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [steps, setSteps] = useState<WorkflowStepCreate[]>([]);
   
@@ -393,6 +396,8 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
             setDescription(response.data.description || '');
             setTriggerType(response.data.trigger.type);
             setEntityTypes(response.data.trigger.entity_types);
+            setTriggerFromStatus(response.data.trigger.from_status || '');
+            setTriggerToStatus(response.data.trigger.to_status || '');
             setIsActive(response.data.is_active);
             const loadedSteps = response.data.steps.map(s => ({
               step_id: s.step_id,
@@ -566,6 +571,8 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
         trigger: {
           type: triggerType,
           entity_types: entityTypes,
+          ...(triggerFromStatus ? { from_status: triggerFromStatus } : {}),
+          ...(triggerToStatus ? { to_status: triggerToStatus } : {}),
         },
         is_active: isActive,
         steps: steps.map((s, i) => ({ ...s, order: i })),
@@ -814,6 +821,27 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                       ))}
                     </div>
                   </div>
+                  {(triggerType === 'on_status_change' || triggerType === 'before_status_change' || triggerType === 'on_request_status_change') && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>From Status</Label>
+                        <Input
+                          value={triggerFromStatus}
+                          onChange={(e) => setTriggerFromStatus(e.target.value)}
+                          placeholder="e.g. draft"
+                        />
+                      </div>
+                      <div>
+                        <Label>To Status</Label>
+                        <Input
+                          value={triggerToStatus}
+                          onChange={(e) => setTriggerToStatus(e.target.value)}
+                          placeholder="e.g. active"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <Label>Description</Label>
                     <Textarea
@@ -1032,6 +1060,44 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                             <SelectItem value="pii_detected">PII Detected</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div>
+                        <Label>Custom Message</Label>
+                        <Textarea
+                          value={(selectedStep.config as { custom_message?: string })?.custom_message || ''}
+                          onChange={(e) => updateStep(selectedStep.step_id, {
+                            config: { ...selectedStep.config, custom_message: e.target.value }
+                          })}
+                          placeholder="Override template message. Supports ${entity_name}, ${entity_type}, ${user_email}, ${entity.field}..."
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Variables: <code className="text-xs">{'${entity_name}'}</code>, <code className="text-xs">{'${entity_type}'}</code>, <code className="text-xs">{'${user_email}'}</code>, <code className="text-xs">{'${entity.field}'}</code>, <code className="text-xs">{'${step_results.step_id.field}'}</code>
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="mb-2 block">Channels</Label>
+                        <div className="flex flex-col gap-2">
+                          {(['in_app', 'email', 'webhook'] as const).map((ch) => (
+                            <div key={ch} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`channel-${ch}`}
+                                checked={((selectedStep.config as { channels?: string[] })?.channels || ['in_app']).includes(ch)}
+                                onCheckedChange={(checked) => {
+                                  const current = (selectedStep.config as { channels?: string[] })?.channels || ['in_app'];
+                                  const next = checked
+                                    ? [...current, ch]
+                                    : current.filter((c: string) => c !== ch);
+                                  updateStep(selectedStep.step_id, {
+                                    config: { ...selectedStep.config, channels: next.length > 0 ? next : ['in_app'] }
+                                  });
+                                }}
+                              />
+                              <label htmlFor={`channel-${ch}`} className="text-sm capitalize">{ch.replace('_', ' ')}</label>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Defaults to global setting if none selected.</p>
                       </div>
                     </>
                   )}

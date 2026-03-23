@@ -135,3 +135,36 @@ class HandleRoleRequest(BaseModel):
     role_id: str = Field(..., description="ID of the role being requested.")
     approved: bool = Field(..., description="Whether the request was approved or denied.")
     message: Optional[str] = Field(None, description="Optional message from the admin to the requester.")
+
+
+# --- Email & Notification Channel Configuration ---
+
+class EmailProvider(str, Enum):
+    SMTP = "smtp"
+    SENDGRID = "sendgrid"
+    WEBHOOK = "webhook"
+
+
+class EmailConfig(BaseModel):
+    """Email delivery configuration."""
+    enabled: bool = False
+    provider: EmailProvider = EmailProvider.SMTP
+    from_address: str = ""
+    from_name: str = "Ontos Notifications"
+    # SMTP settings
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    # API provider settings
+    api_key: str = ""
+    api_endpoint: str = ""
+
+
+class NotificationChannelDefaults(BaseModel):
+    """Global default channels for workflow notifications."""
+    channels: List[str] = Field(
+        default_factory=lambda: ["in_app"],
+        description="Default notification channels: in_app, email, webhook"
+    )

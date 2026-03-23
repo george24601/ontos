@@ -30,4 +30,21 @@ class NotificationDb(Base):
     data = Column(String, nullable=True)  # JSON string for additional data (job progress etc.)
 
     def __repr__(self):
-        return f"<NotificationDb(id='{self.id}', title='{self.title}', recipient='{self.recipient}')>" 
+        return f"<NotificationDb(id='{self.id}', title='{self.title}', recipient='{self.recipient}')>"
+
+
+class NotificationTemplateDb(Base):
+    """Reusable notification message templates with ${var} placeholders."""
+    __tablename__ = 'notification_templates'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False, unique=True, index=True)
+    title_template = Column(String, nullable=False)
+    body_template = Column(Text, nullable=False)
+    notification_type = Column(String(50), nullable=False, default='info')
+    is_default = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self):
+        return f"<NotificationTemplateDb(id='{self.id}', name='{self.name}')>"
