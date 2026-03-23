@@ -103,6 +103,8 @@ class OntologySchemaManager:
     # Entity Types
     # ------------------------------------------------------------------
 
+    BASE_ONTOLOGY_CONTEXT = "urn:taxonomy:ontos-ontology"
+
     def get_entity_types(
         self,
         tier: Optional[str] = None,
@@ -111,11 +113,15 @@ class OntologySchemaManager:
     ) -> List[EntityTypeDefinition]:
         """Return all classes that have an ontos:modelTier annotation.
 
+        Only classes defined in the base ontology context are considered,
+        so user-uploaded ontologies cannot register new asset types.
+
         Optionally filter by tier ('dedicated'|'asset'), category, or persona.
         """
         results: List[EntityTypeDefinition] = []
 
-        for cls in self._graph.subjects(ONTOS.modelTier, None):
+        base_ctx = self._graph.get_context(self.BASE_ONTOLOGY_CONTEXT)
+        for cls in base_ctx.subjects(ONTOS.modelTier, None):
             model_tier = _str_or_none(self._graph.value(cls, ONTOS.modelTier))
             if not model_tier:
                 continue

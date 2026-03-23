@@ -604,16 +604,36 @@ class SemanticModelsManager:
                 logger.error(f"Failed to sync taxonomy {f.name}: {e}")
                 self._db.rollback()
 
+    def _get_disabled_context_names(self) -> set:
+        """Build the set of rdf_triples context names belonging to disabled semantic models."""
+        disabled_contexts: set = set()
+        all_models = semantic_models_repo.get_multi(self._db)
+        for m in all_models:
+            if not m.enabled:
+                sanitized = _sanitize_context_name(m.name)
+                disabled_contexts.add(f"urn:semantic-model:{sanitized}")
+        return disabled_contexts
+
     def _load_triples_from_db_to_graph(self) -> None:
-        """Load all triples from the database into the in-memory graph.
+        """Load triples from the database into the in-memory graph.
         
         This replaces direct file loading - the database is now the source of truth.
         Triples are organized into named graph contexts based on their context_name.
+        Contexts belonging to disabled semantic models are skipped.
         """
+        disabled_contexts = self._get_disabled_context_names()
+        if disabled_contexts:
+            logger.info(f"Skipping {len(disabled_contexts)} disabled contexts: {disabled_contexts}")
+
         all_triples = rdf_triples_repo.list_all(self._db)
-        logger.info(f"Loading {len(all_triples)} triples from database into graph")
-        
+        loaded = 0
+        skipped = 0
+
         for triple in all_triples:
+            if triple.context_name in disabled_contexts:
+                skipped += 1
+                continue
+
             context = self._graph.get_context(triple.context_name)
             
             subj = URIRef(triple.subject_uri)
@@ -622,7 +642,6 @@ class SemanticModelsManager:
             if triple.object_is_uri:
                 obj = URIRef(triple.object_value)
             else:
-                # It's a literal
                 if triple.object_language:
                     obj = Literal(triple.object_value, lang=triple.object_language)
                 elif triple.object_datatype:
@@ -631,12 +650,16 @@ class SemanticModelsManager:
                     obj = Literal(triple.object_value)
             
             context.add((subj, pred, obj))
+            loaded += 1
+
+        logger.info(f"Loaded {loaded} triples into graph (skipped {skipped} from disabled models)")
         
         # Log stats by context
         contexts = rdf_triples_repo.list_contexts(self._db)
         for ctx in contexts:
-            count = rdf_triples_repo.count_by_context(self._db, ctx)
-            logger.debug(f"Loaded context '{ctx}': {count} triples")
+            if ctx not in disabled_contexts:
+                count = rdf_triples_repo.count_by_context(self._db, ctx)
+                logger.debug(f"Loaded context '{ctx}': {count} triples")
 
     def _sync_entity_semantic_links_to_graph(self) -> None:
         """Sync semantic links from entity_semantic_links table to in-memory graph.

@@ -101,14 +101,29 @@ async def get_semantic_models(
         raise HTTPException(status_code=500, detail="Failed to retrieve semantic models")
 
 
+def _rebuild_and_sync_asset_types(request: Request, db, manager: SemanticModelsManager) -> dict | None:
+    """Rebuild the in-memory graph and synchronize asset types to the database."""
+    manager.rebuild_graph_from_enabled()
+    osm = getattr(request.app.state, 'ontology_schema_manager', None)
+    if osm:
+        sync_result = osm.sync_asset_types(db)
+        logger.info(f"Asset type sync after graph rebuild: {sync_result}")
+        return sync_result
+    else:
+        logger.warning("OntologySchemaManager not available; skipping asset type sync")
+    return None
+
+
 @router.post('/semantic-models/refresh-graph')
 async def refresh_knowledge_graph(
+    request: Request,
+    db: DBSessionDep,
     manager: SemanticModelsManager = Depends(get_semantic_models_manager),
     _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_WRITE))
 ) -> dict:
     """Force refresh the knowledge graph so all loaded ontologies, implicit sources, and app objects are present and queryable."""
     try:
-        manager.rebuild_graph_from_enabled()
+        _rebuild_and_sync_asset_types(request, db, manager)
         return {"message": "Knowledge graph refreshed successfully"}
     except Exception as e:
         logger.error("Error refreshing knowledge graph", exc_info=True)
@@ -238,8 +253,8 @@ async def upload_semantic_model(
         created_model = manager.create(create_data, created_by=current_user.username)
         created_model_id = created_model.id
         
-        # Rebuild graph to include the new model
-        manager.rebuild_graph_from_enabled()
+        # Rebuild graph to include the new model and sync asset types
+        _rebuild_and_sync_asset_types(request, db, manager)
         
         success = True
         
@@ -308,8 +323,8 @@ async def update_semantic_model(
             )
             raise HTTPException(status_code=404, detail="Semantic model not found")
         
-        # Rebuild graph to reflect enabled/disabled status
-        manager.rebuild_graph_from_enabled()
+        # Rebuild graph to reflect enabled/disabled status and sync asset types
+        _rebuild_and_sync_asset_types(request, db, manager)
         
         # Audit log success
         audit_manager.log_action(
@@ -386,8 +401,8 @@ async def delete_semantic_model(
             )
             raise HTTPException(status_code=500, detail="Failed to delete semantic model")
         
-        # Rebuild graph to remove deleted model
-        manager.rebuild_graph_from_enabled()
+        # Rebuild graph to remove deleted model and sync asset types
+        _rebuild_and_sync_asset_types(request, db, manager)
         
         # Audit log success
         audit_manager.log_action(
