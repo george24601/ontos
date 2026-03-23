@@ -160,9 +160,22 @@ jobs:
         working-directory: ./src/frontend
         run: yarn install --frozen-lockfile
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package.json') }}
+
       - name: Install Playwright browsers
         working-directory: ./src/frontend
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright OS deps only
+        working-directory: ./src/frontend
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Start backend server
         working-directory: ./src
@@ -183,6 +196,7 @@ jobs:
           APP_DEMO_MODE: "true"
           APP_DB_DROP_ON_START: "true"
           MOCK_WORKSPACE_CLIENT: "true"
+          TESTING: "true"
         run: |
           mkdir -p /tmp/audit_logs
           hatch -e dev run uvicorn --app-dir backend src.app:app \
