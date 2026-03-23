@@ -18,7 +18,7 @@ from src.common.dependencies import (
     DBSessionDep,
 )
 from src.common.config import get_settings
-from src.common.workspace_client import get_workspace_client
+from src.common.workspace_client import get_obo_workspace_client
 from src.common.logging import get_logger
 from src.controller.connections_manager import ConnectionsManager
 from src.controller.schema_import_manager import SchemaImportManager
@@ -45,7 +45,7 @@ def _get_manager(request: Request, db: Session = Depends(get_db)) -> SchemaImpor
     settings = get_settings()
     ws = None
     try:
-        ws = get_workspace_client(settings=settings)
+        ws = get_obo_workspace_client(request, settings)
     except Exception:
         pass
     connections_mgr = ConnectionsManager(db=db, workspace_client=ws)

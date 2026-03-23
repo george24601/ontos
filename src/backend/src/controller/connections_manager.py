@@ -152,6 +152,9 @@ class ConnectionsManager:
         # Only match explicitly registered instances, not class-created cached ones.
         if connector_type in registry._connector_instances and \
            connector_type not in registry._connector_classes:
+            if self._ws_client and connector_type == "databricks":
+                from src.connectors.databricks import DatabricksConnector
+                return DatabricksConnector(workspace_client=self._ws_client)
             return registry._connector_instances[connector_type]
 
         # Inject workspace client for connectors that need it
