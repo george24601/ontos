@@ -460,9 +460,8 @@ export function EntityTreePanel({
   const fetchValidRelationships = useCallback(async () => {
     try {
       const iri = `http://ontos.app/ontology#${entityType}`;
-      const encodedIri = encodeURIComponent(iri);
       const response = await apiGet<{ type_iri: string; outgoing: RelationshipDefinition[]; incoming: RelationshipDefinition[] }>(
-        `/api/ontology/entity-types/${encodedIri}/relationships`
+        `/api/ontology/entity-types/relationships?type_iri=${encodeURIComponent(iri)}`
       );
       if (!response.error && response.data) {
         setValidRelationships(response.data.outgoing);

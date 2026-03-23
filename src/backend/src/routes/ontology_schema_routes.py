@@ -79,6 +79,63 @@ def list_entity_types(
         )
 
 
+# ---------- Query-parameter variants (proxy-safe) ----------
+# Reverse proxies (e.g. Databricks Apps) can mangle IRIs embedded in
+# URL paths by collapsing "//".  These endpoints accept the IRI as a
+# query parameter instead, which is never subject to path normalisation.
+
+
+@router.get(
+    "/entity-types/schema",
+    response_model=EntityTypeSchema,
+    summary="Get field schema for an entity type (query-param variant)",
+)
+def get_entity_type_schema_q(
+    request: Request,
+    type_iri: str = Query(..., description="Full IRI of the entity type"),
+    db: DBSessionDep = None,
+    audit_manager: AuditManagerDep = None,
+    current_user: AuditCurrentUserDep = None,
+    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
+):
+    return _handle_schema(request, type_iri, db, audit_manager, current_user, manager)
+
+
+@router.get(
+    "/entity-types/relationships",
+    response_model=EntityRelationships,
+    summary="Get relationships for an entity type (query-param variant)",
+)
+def get_entity_type_relationships_q(
+    request: Request,
+    type_iri: str = Query(..., description="Full IRI of the entity type"),
+    db: DBSessionDep = None,
+    audit_manager: AuditManagerDep = None,
+    current_user: AuditCurrentUserDep = None,
+    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
+):
+    return _handle_relationships(request, type_iri, db, audit_manager, current_user, manager)
+
+
+@router.get(
+    "/entity-types/hierarchy-for",
+    response_model=List[EntityHierarchyNode],
+    summary="Get class hierarchy for an entity type (query-param variant)",
+)
+def get_entity_type_hierarchy_q(
+    request: Request,
+    type_iri: str = Query(..., description="Full IRI of the entity type"),
+    db: DBSessionDep = None,
+    audit_manager: AuditManagerDep = None,
+    current_user: AuditCurrentUserDep = None,
+    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
+):
+    return _handle_hierarchy(request, type_iri, db, audit_manager, current_user, manager)
+
+
+# ---------- Path-parameter variants (legacy, with IRI normalisation) ----------
+
+
 @router.get(
     "/entity-types/{type_iri:path}/schema",
     response_model=EntityTypeSchema,
@@ -92,6 +149,45 @@ def get_entity_type_schema(
     current_user: AuditCurrentUserDep = None,
     manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
 ):
+    return _handle_schema(request, type_iri, db, audit_manager, current_user, manager)
+
+
+@router.get(
+    "/entity-types/{type_iri:path}/relationships",
+    response_model=EntityRelationships,
+    summary="Get relationships for an entity type",
+)
+def get_entity_type_relationships(
+    request: Request,
+    type_iri: str,
+    db: DBSessionDep = None,
+    audit_manager: AuditManagerDep = None,
+    current_user: AuditCurrentUserDep = None,
+    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
+):
+    return _handle_relationships(request, type_iri, db, audit_manager, current_user, manager)
+
+
+@router.get(
+    "/entity-types/{type_iri:path}/hierarchy",
+    response_model=List[EntityHierarchyNode],
+    summary="Get class hierarchy for an entity type",
+)
+def get_entity_type_hierarchy(
+    request: Request,
+    type_iri: str,
+    db: DBSessionDep = None,
+    audit_manager: AuditManagerDep = None,
+    current_user: AuditCurrentUserDep = None,
+    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
+):
+    return _handle_hierarchy(request, type_iri, db, audit_manager, current_user, manager)
+
+
+# ---------- Shared handler implementations ----------
+
+
+def _handle_schema(request, type_iri, db, audit_manager, current_user, manager):
     """Return the field schema (data properties) for a specific entity type."""
     success = False
     details = {"params": {"type_iri": type_iri}}
@@ -120,19 +216,7 @@ def get_entity_type_schema(
         )
 
 
-@router.get(
-    "/entity-types/{type_iri:path}/relationships",
-    response_model=EntityRelationships,
-    summary="Get relationships for an entity type",
-)
-def get_entity_type_relationships(
-    request: Request,
-    type_iri: str,
-    db: DBSessionDep = None,
-    audit_manager: AuditManagerDep = None,
-    current_user: AuditCurrentUserDep = None,
-    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
-):
+def _handle_relationships(request, type_iri, db, audit_manager, current_user, manager):
     """Return all outgoing and incoming relationships for an entity type."""
     success = False
     details = {"params": {"type_iri": type_iri}}
@@ -154,19 +238,7 @@ def get_entity_type_relationships(
         )
 
 
-@router.get(
-    "/entity-types/{type_iri:path}/hierarchy",
-    response_model=List[EntityHierarchyNode],
-    summary="Get class hierarchy for an entity type",
-)
-def get_entity_type_hierarchy(
-    request: Request,
-    type_iri: str,
-    db: DBSessionDep = None,
-    audit_manager: AuditManagerDep = None,
-    current_user: AuditCurrentUserDep = None,
-    manager: OntologySchemaManager = Depends(get_ontology_schema_manager),
-):
+def _handle_hierarchy(request, type_iri, db, audit_manager, current_user, manager):
     """Return the class hierarchy subtree rooted at the given entity type."""
     success = False
     details = {"params": {"type_iri": type_iri}}

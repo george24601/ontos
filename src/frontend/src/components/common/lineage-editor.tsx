@@ -96,7 +96,7 @@ export function LineageEditor({
       setIsLoadingSchema(true);
       try {
         const iri = `http://ontos.app/ontology#${entityType}`;
-        const res = await fetch(`/api/ontology/entity-types/${encodeURIComponent(iri)}/relationships`);
+        const res = await fetch(`/api/ontology/entity-types/relationships?type_iri=${encodeURIComponent(iri)}`);
         if (!res.ok) throw new Error(`Failed to load relationships (${res.status})`);
         const data: EntityRelationships = await res.json();
         setRelationships([...data.outgoing, ...data.incoming]);

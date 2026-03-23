@@ -81,6 +81,25 @@ class OntologySchemaManager:
         return self._smm._graph
 
     # ------------------------------------------------------------------
+    # IRI resolution
+    # ------------------------------------------------------------------
+
+    def resolve_type_iri(self, type_iri: str) -> str:
+        """Normalize a type IRI that may have been mangled by a reverse proxy.
+
+        Databricks Apps' reverse proxy decodes percent-encoded slashes in
+        URL paths and then collapses ``//`` to ``/``, turning
+        ``http://`` into ``http:/``.  This helper detects and repairs that.
+        It also accepts a bare local name (e.g. ``Table``) and expands it
+        to the default ONTOS namespace.
+        """
+        if "://" in type_iri:
+            return type_iri
+        if ":/" in type_iri:
+            return type_iri.replace(":/", "://", 1)
+        return f"{str(ONTOS)}{type_iri}"
+
+    # ------------------------------------------------------------------
     # Entity Types
     # ------------------------------------------------------------------
 
@@ -208,6 +227,7 @@ class OntologySchemaManager:
 
         Returns field definitions and a JSON Schema for validation.
         """
+        type_iri = self.resolve_type_iri(type_iri)
         cls = URIRef(type_iri)
         model_tier = _str_or_none(self._graph.value(cls, ONTOS.modelTier))
         if not model_tier:
@@ -272,6 +292,7 @@ class OntologySchemaManager:
 
     def get_relationships(self, type_iri: str) -> EntityRelationships:
         """Return all outgoing and incoming relationships for an entity type."""
+        type_iri = self.resolve_type_iri(type_iri)
         cls = URIRef(type_iri)
         ancestors = self._get_ancestor_classes(cls)
         target_classes = {cls} | ancestors
@@ -408,7 +429,7 @@ class OntologySchemaManager:
         Otherwise returns the full tree from ontos:Entity.
         """
         if root_iri:
-            root = URIRef(root_iri)
+            root = URIRef(self.resolve_type_iri(root_iri))
         else:
             root = ONTOS.Entity
 
