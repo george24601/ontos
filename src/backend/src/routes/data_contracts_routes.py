@@ -1231,6 +1231,66 @@ async def get_contract_schemas(
     ]
 
 
+@router.post('/data-contracts/{contract_id}/schemas', status_code=201)
+async def add_contract_schema(
+    contract_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    schema_data: dict = Body(...),
+    manager: DataContractsManager = Depends(get_data_contracts_manager),
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_WRITE))
+):
+    """Append a single schema (with properties) to a contract without touching existing schemas."""
+    contract = data_contract_repo.get(db, id=contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    try:
+        manager._create_schema_objects(db, contract_id, [schema_data], current_user)
+        db.commit()
+        audit_manager.log_update(db, "data_contract", contract_id, current_user, {"action": "add_schema", "schema_name": schema_data.get("name")})
+        return {"status": "ok", "schema_name": schema_data.get("name")}
+    except Exception as e:
+        db.rollback()
+        logger.error("Failed to add schema to contract %s: %s", contract_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to add schema")
+
+
+@router.delete('/data-contracts/{contract_id}/schemas/{schema_name}', status_code=204)
+async def delete_contract_schema(
+    contract_id: str,
+    schema_name: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_WRITE))
+):
+    """Delete a single schema by name, leaving other schemas untouched."""
+    contract = data_contract_repo.get(db, id=contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    schema_obj = (
+        db.query(SchemaObjectDb)
+        .filter(SchemaObjectDb.contract_id == contract_id, SchemaObjectDb.name == schema_name)
+        .first()
+    )
+    if not schema_obj:
+        raise HTTPException(status_code=404, detail=f"Schema '{schema_name}' not found")
+
+    try:
+        db.query(SchemaObjectDb).filter(SchemaObjectDb.id == schema_obj.id).delete()
+        db.commit()
+        audit_manager.log_update(db, "data_contract", contract_id, current_user, {"action": "delete_schema", "schema_name": schema_name})
+    except Exception as e:
+        db.rollback()
+        logger.error("Failed to delete schema '%s' from contract %s: %s", schema_name, contract_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to delete schema")
+
+
 @router.get('/data-contracts/{contract_id}/schemas/{schema_name}/properties')
 async def get_schema_properties(
     contract_id: str,

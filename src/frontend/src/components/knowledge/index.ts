@@ -12,3 +12,4 @@ export { GraphTab } from './graph-tab';
 
 // Shared components
 export { GlossaryFilterPanel } from './glossary-filter-panel';
+export { ImportConceptsDialog } from './import-concepts-dialog';
