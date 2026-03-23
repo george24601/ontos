@@ -877,11 +877,26 @@ export default function DataContractDetails() {
     setIsSchemaFormOpen(true)
   }
 
+  const clearSchemaCache = () => {
+    setSchemaProperties({})
+    setSchemaPropTotal({})
+    setSchemaPropPage({})
+    setAllSchemaProperties({})
+    setSchemaLinks({})
+    setSchemaAuthDefs({})
+  }
+
   // Schema CRUD handlers
   const handleAddSchema = async (schema: SchemaObject) => {
-    if (!contract) return
-    const updatedSchemas = [...(contract.schema || []), schema]
-    await updateContract({ schema: updatedSchemas })
+    if (!contractId) return
+    const res = await fetch(`/api/data-contracts/${contractId}/schemas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(schema),
+    })
+    if (!res.ok) throw new Error('Failed to add schema')
+    clearSchemaCache()
+    await fetchDetails()
   }
 
   const handleUpdateSchema = async (schema: SchemaObject) => {
@@ -889,6 +904,7 @@ export default function DataContractDetails() {
     const updatedSchemas = [...(contract.schema || [])]
     updatedSchemas[editingSchemaIndex] = schema
     await updateContract({ schema: updatedSchemas })
+    clearSchemaCache()
     setEditingSchemaIndex(null)
   }
 
@@ -919,10 +935,19 @@ export default function DataContractDetails() {
   }, [contract, editingSchemaIndex, propertyLinks, allSchemaProperties])
 
   const handleDeleteSchema = async (index: number) => {
-    if (!contract) return
+    if (!contract || !contractId) return
     if (!confirm('Delete this schema?')) return
-    const updatedSchemas = (contract.schema || []).filter((_, i) => i !== index)
-    await updateContract({ schema: updatedSchemas })
+    const schemaName = contract.schema?.[index]?.name
+    if (!schemaName) return
+    const res = await fetch(`/api/data-contracts/${contractId}/schemas/${encodeURIComponent(schemaName)}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) throw new Error('Failed to delete schema')
+    clearSchemaCache()
+    if (selectedSchemaIndex >= (contract.schema?.length || 1) - 1) {
+      setSelectedSchemaIndex(Math.max(0, selectedSchemaIndex - 1))
+    }
+    await fetchDetails()
   }
 
   // Quality Rule CRUD handlers

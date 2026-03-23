@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ZoomIn, ZoomOut, Maximize, RotateCcw, Expand, Group, Ungroup, ChevronDown } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, RotateCcw, Expand, Group, Ungroup, ChevronDown, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -239,6 +239,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDomainBoxes, setShowDomainBoxes] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
   
   // Handler for toggling domain boxes
   const handleToggleDomainBoxes = useCallback(() => {
@@ -394,18 +395,20 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       const rootIri = nodeToRoot.get(concept.iri) || concept.iri;
       const color = rootColors.get(rootIri) || '#64748b';
       
+      const isProperty = concept.concept_type === 'property';
       const nodeData: ElementDefinition = {
         data: {
           id: concept.iri,
           label: concept.label || concept.iri.split(/[/#]/).pop() || 'Unknown',
           type: 'concept',
+          conceptType: concept.concept_type,
           color: color,
-          conceptData: concept, // Store full concept for click handler
+          conceptData: concept,
           sourceContext: concept.source_context,
           childCount: concept.child_concepts?.length || 0,
           parentCount: concept.parent_concepts?.length || 0,
         },
-        classes: 'concept-node',
+        classes: isProperty ? 'concept-node property-node' : 'concept-node',
       };
 
       // Add parent reference for compound nodes
@@ -470,7 +473,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           'background-color': 'data(color)',
           'border-width': 2,
           'border-color': isDarkMode ? 'rgba(30,30,30,0.8)' : 'rgba(255,255,255,0.9)',
-          'label': '',
+          'label': showLabels ? 'data(label)' : '',
         },
       },
       // Concept node hover
@@ -499,7 +502,30 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           'font-weight': 700,
         },
       },
-      // Domain compound nodes
+      // Property nodes (diamond shape to distinguish from class/concept ellipses)
+      {
+        selector: '.property-node',
+        style: {
+          'shape': 'diamond',
+          'width': 20,
+          'height': 20,
+        },
+      },
+      {
+        selector: '.property-node.hover',
+        style: {
+          'width': 28,
+          'height': 28,
+        },
+      },
+      {
+        selector: '.property-node:selected',
+        style: {
+          'width': 36,
+          'height': 36,
+        },
+      },
+      // Domain compound nodes (no label to avoid redundancy with contained nodes)
       {
         selector: '.domain-node',
         style: {
@@ -509,13 +535,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           'border-width': 2,
           'border-color': 'data(color)',
           'border-opacity': 0.4,
-          'label': 'data(label)',
-          'text-valign': 'top',
-          'text-halign': 'center',
-          'font-size': 14,
-          'font-weight': 700,
-          'color': textColor,
-          'text-margin-y': -8,
+          'label': '',
           'padding': 30,
         },
       },
@@ -543,7 +563,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         },
       },
     ];
-  }, [isDarkMode]);
+  }, [isDarkMode, showLabels]);
 
   // Layout configurations
   const getLayoutConfig = useCallback((layoutName: LayoutType, animate = true): LayoutOptions => {
@@ -752,9 +772,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           >
             {showDomainBoxes ? <Group className="h-4 w-4" /> : <Ungroup className="h-4 w-4" />}
           </Button>
+
+          <Button
+            variant={showLabels ? "secondary" : "ghost"}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setShowLabels(prev => !prev)}
+            title={showLabels ? "Hide labels" : "Show labels"}
+          >
+            <Tag className="h-4 w-4" />
+          </Button>
           
           <Badge variant="secondary" className="text-xs">
-            {graphData.elements.filter(e => e.classes === 'concept-node').length} concepts
+            {graphData.elements.filter(e => e.classes?.includes('concept-node')).length} concepts
           </Badge>
         </div>
 
@@ -848,8 +878,17 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
                 >
                   {showDomainBoxes ? <Group className="h-4 w-4" /> : <Ungroup className="h-4 w-4" />}
                 </Button>
+                <Button
+                  variant={showLabels ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShowLabels(prev => !prev)}
+                  title={showLabels ? "Hide labels" : "Show labels"}
+                >
+                  <Tag className="h-4 w-4" />
+                </Button>
                 <Badge variant="secondary" className="text-xs">
-                  {graphData.elements.filter(e => e.classes === 'concept-node').length} concepts
+                  {graphData.elements.filter(e => e.classes?.includes('concept-node')).length} concepts
                 </Badge>
               </div>
             </div>

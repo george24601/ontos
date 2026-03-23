@@ -166,6 +166,9 @@ class SettingsManager:
         
         # Load persisted settings from database (overrides env vars)
         self._load_persisted_settings()
+        # Reinitialize deployer in case WORKSPACE_DEPLOYMENT_PATH was loaded from DB
+        # after the initial JobsManager creation above
+        self._reinitialize_workspace_deployer()
 
     def _load_persisted_settings(self) -> None:
         """Load persisted settings from database and apply to in-memory Settings."""
@@ -1111,6 +1114,17 @@ class SettingsManager:
         logger.info(f"SettingsManager.update_settings received cluster_id: {desired_cluster_id}")
         logger.info(f"SettingsManager.update_settings current stored cluster_id: {self._settings.job_cluster_id}")
 
+        # Handle workspace_deployment_path BEFORE workflow changes so the deployer
+        # is initialized when install_workflow runs
+        if 'workspace_deployment_path' in settings:
+            new_path = settings.get('workspace_deployment_path')
+            if new_path == '':
+                new_path = None
+            app_settings_repo.set(self._db, 'WORKSPACE_DEPLOYMENT_PATH', new_path)
+            self._settings.WORKSPACE_DEPLOYMENT_PATH = new_path
+            logger.info(f"Updated WORKSPACE_DEPLOYMENT_PATH to: {new_path}")
+            self._reinitialize_workspace_deployer()
+
         # Compute job enable/disable delta against current state from DB (source of truth)
         try:
             enabled_installations = workflow_installation_repo.get_all_installed(self._db)
@@ -1257,18 +1271,6 @@ class SettingsManager:
         self._settings.sync_enabled = settings.get('sync_enabled', False)
         self._settings.sync_repository = settings.get('sync_repository')
         self._settings.updated_at = datetime.utcnow()
-        
-        # Handle workspace_deployment_path - persist to database for durability
-        if 'workspace_deployment_path' in settings:
-            new_path = settings.get('workspace_deployment_path')
-            # Normalize empty string to None
-            if new_path == '':
-                new_path = None
-            # Persist to database
-            app_settings_repo.set(self._db, 'WORKSPACE_DEPLOYMENT_PATH', new_path)
-            # Update in-memory settings
-            self._settings.WORKSPACE_DEPLOYMENT_PATH = new_path
-            logger.info(f"Updated WORKSPACE_DEPLOYMENT_PATH to: {new_path}")
         
         # Handle Databricks Unity Catalog settings
         if 'databricks_catalog' in settings:
@@ -1465,6 +1467,27 @@ class SettingsManager:
                 self._available_jobs = [w["id"] for w in self._jobs.list_available_workflows()]
             except Exception as e:
                 logger.error(f"Failed to reinitialize jobs manager with notifications: {e}")
+
+    def _reinitialize_workspace_deployer(self) -> None:
+        """Recreate the WorkspaceDeployer on the existing JobsManager after
+        WORKSPACE_DEPLOYMENT_PATH has been updated."""
+        if not self._jobs or not self._client:
+            return
+        try:
+            from src.utils.workspace_deployer import WorkspaceDeployer
+
+            if self._settings.WORKSPACE_DEPLOYMENT_PATH:
+                deployer = WorkspaceDeployer(
+                    ws_client=self._client,
+                    deployment_path=self._settings.WORKSPACE_DEPLOYMENT_PATH
+                )
+                self._jobs._workspace_deployer = deployer
+                logger.info(f"Reinitialized WorkspaceDeployer with path: {self._settings.WORKSPACE_DEPLOYMENT_PATH}")
+            else:
+                self._jobs._workspace_deployer = None
+                logger.info("Cleared WorkspaceDeployer (WORKSPACE_DEPLOYMENT_PATH is empty)")
+        except Exception as e:
+            logger.warning(f"Failed to reinitialize WorkspaceDeployer: {e}")
 
     def _map_db_to_api(self, role_db: AppRoleDb) -> AppRole:
         """Converts an AppRoleDb model to an AppRole API model."""

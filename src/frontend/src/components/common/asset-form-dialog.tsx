@@ -91,9 +91,8 @@ export function AssetFormDialog({
     if (!assetTypeIri) return;
     setSchemaLoading(true);
     try {
-      const encodedIri = encodeURIComponent(assetTypeIri);
       const response = await apiGet<EntityTypeSchema>(
-        `/api/ontology/entity-types/${encodedIri}/schema`
+        `/api/ontology/entity-types/schema?type_iri=${encodeURIComponent(assetTypeIri)}`
       );
       if (response.error) throw new Error(response.error);
       setSchema(response.data ?? null);

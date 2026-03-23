@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import sys
@@ -158,6 +159,9 @@ class DatasetTagInfo:
     domain_name: Optional[str]
     # Semantic links
     semantic_links: List[SemanticLink]
+    # Asset metadata (populated when sourced from assets table)
+    asset_id: Optional[str] = None
+    asset_type_name: Optional[str] = None
 
 
 def read_contracts_and_links(engine: Engine, limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -187,7 +191,7 @@ def read_contracts_and_links(engine: Engine, limit: Optional[int] = None) -> Lis
           ON el.entity_type = 'data_contract_schema'
          AND el.entity_id = c.id || '#' || o.name
         LEFT JOIN data_domains d ON c.domain_id = d.id
-        LEFT JOIN output_ports op ON op.contract_id = c.id AND op.asset_identifier = o.physical_name
+        LEFT JOIN data_product_output_ports op ON op.contract_id = c.id AND op.asset_identifier = o.physical_name
         LEFT JOIN data_products p ON op.product_id = p.id
         """
         + (" LIMIT :limit" if limit else "")
@@ -279,6 +283,175 @@ def build_dataset_tag_infos(rows: List[Dict[str, Any]], default_catalog: Optiona
     return out
 
 
+def read_assets_and_links(engine: Engine, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Read UC-taggable assets (Table, View) with their domain, contract, product, and semantic link metadata."""
+    sql = (
+        """
+        SELECT a.id::text    AS asset_id,
+               a.name        AS asset_name,
+               a.location    AS physical_name,
+               at.name       AS asset_type_name,
+               a.domain_id   AS asset_domain_id,
+               d.id          AS domain_id,
+               d.name        AS domain_name,
+               er.target_id  AS contract_id,
+               c.name        AS contract_name,
+               c.version     AS contract_version,
+               c.status      AS contract_status,
+               p.id          AS product_id,
+               p.name        AS product_name,
+               p.version     AS product_version,
+               p.status      AS product_status,
+               p.domain      AS product_domain,
+               esl.iri       AS asset_semantic_iri,
+               esl.label     AS asset_semantic_label
+        FROM assets a
+        JOIN asset_types at ON a.asset_type_id = at.id
+        LEFT JOIN data_domains d ON a.domain_id = d.id
+        LEFT JOIN entity_relationships er
+          ON er.source_id = a.id::text
+         AND er.source_type IN ('Table', 'View')
+         AND er.target_type = 'DataContract'
+         AND er.relationship_type = 'implementsContract'
+        LEFT JOIN data_contracts c ON er.target_id = c.id
+        LEFT JOIN data_product_output_ports op
+          ON op.contract_id = c.id
+         AND op.asset_identifier = a.location
+        LEFT JOIN data_products p ON op.product_id = p.id
+        LEFT JOIN entity_semantic_links esl
+          ON esl.entity_id = a.id::text
+         AND esl.entity_type = 'asset'
+        WHERE at.name IN ('Table', 'View')
+          AND a.status = 'active'
+          AND a.location IS NOT NULL
+        """
+        + (" LIMIT :limit" if limit else "")
+    )
+    params = {"limit": int(limit)} if limit else {}
+    with engine.connect() as conn:
+        rows = [dict(r._mapping) for r in conn.execute(text(sql), params)]
+    return rows
+
+
+def build_asset_tag_infos(rows: List[Dict[str, Any]], default_catalog: Optional[str], default_schema: Optional[str]) -> List[DatasetTagInfo]:
+    """Convert asset query rows into DatasetTagInfo objects, aggregating semantic links."""
+    by_asset: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        key = r["asset_id"]
+        obj = by_asset.setdefault(
+            key,
+            {
+                "asset_id": r.get("asset_id"),
+                "asset_type_name": r.get("asset_type_name"),
+                "physical_name": r.get("physical_name"),
+                "contract_id": r.get("contract_id"),
+                "contract_name": r.get("contract_name"),
+                "contract_version": r.get("contract_version"),
+                "contract_status": r.get("contract_status"),
+                "product_id": r.get("product_id"),
+                "product_name": r.get("product_name"),
+                "product_version": r.get("product_version"),
+                "product_status": r.get("product_status"),
+                "domain_id": r.get("domain_id"),
+                "domain_name": r.get("domain_name"),
+                "product_domain": r.get("product_domain"),
+                "semantic_links": [],
+            },
+        )
+
+        iri = r.get("asset_semantic_iri")
+        if iri:
+            label = r.get("asset_semantic_label")
+            slug = slugify_iri(str(iri))
+            if not any(link["iri"] == iri for link in obj["semantic_links"]):
+                obj["semantic_links"].append({
+                    "iri": str(iri),
+                    "label": str(label) if label else None,
+                    "slug": slug,
+                })
+
+    out: List[DatasetTagInfo] = []
+    for _asset_id, data in by_asset.items():
+        qualified = qualify_uc_name(str(data.get("physical_name") or ""), default_catalog, default_schema)
+        if not qualified:
+            continue
+        parts = qualified.split(".")
+        if len(parts) != 3:
+            continue
+        cat, sch, tbl = parts
+
+        domain_id = data.get("domain_id")
+        domain_name = data.get("domain_name")
+        if not domain_name and data.get("product_domain"):
+            domain_name = data.get("product_domain")
+
+        semantic_links = [
+            SemanticLink(iri=link["iri"], label=link["label"], slug=link["slug"])
+            for link in data["semantic_links"]
+        ]
+
+        out.append(
+            DatasetTagInfo(
+                fqn=qualified,
+                catalog=cat,
+                schema=sch,
+                table=tbl,
+                contract_id=str(data.get("contract_id") or "") or None,
+                contract_name=str(data.get("contract_name") or "") or None,
+                contract_version=str(data.get("contract_version") or "") or None,
+                contract_status=str(data.get("contract_status") or "") or None,
+                product_id=str(data.get("product_id") or "") or None,
+                product_name=str(data.get("product_name") or "") or None,
+                product_version=str(data.get("product_version") or "") or None,
+                product_status=str(data.get("product_status") or "") or None,
+                domain_id=str(domain_id) if domain_id else None,
+                domain_name=str(domain_name) if domain_name else None,
+                semantic_links=semantic_links,
+                asset_id=str(data.get("asset_id") or "") or None,
+                asset_type_name=str(data.get("asset_type_name") or "") or None,
+            )
+        )
+    return out
+
+
+def merge_dataset_tag_infos(contract_datasets: List[DatasetTagInfo], asset_datasets: List[DatasetTagInfo]) -> List[DatasetTagInfo]:
+    """Merge contract-based and asset-based DatasetTagInfo lists, deduplicating by FQN.
+
+    When both sources provide an entry for the same FQN, fields from the richer
+    source win per-field, and semantic links are unioned.
+    """
+    by_fqn: Dict[str, DatasetTagInfo] = {}
+
+    for d in contract_datasets:
+        by_fqn[d.fqn] = d
+
+    for d in asset_datasets:
+        existing = by_fqn.get(d.fqn)
+        if existing is None:
+            by_fqn[d.fqn] = d
+        else:
+            # Merge: prefer non-None values, union semantic links
+            existing.contract_id = existing.contract_id or d.contract_id
+            existing.contract_name = existing.contract_name or d.contract_name
+            existing.contract_version = existing.contract_version or d.contract_version
+            existing.contract_status = existing.contract_status or d.contract_status
+            existing.product_id = existing.product_id or d.product_id
+            existing.product_name = existing.product_name or d.product_name
+            existing.product_version = existing.product_version or d.product_version
+            existing.product_status = existing.product_status or d.product_status
+            existing.domain_id = existing.domain_id or d.domain_id
+            existing.domain_name = existing.domain_name or d.domain_name
+            existing.asset_id = existing.asset_id or d.asset_id
+            existing.asset_type_name = existing.asset_type_name or d.asset_type_name
+            # Union semantic links
+            existing_iris = {link.iri for link in existing.semantic_links}
+            for link in d.semantic_links:
+                if link.iri not in existing_iris:
+                    existing.semantic_links.append(link)
+
+    return list(by_fqn.values())
+
+
 # Tag formatting and validation helpers --------------------------------------------
 
 def sanitize_tag_key(key: str) -> str:
@@ -339,6 +512,10 @@ def build_variables_for_dataset(d: DatasetTagInfo, link: Optional[SemanticLink] 
         # Domain variables
         "DOMAIN.ID": d.domain_id,
         "DOMAIN.NAME": d.domain_name,
+        # Asset variables
+        "ASSET.ID": d.asset_id,
+        "ASSET.TYPE": d.asset_type_name,
+        "ASSET.FQN": d.fqn,
     }
 
     # Add semantic link variables if provided
@@ -364,46 +541,78 @@ def ensure_tag_key(ws: WorkspaceClient, key: str) -> None:
 
 
 def get_existing_prefixed_tags(spark: SparkSession, object_type: str, object_name: str, prefix: str) -> Dict[str, Optional[str]]:
-    # Use SparkSQL to query Unity Catalog tags
-    # object_type in {CATALOG, SCHEMA, TABLE}
-    q = f"SHOW TAGS ON {object_type} {object_name}"
+    """Read existing tags via information_schema views.
+
+    object_type: CATALOG | SCHEMA | TABLE
+    object_name: fully-qualified UC name (catalog.schema.table for TABLE, etc.)
+    """
+    parts = object_name.split(".")
+    catalog = parts[0]
+
+    if object_type == "CATALOG":
+        q = (
+            f"SELECT tag_name, tag_value "
+            f"FROM `{catalog}`.information_schema.catalog_tags "
+            f"WHERE catalog_name = '{catalog}'"
+        )
+    elif object_type == "SCHEMA":
+        schema = parts[1] if len(parts) > 1 else ""
+        q = (
+            f"SELECT tag_name, tag_value "
+            f"FROM `{catalog}`.information_schema.schema_tags "
+            f"WHERE catalog_name = '{catalog}' AND schema_name = '{schema}'"
+        )
+    elif object_type == "TABLE":
+        schema = parts[1] if len(parts) > 1 else ""
+        table = parts[2] if len(parts) > 2 else ""
+        q = (
+            f"SELECT tag_name, tag_value "
+            f"FROM `{catalog}`.information_schema.table_tags "
+            f"WHERE catalog_name = '{catalog}' AND schema_name = '{schema}' AND table_name = '{table}'"
+        )
+    else:
+        return {}
+
     rows = spark.sql(q).collect()
     existing: Dict[str, Optional[str]] = {}
-    # Rows typically have columns: key, value, inheritable, applied_by
     for r in rows:
-        key = str(r.get("key") or r.get("KEY") or "")
+        key = str(r["tag_name"])
         if key.startswith(prefix):
-            existing[key] = r.get("value") or r.get("VALUE")
+            existing[key] = r["tag_value"]
     return existing
 
 
 def assign_tag(spark: SparkSession, object_type: str, object_name: str, key: str, value: Optional[str]) -> None:
     v = value if value is not None else ""
-    spark.sql(f"ALTER {object_type} {object_name} SET TAGS ('{key}' = '{v.replace(\"'\",\"''\")}')")
+    escaped = v.replace("'", "''")
+    spark.sql(f"ALTER {object_type} {object_name} SET TAGS ('{key}' = '{escaped}')")
 
 
 def unassign_tag(spark: SparkSession, object_type: str, object_name: str, key: str) -> None:
     spark.sql(f"ALTER {object_type} {object_name} UNSET TAGS ('{key}')")
 
 
-def reconcile_tags(ws: WorkspaceClient, spark: SparkSession, object_type: str, object_name: str, desired: Dict[str, Optional[str]], prefix: str, dry_run: bool = False) -> Tuple[int, int]:
+def reconcile_tags(ws: WorkspaceClient, spark: SparkSession, object_type: str, object_name: str, desired: Dict[str, Optional[str]], prefix: str, dry_run: bool = False) -> Tuple[int, int, List[str]]:
     existing = get_existing_prefixed_tags(spark, object_type, object_name, prefix)
     to_remove = [k for k in existing.keys() if k not in desired]
     to_upsert = {k: v for k, v in desired.items() if existing.get(k) != v}
 
     updated = 0
     removed = 0
+    errors: List[str] = []
     if dry_run:
         if to_remove or to_upsert:
             print(f"[DRY-RUN] {object_type} {object_name} remove={to_remove} upsert={to_upsert}")
-        return (0, 0)
+        return (0, 0, [])
 
     for k in to_remove:
         try:
             unassign_tag(spark, object_type, object_name, k)
             removed += 1
         except Exception as e:
-            print(f"[WARN] Failed to remove tag {k} from {object_type} {object_name}: {e}")
+            msg = f"Failed to remove tag {k} from {object_type} {object_name}: {e}"
+            print(f"[WARN] {msg}")
+            errors.append(msg)
 
     for k, v in to_upsert.items():
         try:
@@ -411,9 +620,11 @@ def reconcile_tags(ws: WorkspaceClient, spark: SparkSession, object_type: str, o
             assign_tag(spark, object_type, object_name, k, v)
             updated += 1
         except Exception as e:
-            print(f"[WARN] Failed to assign tag {k}={v} to {object_type} {object_name}: {e}")
+            msg = f"Failed to assign tag {k}={v} to {object_type} {object_name}: {e}"
+            print(f"[WARN] {msg}")
+            errors.append(msg)
 
-    return (updated, removed)
+    return (updated, removed, errors)
 
 
 def aggregate_parent_desired(dataset_items: List[DatasetTagInfo], tag_sync_configs: List[Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]:
@@ -527,6 +738,16 @@ def build_desired_for_dataset(d: DatasetTagInfo, tag_sync_configs: List[Dict[str
                     tag_key = sanitize_tag_key(tag_key)
                     desired[tag_key] = tag_value
 
+        elif entity_type == "asset":
+            if d.asset_type_name:
+                variables = build_variables_for_dataset(d)
+                tag_key = format_tag_string(tag_key_format, variables)
+                tag_value = format_tag_string(tag_value_format, variables)
+
+                if tag_key and tag_value:
+                    tag_key = sanitize_tag_key(tag_key)
+                    desired[tag_key] = tag_value
+
     return desired
 
 
@@ -622,21 +843,33 @@ def main() -> None:
     spark = SparkSession.builder.appName("UC-Tag-Sync").getOrCreate()
     print("✓ Spark session initialized")
 
-    rows = read_contracts_and_links(engine, limit=limit)
-    datasets = build_dataset_tag_infos(rows, default_catalog, default_schema)
+    # Read from both data sources: contracts and assets
+    print("\nReading contract-based metadata...")
+    contract_rows = read_contracts_and_links(engine, limit=limit)
+    contract_datasets = build_dataset_tag_infos(contract_rows, default_catalog, default_schema)
+    print(f"  Found {len(contract_datasets)} datasets from contracts")
+
+    print("Reading asset-based metadata...")
+    asset_rows = read_assets_and_links(engine, limit=limit)
+    asset_datasets = build_asset_tag_infos(asset_rows, default_catalog, default_schema)
+    print(f"  Found {len(asset_datasets)} datasets from assets")
+
+    datasets = merge_dataset_tag_infos(contract_datasets, asset_datasets)
 
     updated_total = removed_total = 0
+    all_errors: List[str] = []
 
-    print(f"\nProcessing {len(datasets)} datasets...")
+    print(f"\nProcessing {len(datasets)} datasets (merged)...")
 
     # Dataset-level
     for d in datasets:
         desired = build_desired_for_dataset(d, tag_sync_configs)
         if not desired:
             continue
-        u, r = reconcile_tags(ws, spark, "TABLE", d.fqn, desired, prefix, dry_run=dry_run)
+        u, r, errs = reconcile_tags(ws, spark, "TABLE", d.fqn, desired, prefix, dry_run=dry_run)
         updated_total += u
         removed_total += r
+        all_errors.extend(errs)
         if verbose:
             print(f"Dataset {d.fqn}: updated={u} removed={r}")
 
@@ -647,22 +880,32 @@ def main() -> None:
     for schema_fqn, desired in schema_desired.items():
         if not desired:
             continue
-        u, r = reconcile_tags(ws, spark, "SCHEMA", schema_fqn, desired, prefix, dry_run=dry_run)
+        u, r, errs = reconcile_tags(ws, spark, "SCHEMA", schema_fqn, desired, prefix, dry_run=dry_run)
         updated_total += u
         removed_total += r
+        all_errors.extend(errs)
 
     # Catalog-level
     for catalog_name, desired in catalog_desired.items():
         if not desired:
             continue
-        u, r = reconcile_tags(ws, spark, "CATALOG", catalog_name, desired, prefix, dry_run=dry_run)
+        u, r, errs = reconcile_tags(ws, spark, "CATALOG", catalog_name, desired, prefix, dry_run=dry_run)
         updated_total += u
         removed_total += r
+        all_errors.extend(errs)
 
     print("\n" + "=" * 80)
+    print(f"Summary: updated={updated_total} removed={removed_total} errors={len(all_errors)}")
+
+    if all_errors:
+        print(f"\n{len(all_errors)} error(s) occurred during tag sync:")
+        for err in all_errors:
+            print(f"  - {err}")
+        print("=" * 80)
+        sys.exit(1)
+
     print("✓ UC Tag Sync workflow completed successfully!")
     print("=" * 80)
-    print(f"Summary: updated={updated_total} removed={removed_total}")
 
 
 if __name__ == "__main__":

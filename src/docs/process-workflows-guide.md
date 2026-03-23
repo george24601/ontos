@@ -1496,6 +1496,35 @@ GET /api/workflows/executions/:execution_id
 
 ---
 
+## Future Roadmap (Deferred Items)
+
+The following capabilities are explicitly deferred from the current implementation and tracked for future iterations:
+
+### Timeout Expiry
+Approval steps accept a `timeout_days` configuration but the system does not currently auto-expire approvals. A scheduled job should periodically scan for paused workflow executions where the approval step has exceeded `timeout_days` and automatically fail or escalate them.
+
+### Crash Recovery
+If the server restarts while a workflow is executing (status `running` or `paused`), those executions are currently orphaned. A startup recovery task should detect in-progress executions and either resume them from the last completed step or mark them as failed with a clear error message.
+
+### Escalation
+Overdue approval steps should support automatic escalation to a higher role (e.g., if a `DataSteward` hasn't responded in 3 days, escalate to `Admin`). This requires an `escalation_role` field on the approval step config and a scheduled checker.
+
+### Parallel Approval Gates
+The current `require_all` flag on approval steps is conceptual but not fully implemented for concurrent multi-approver scenarios. Supporting `n-of-m` approval quorums (e.g., 2 of 3 approvers must agree) would enable richer governance patterns.
+
+### Audit Trail
+Workflow executions are logged but not easily queryable. A dedicated `workflow_audit_log` table with structured fields (execution_id, step_id, action, actor, timestamp, outcome) would enable compliance reporting and execution history search.
+
+### Test Coverage
+The workflow executor currently lacks comprehensive unit tests for:
+- Failure scenarios (step handler errors, partial execution)
+- Timeout handling and thread safety
+- Recovery from interrupted executions
+- Concurrent workflow execution for the same entity
+- Edge cases in template substitution and variable resolution
+
+---
+
 ## Related Documentation
 
 - [Compliance DSL Guide](compliance-dsl-guide.md)

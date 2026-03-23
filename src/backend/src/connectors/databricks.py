@@ -1011,14 +1011,20 @@ class DatabricksConnector(AssetConnector):
                         "has_children": True,
                     })
             else:
+                parts = parent_path.split(".")
+                if len(parts) >= 2:
+                    # Schema-level or deeper — no structural containers;
+                    # leaf assets are listed by list_assets() instead.
+                    return []
                 # List schemas in catalog
-                for schema in ws.schemas.list(catalog_name=parent_path):
+                catalog_name = parts[0]
+                for schema in ws.schemas.list(catalog_name=catalog_name):
                     if schema.name in ("information_schema", "__internal"):
                         continue
                     containers.append({
                         "name": schema.name,
                         "type": "schema",
-                        "path": f"{parent_path}.{schema.name}",
+                        "path": f"{catalog_name}.{schema.name}",
                         "comment": schema.comment,
                         "has_children": True,
                     })

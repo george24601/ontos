@@ -142,6 +142,7 @@ export const ALL_TRIGGER_TYPES: TriggerType[] = [
   'manual',
   'before_create',
   'before_update',
+  'before_status_change',
   'on_request_review',
   'on_request_access',
   'on_request_publish',
@@ -150,6 +151,8 @@ export const ALL_TRIGGER_TYPES: TriggerType[] = [
   'on_job_failure',
   'on_subscribe',
   'on_unsubscribe',
+  'on_publish',
+  'on_unpublish',
   'on_expiring',
   'on_revoke',
   // App-known UI actions (approval workflows, 1:1 match with ON_*)

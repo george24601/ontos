@@ -1,4 +1,4 @@
-name: "UC Tag Sync"
+name: "Unity Catalog Tag Sync"
 description: "Sync Ontos metadata to UC governed tags"
 format: "MULTI_TASK"
 environments:
@@ -72,7 +72,7 @@ configurable_parameters:
     type: "tag_sync_configs"
     description: "Configure which metadata to sync to Unity Catalog tags and customize tag formats"
     required: true
-    entity_types: ["semantic_assignment", "data_domain", "data_contract", "data_product"]
+    entity_types: ["semantic_assignment", "data_domain", "data_contract", "data_product", "asset"]
     default:
       - entity_type: "semantic_assignment"
         enabled: true
@@ -90,6 +90,10 @@ configurable_parameters:
         enabled: true
         tag_key_format: "ontos_product_name"
         tag_value_format: "{PRODUCT.NAME}"
+      - entity_type: "asset"
+        enabled: true
+        tag_key_format: "ontos_asset_type"
+        tag_value_format: "{ASSET.TYPE}"
 
   - name: "prefix"
     type: "string"

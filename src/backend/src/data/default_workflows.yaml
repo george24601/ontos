@@ -88,13 +88,13 @@ workflows:
   # Data Product Publish Approval
   - id: "data-product-approval"
     name: "Data Product Publish Approval"
-    description: "Requires domain owner approval before publishing data products from draft to published status."
+    description: "Requires domain owner approval before publishing data products from approved to active status."
     trigger:
       type: "on_status_change"
       entity_types:
         - "data_product"
-      from_status: "draft"
-      to_status: "published"
+      from_status: "approved"
+      to_status: "active"
     scope:
       type: "all"
     is_active: true
@@ -136,7 +136,7 @@ workflows:
         config:
           recipients: "requester"
           template: "product_approved"
-          custom_message: "Your data product has been approved and is now published."
+          custom_message: "Your data product has been approved and is now active."
         on_pass: "success"
 
       - id: "notify-rejected"
@@ -1361,5 +1361,85 @@ workflows:
         on_fail: "done"
       - id: "done"
         name: "Done"
+        type: "pass"
+
+  # =========================================================================
+  # Before Status Change (Gating) Workflows
+  # =========================================================================
+
+  # Default before_status_change — no-op pass-through
+  - id: "before-status-change-default"
+    name: "Status Change Gate (Default)"
+    description: "Default gating workflow for status transitions. Passes through without blocking. Override to add validation, policy checks, or approval gates for specific from/to status pairs."
+    trigger:
+      type: "before_status_change"
+      entity_types:
+        - "data_product"
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: false
+    is_default: true
+    steps:
+      - id: "success"
+        name: "Transition Allowed"
+        type: "pass"
+
+  # =========================================================================
+  # Publication Workflows
+  # =========================================================================
+
+  # On Publish notification
+  - id: "on-publish-notification"
+    name: "Publish Notification"
+    description: "Notifies the owner when an entity is published to the marketplace."
+    trigger:
+      type: "on_publish"
+      entity_types:
+        - "data_product"
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-owner"
+        name: "Notify Owner"
+        type: "notification"
+        config:
+          recipients: "owner"
+          template: "request_approved"
+          custom_message: "${entity_type} '${entity_name}' has been published to the marketplace."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Notification Sent"
+        type: "pass"
+
+  # On Unpublish notification
+  - id: "on-unpublish-notification"
+    name: "Unpublish Notification"
+    description: "Notifies the owner when an entity is unpublished from the marketplace."
+    trigger:
+      type: "on_unpublish"
+      entity_types:
+        - "data_product"
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-owner"
+        name: "Notify Owner"
+        type: "notification"
+        config:
+          recipients: "owner"
+          template: "validation_failed"
+          custom_message: "${entity_type} '${entity_name}' has been unpublished from the marketplace."
+        on_pass: "success"
+
+      - id: "success"
+        name: "Notification Sent"
         type: "pass"
 

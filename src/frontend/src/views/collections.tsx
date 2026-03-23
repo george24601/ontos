@@ -5,7 +5,6 @@ import {
   FolderTree,
   Plus,
   Upload,
-  HelpCircle,
   Loader2,
 } from 'lucide-react';
 import type { KnowledgeCollection } from '@/types/ontology';
@@ -195,10 +194,6 @@ export default function CollectionsView() {
 
           <Button variant="outline" size="icon" title={t('common:actions.import')}>
             <Upload className="h-4 w-4" />
-          </Button>
-
-          <Button variant="ghost" size="icon" title={t('common:actions.help')}>
-            <HelpCircle className="h-4 w-4" />
           </Button>
         </div>
       </div>

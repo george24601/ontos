@@ -11,6 +11,18 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     video: 'retain-on-failure',
+    // Dismiss the Ask Ontos copilot side-panel that opens by default for
+    // first-time visitors. Without this, the z-50 fixed panel intercepts
+    // pointer events on the main content area and causes click timeouts.
+    contextOptions: {
+      storageState: {
+        cookies: [],
+        origins: [{
+          origin: process.env.BASE_URL || 'http://localhost:3000',
+          localStorage: [{ name: 'copilot-sidebar-visited', value: 'true' }],
+        }],
+      },
+    },
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

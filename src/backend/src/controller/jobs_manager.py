@@ -68,11 +68,14 @@ class JobsManager:
         if self._workspace_deployer:
             workflow_dir = self._workflows_root / workflow_id
             if workflow_dir.exists():
-                try:
-                    self._workspace_deployer.deploy_workflow(workflow_id, workflow_dir)
-                    logger.info(f"Deployed workflow '{workflow_id}' to workspace")
-                except Exception as e:
-                    logger.warning(f"Failed to deploy workflow '{workflow_id}': {e}. Continuing with job installation...")
+                self._workspace_deployer.deploy_workflow(workflow_id, workflow_dir)
+                logger.info(f"Deployed workflow '{workflow_id}' to workspace")
+        elif self._settings and self._settings.WORKSPACE_DEPLOYMENT_PATH:
+            logger.error(
+                f"WORKSPACE_DEPLOYMENT_PATH is set to '{self._settings.WORKSPACE_DEPLOYMENT_PATH}' "
+                f"but WorkspaceDeployer is not initialized. Workflow files will NOT be uploaded. "
+                f"The job will be created but will fail at runtime."
+            )
 
         wf_def = self._get_workflow_definition(workflow_id, job_cluster_id=job_cluster_id)
 

@@ -21,6 +21,7 @@ class TriggerType(str, Enum):
     MANUAL = "manual"
     BEFORE_CREATE = "before_create"  # Pre-creation validation (inline/blocking)
     BEFORE_UPDATE = "before_update"  # Pre-update validation (inline/blocking)
+    BEFORE_STATUS_CHANGE = "before_status_change"  # Pre-status-change validation (inline/blocking)
     
     # Request triggers - fire when a request action is initiated
     ON_REQUEST_REVIEW = "on_request_review"  # When review is requested (datasets, contracts, products)
@@ -36,6 +37,10 @@ class TriggerType(str, Enum):
     ON_SUBSCRIBE = "on_subscribe"  # When a user subscribes to an entity
     ON_UNSUBSCRIBE = "on_unsubscribe"  # When a user unsubscribes from an entity
     
+    # Publication triggers (separate from lifecycle status)
+    ON_PUBLISH = "on_publish"  # When an entity is published to marketplace
+    ON_UNPUBLISH = "on_unpublish"  # When an entity is unpublished from marketplace
+
     # Access lifecycle triggers
     ON_EXPIRING = "on_expiring"  # When access/entity is about to expire
     ON_REVOKE = "on_revoke"  # When access is revoked

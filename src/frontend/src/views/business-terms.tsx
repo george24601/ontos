@@ -15,7 +15,6 @@ import {
   Plus,
   ChevronDown,
   Upload,
-  HelpCircle,
   Loader2,
 } from 'lucide-react';
 import type {
@@ -34,6 +33,7 @@ import {
   CollectionEditorDialog,
   ConceptEditorDialog,
   GlossaryFilterPanel,
+  ImportConceptsDialog,
 } from '@/components/knowledge';
 
 export default function BusinessTermsView() {
@@ -57,6 +57,7 @@ export default function BusinessTermsView() {
   const [editingCollection, setEditingCollection] = useState<KnowledgeCollection | null>(null);
   const [conceptEditorOpen, setConceptEditorOpen] = useState(false);
   const [editingConcept, setEditingConcept] = useState<OntologyConcept | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Language selection - defaults to UI language
   const [selectedLanguage, setSelectedLanguage] = useState<string>(i18n.language?.split('-')[0] || 'en');
@@ -355,34 +356,37 @@ export default function BusinessTermsView() {
 
         <div className="flex items-center gap-2">
           {canWrite && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('common:actions.create')}
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleCreateConcept}>
-                  <Layers className="h-4 w-4 mr-2" />
-                  {t('semantic-models:actions.createConcept')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleCreateCollection}>
-                  <FolderTree className="h-4 w-4 mr-2" />
-                  {t('semantic-models:actions.createCollection')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('common:actions.create')}
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleCreateConcept}>
+                    <Layers className="h-4 w-4 mr-2" />
+                    {t('semantic-models:actions.createConcept')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCreateCollection}>
+                    <FolderTree className="h-4 w-4 mr-2" />
+                    {t('semantic-models:actions.createCollection')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="outline"
+                size="icon"
+                title={t('common:actions.import')}
+                onClick={() => setImportDialogOpen(true)}
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
+            </>
           )}
-
-          <Button variant="outline" size="icon" title={t('common:actions.import')}>
-            <Upload className="h-4 w-4" />
-          </Button>
-
-          <Button variant="ghost" size="icon" title={t('common:actions.help')}>
-            <HelpCircle className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -451,6 +455,14 @@ export default function BusinessTermsView() {
         collection={selectedCollection || editableCollections[0]}
         collections={editableCollections}
         onSave={handleSaveConcept}
+      />
+
+      {/* Import Dialog */}
+      <ImportConceptsDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        collections={collections}
+        onImported={fetchData}
       />
     </div>
   );

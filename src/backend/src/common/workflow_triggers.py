@@ -351,6 +351,96 @@ class TriggerRegistry:
         
         return all_passed, executions
 
+    def before_status_change(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        from_status: str,
+        to_status: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        scope_type: Optional[str] = None,
+        scope_id: Optional[str] = None,
+    ) -> Tuple[bool, List[WorkflowExecution]]:
+        """Fire a before_status_change trigger for pre-transition validation.
+
+        Runs BEFORE the status is persisted. Returns (all_passed, executions)
+        so the caller can block the transition when any workflow fails.
+        """
+        event = TriggerEvent(
+            trigger_type=TriggerType.BEFORE_STATUS_CHANGE,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+            from_status=from_status,
+            to_status=to_status,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        logger.info(
+            f"before_status_change called for {entity_type.value} '{entity_name}': "
+            f"'{from_status}' -> '{to_status}'"
+        )
+        executions = self.fire_trigger(event, blocking=True)
+
+        all_passed = all(
+            exe.status == ExecutionStatus.SUCCEEDED
+            for exe in executions
+        ) if executions else True
+
+        return all_passed, executions
+
+    # =========================================================================
+    # Publication Triggers
+    # =========================================================================
+
+    def on_publish(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when an entity is published to the marketplace."""
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_PUBLISH,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_publish fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_unpublish(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire when an entity is unpublished from the marketplace."""
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_UNPUBLISH,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_unpublish fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
     # =========================================================================
     # Request Triggers
     # =========================================================================
