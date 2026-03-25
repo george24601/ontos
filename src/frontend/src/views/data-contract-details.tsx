@@ -45,15 +45,12 @@ import DqxSuggestionsDialog from '@/components/data-contracts/dqx-suggestions-di
 import AuthoritativeDefinitionFormDialog from '@/components/data-contracts/authoritative-definition-form-dialog'
 import ImportTeamMembersDialog from '@/components/data-contracts/import-team-members-dialog'
 import LinkProductToContractDialog from '@/components/data-contracts/link-product-to-contract-dialog'
-import LinkDatasetToContractDialog from '@/components/data-contracts/link-dataset-to-contract-dialog'
 import VersioningRecommendationDialog from '@/components/common/versioning-recommendation-dialog'
 import CustomPropertyFormDialog from '@/components/data-contracts/custom-property-form-dialog'
 import CommitDraftDialog from '@/components/data-contracts/commit-draft-dialog'
 import VersionSelector from '@/components/data-contracts/version-selector'
 import type { DataProduct } from '@/types/data-product'
 import type { DataProfilingRun } from '@/types/data-contract'
-import type { DatasetListItem } from '@/types/dataset'
-import { DATASET_STATUS_LABELS, DATASET_STATUS_COLORS } from '@/types/dataset'
 import { useCopilotContext } from '@/hooks/use-copilot-context'
 
 // Status-based editability constants
@@ -222,18 +219,11 @@ export default function DataContractDetails() {
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [isCreateProductDialogOpen, setIsCreateProductDialogOpen] = useState(false)
 
-  // Linked datasets state
-  const [linkedDatasets, setLinkedDatasets] = useState<DatasetListItem[]>([])
-  const [loadingDatasets, setLoadingDatasets] = useState(false)
-
   // Team import state
   const [isImportTeamMembersOpen, setIsImportTeamMembersOpen] = useState(false)
 
   // Link product dialog state
   const [isLinkProductDialogOpen, setIsLinkProductDialogOpen] = useState(false)
-
-  // Link dataset dialog state
-  const [isLinkDatasetDialogOpen, setIsLinkDatasetDialogOpen] = useState(false)
 
   // Commit draft dialog state
   const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false)
@@ -337,25 +327,6 @@ export default function DataContractDetails() {
       setLinkedProducts([])
     } finally {
       setLoadingProducts(false)
-    }
-  }
-
-  const fetchLinkedDatasets = async () => {
-    if (!contractId) return
-    setLoadingDatasets(true)
-    try {
-      const response = await fetch(`/api/datasets/by-contract/${contractId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setLinkedDatasets(Array.isArray(data) ? data : [])
-      } else {
-        setLinkedDatasets([])
-      }
-    } catch (e) {
-      console.warn('Failed to fetch linked datasets:', e)
-      setLinkedDatasets([])
-    } finally {
-      setLoadingDatasets(false)
     }
   }
 
@@ -608,7 +579,6 @@ export default function DataContractDetails() {
     setStaticSegments([{ label: 'Data Contracts', path: listPath }])
     fetchDetails()
     fetchLinkedProducts()
-    fetchLinkedDatasets()
     fetchContractAuthDefs()
     fetchProfileRuns()
     fetchVersions()
@@ -1514,14 +1484,6 @@ export default function DataContractDetails() {
       return linkedProducts.length > 0
     }
     return shouldShowSection('linked-products')
-  }
-
-  // Special case for linked datasets in minimal mode
-  const shouldShowLinkedDatasets = (): boolean => {
-    if (viewMode === 'minimal') {
-      return linkedDatasets.length > 0
-    }
-    return shouldShowSection('linked-datasets')
   }
 
   if (loading) {
@@ -2492,90 +2454,6 @@ export default function DataContractDetails() {
       </Card>
       )}
 
-      {/* Linked Datasets Section */}
-      {shouldShowLinkedDatasets() && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Table2 className="h-5 w-5 text-primary" />
-                  Linked Datasets ({linkedDatasets.length})
-                </CardTitle>
-                <CardDescription>Datasets that implement this contract</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsLinkDatasetDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Link to Existing Dataset
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loadingDatasets ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : linkedDatasets.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                <Table2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                <div className="text-muted-foreground mb-2">No linked datasets yet</div>
-                <div className="text-sm text-muted-foreground">
-                  Datasets can be linked to this contract from the Dataset details page
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {linkedDatasets.map((dataset) => (
-                  <div
-                    key={dataset.id}
-                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/datasets/${dataset.id}`)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-base">{dataset.name || 'Unnamed Dataset'}</div>
-                        {dataset.description && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{dataset.description}</p>
-                        )}
-                        <div className="flex items-center gap-3 mt-2">
-                          {dataset.version && (
-                            <Badge variant="outline" className="text-xs">
-                              v{dataset.version}
-                            </Badge>
-                          )}
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${DATASET_STATUS_COLORS[dataset.status] || ''}`}
-                          >
-                            {DATASET_STATUS_LABELS[dataset.status] || dataset.status}
-                          </Badge>
-                          {dataset.instance_count !== undefined && dataset.instance_count > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {dataset.instance_count} instance{dataset.instance_count !== 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </div>
-                        {dataset.owner_team_name && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            Owner: {dataset.owner_team_name}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Quality Rules Section */}
       {shouldShowSection('quality-rules') && (
         <Card>
@@ -3205,21 +3083,6 @@ export default function DataContractDetails() {
           toast({
             title: 'Contract Linked',
             description: 'Contract successfully linked to product deliverable.'
-          });
-        }}
-      />
-
-      {/* Link Dataset to Contract Dialog */}
-      <LinkDatasetToContractDialog
-        isOpen={isLinkDatasetDialogOpen}
-        onOpenChange={setIsLinkDatasetDialogOpen}
-        contractId={contractId!}
-        contractName={contract?.name || 'this contract'}
-        onSuccess={() => {
-          fetchLinkedDatasets();
-          toast({
-            title: 'Contract Linked',
-            description: 'Contract successfully linked to dataset.'
           });
         }}
       />
