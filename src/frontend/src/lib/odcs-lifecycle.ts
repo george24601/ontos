@@ -23,7 +23,7 @@ export type DataContractStatusType = typeof DataContractStatus[keyof typeof Data
  * Defines allowed status transitions for ODCS lifecycle.
  *
  * Lifecycle flow:
- * draft → proposed → under_review → approved → active → certified → deprecated → retired
+ * draft → proposed → under_review → approved → active → deprecated → retired
  *
  * Additional rules:
  * - Can go back from proposed/under_review to draft (refinement)
@@ -212,7 +212,7 @@ export function getRecommendedAction(currentStatus: string): string | null {
     case DataContractStatus.APPROVED:
       return 'Activate when ready to govern production data';
     case DataContractStatus.ACTIVE:
-      return 'Deprecate when planning retirement, or certify via the certification panel';
+      return 'Deprecate when planning retirement; use the certification panel for certification';
     case DataContractStatus.DEPRECATED:
       return 'Retire when no longer in use';
     case DataContractStatus.RETIRED:

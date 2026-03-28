@@ -268,9 +268,7 @@ export interface DataProduct {
   parentProductId?: string; // Parent version ID for version lineage
   baseName?: string; // Base name without version for grouping versions
   changeSummary?: string; // Summary of changes in this version
-  published?: boolean; // Whether published to marketplace (legacy)
 
-  // Publication scope (replaces published boolean)
   publication_scope?: string | null;
   published_at?: string | null;
   published_by?: string | null;

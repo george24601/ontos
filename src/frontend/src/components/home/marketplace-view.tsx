@@ -23,6 +23,9 @@ import ApprovalWizardDialog from '@/components/workflows/approval-wizard-dialog'
 import { useApi } from '@/hooks/use-api';
 import { DataDomainMiniGraph } from '@/components/data-domains/data-domain-mini-graph';
 import { RatingBadge } from '@/components/ratings';
+import CertificationBadge from '@/components/common/certification-badge';
+import PublicationBadge from '@/components/common/publication-badge';
+import { PUBLICATION_SCOPE_LABELS, type CertificationLevel } from '@/types/lifecycle';
 
 // Asset type for marketplace browsing
 type MarketplaceAssetType = 'products' | 'datasets';
@@ -54,6 +57,7 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
   const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
   const [assetType, setAssetType] = useState<MarketplaceAssetType>('products');
   const [scopeFilter, setScopeFilter] = useState<string>('all');
+  const [certificationLevels, setCertificationLevels] = useState<CertificationLevel[]>([]);
   
   // Graph view state
   const [selectedDomainDetails, setSelectedDomainDetails] = useState<DataDomain | null>(null);
@@ -99,12 +103,29 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
   const [productIsSubscribed, setProductIsSubscribed] = useState(false);
   const api = useApi();
 
-  // Fetch published products
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/certification-levels')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (!cancelled) setCertificationLevels(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setCertificationLevels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch published products (optional server-side scope filter)
   useEffect(() => {
     const loadProducts = async () => {
       try {
         setProductsLoading(true);
-        const resp = await fetch('/api/data-products/published');
+        const params =
+          scopeFilter !== 'all' ? `?scope=${encodeURIComponent(scopeFilter)}` : '';
+        const resp = await fetch(`/api/data-products/published${params}`);
         if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
         const data = await resp.json();
         setAllProducts(Array.isArray(data) ? data : []);
@@ -118,7 +139,7 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
       }
     };
     loadProducts();
-  }, []);
+  }, [scopeFilter]);
 
   // Fetch subscribed products
   const loadSubscribedProducts = useCallback(async () => {
@@ -362,13 +383,8 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
       );
     }
 
-    // Filter by publication scope
-    if (scopeFilter !== 'all') {
-      filtered = filtered.filter(p => (p as any).publication_scope === scopeFilter);
-    }
-    
     return filtered;
-  }, [allProducts, selectedDomainId, searchQuery, matchSets, scopeFilter]);
+  }, [allProducts, selectedDomainId, searchQuery, matchSets]);
 
   // Filter datasets based on search query (datasets don't have domain association)
   const filteredDatasets = useMemo(() => {
@@ -570,6 +586,19 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
                 {product.status}
               </Badge>
             )}
+            <PublicationBadge
+              publicationScope={product.publication_scope}
+              publishedAt={product.published_at ?? undefined}
+              publishedBy={product.published_by ?? undefined}
+            />
+            <CertificationBadge
+              certificationLevel={product.certification_level}
+              inheritedCertificationLevel={product.inherited_certification_level}
+              certifiedAt={product.certified_at ?? undefined}
+              certifiedBy={product.certified_by ?? undefined}
+              levels={certificationLevels}
+              size="sm"
+            />
             {product.id && (
               <RatingBadge
                 entityType="data_product"
@@ -819,7 +848,21 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
 
       {/* Asset Type Toggle & Tiles Per Row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-          <div />
+          <div className="flex items-center gap-2 flex-wrap">
+            {assetType === 'products' && (
+              <Select value={scopeFilter} onValueChange={setScopeFilter}>
+                <SelectTrigger className="w-[180px] h-7 text-xs">
+                  <SelectValue placeholder={t('marketplace.scopeFilter.placeholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('marketplace.scopeFilter.all')}</SelectItem>
+                  <SelectItem value="domain">{PUBLICATION_SCOPE_LABELS.domain}</SelectItem>
+                  <SelectItem value="organization">{PUBLICATION_SCOPE_LABELS.organization}</SelectItem>
+                  <SelectItem value="external">{PUBLICATION_SCOPE_LABELS.external}</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <div className="flex items-center gap-4 flex-wrap">
             {/* Asset Type Toggle - only show when both types have data */}
             {showAssetToggle && (
@@ -884,7 +927,7 @@ export default function MarketplaceView({ className }: MarketplaceViewProps) {
               <div className="text-center py-12 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <p>{t('marketplace.products.noProducts')}</p>
-                {(searchQuery || selectedDomainId) && (
+                {(searchQuery || selectedDomainId || scopeFilter !== 'all') && (
                   <p className="text-sm mt-1">{t('marketplace.products.adjustFilters')}</p>
                 )}
               </div>

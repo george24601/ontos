@@ -63,6 +63,7 @@ import {
   FileSearch,
   Globe,
   MessageSquare,
+  Zap,
 } from 'lucide-react';
 
 import {
@@ -79,6 +80,7 @@ import {
   PolicyCheckNode,
   CreateAssetReviewNode,
   WebhookNode,
+  EntityActionNode,
 } from './workflow-nodes';
 
 import type {
@@ -116,6 +118,7 @@ const nodeTypes = {
   policy_check: PolicyCheckNode,
   create_asset_review: CreateAssetReviewNode,
   webhook: WebhookNode,
+  entity_action: EntityActionNode,
   default: DefaultStepNode,
 };
 
@@ -494,7 +497,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
       step_id: stepId,
       name: `New ${type} Step`,
       step_type: type,
-      config: {},
+      config: type === 'entity_action' ? { action: 'certify' } : {},
       order: steps.length,
     };
     
@@ -721,6 +724,9 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                 <Button variant="ghost" size="sm" className="justify-start" onClick={() => addStep('user_action')}>
                   <MessageSquare className="h-4 w-4 mr-2" /> User Action
                 </Button>
+                <Button variant="ghost" size="sm" className="justify-start" onClick={() => addStep('entity_action')}>
+                  <Zap className="h-4 w-4 mr-2 text-lime-600 dark:text-lime-400" /> Entity Action
+                </Button>
                 <Button variant="ghost" size="sm" className="justify-start" onClick={() => addStep('notification')}>
                   <Bell className="h-4 w-4 mr-2" /> Notification
                 </Button>
@@ -877,6 +883,140 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                   </div>
                   
                   {/* Type-specific config */}
+                  {selectedStep.step_type === 'entity_action' && (
+                    <>
+                      <div>
+                        <Label>Action</Label>
+                        <Select
+                          value={(selectedStep.config as { action?: string })?.action || 'certify'}
+                          onValueChange={(v) =>
+                            updateStep(selectedStep.step_id, {
+                              config: { ...selectedStep.config, action: v },
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="certify">Certify</SelectItem>
+                            <SelectItem value="decertify">Decertify</SelectItem>
+                            <SelectItem value="publish">Publish</SelectItem>
+                            <SelectItem value="unpublish">Unpublish</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {((selectedStep.config as { action?: string })?.action || 'certify') === 'certify' && (
+                        <>
+                          <div>
+                            <Label>Certification level source</Label>
+                            <Select
+                              value={
+                                (selectedStep.config as { level_source?: string })?.level_source ||
+                                'from_request'
+                              }
+                              onValueChange={(v) =>
+                                updateStep(selectedStep.step_id, {
+                                  config: { ...selectedStep.config, level_source: v },
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="from_request">From request</SelectItem>
+                                <SelectItem value="fixed">Fixed level</SelectItem>
+                                <SelectItem value="from_approval">From approval</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {(selectedStep.config as { level_source?: string })?.level_source === 'fixed' && (
+                            <div>
+                              <Label>Fixed level</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={
+                                  (selectedStep.config as { fixed_level?: number })?.fixed_level ?? ''
+                                }
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const n = raw === '' ? undefined : parseInt(raw, 10);
+                                  updateStep(selectedStep.step_id, {
+                                    config: {
+                                      ...selectedStep.config,
+                                      fixed_level:
+                                        n != null && !Number.isNaN(n) ? n : undefined,
+                                    },
+                                  });
+                                }}
+                                placeholder="e.g. 1"
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {((selectedStep.config as { action?: string })?.action || '') === 'publish' && (
+                        <>
+                          <div>
+                            <Label>Publication scope source</Label>
+                            <Select
+                              value={
+                                (selectedStep.config as { scope_source?: string })?.scope_source ||
+                                'from_request'
+                              }
+                              onValueChange={(v) =>
+                                updateStep(selectedStep.step_id, {
+                                  config: { ...selectedStep.config, scope_source: v },
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="from_request">From request</SelectItem>
+                                <SelectItem value="fixed">Fixed scope</SelectItem>
+                                <SelectItem value="from_approval">From approval</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {(selectedStep.config as { scope_source?: string })?.scope_source ===
+                            'fixed' && (
+                            <div>
+                              <Label>Fixed scope</Label>
+                              <Select
+                                value={
+                                  (selectedStep.config as { fixed_scope?: string })?.fixed_scope ||
+                                  'domain'
+                                }
+                                onValueChange={(v) =>
+                                  updateStep(selectedStep.step_id, {
+                                    config: { ...selectedStep.config, fixed_scope: v },
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="domain">Domain</SelectItem>
+                                  <SelectItem value="organization">Organization</SelectItem>
+                                  <SelectItem value="external">External</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Runs a lifecycle action on the entity that triggered this workflow (after
+                        approval when used with request triggers).
+                      </p>
+                    </>
+                  )}
+
                   {selectedStep.step_type === 'user_action' && (
                     <>
                       <div>

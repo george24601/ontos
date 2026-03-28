@@ -21,6 +21,9 @@ export type TriggerType =
   | 'on_request_access'
   | 'on_request_publish'
   | 'on_request_status_change'
+  | 'on_request_certify'
+  | 'on_certify'
+  | 'on_decertify'
   // Job lifecycle triggers
   | 'on_job_success'
   | 'on_job_failure'
@@ -39,7 +42,14 @@ export type TriggerType =
   | 'for_request_review'
   | 'for_request_access'
   | 'for_request_publish'
+  | 'for_request_certify'
   | 'for_request_status_change';
+
+/** Trigger literals for certification / publication lifecycle (use in configs and tests) */
+export const ON_REQUEST_CERTIFY = 'on_request_certify' as const satisfies TriggerType;
+export const FOR_REQUEST_CERTIFY = 'for_request_certify' as const satisfies TriggerType;
+export const ON_CERTIFY = 'on_certify' as const satisfies TriggerType;
+export const ON_DECERTIFY = 'on_decertify' as const satisfies TriggerType;
 
 export type EntityType =
   | 'catalog'
@@ -73,7 +83,11 @@ export type StepType =
   | 'delivery'           // Triggers DeliveryService to apply changes
   | 'create_asset_review' // Creates a DataAssetReview for formal review tracking
   | 'webhook'            // Calls external HTTP endpoints via UC Connections or direct URL
-  | 'user_action';       // Approval workflow: collect user input (reason, acceptances, fields)
+  | 'user_action'        // Approval workflow: collect user input (reason, acceptances, fields)
+  | 'entity_action';     // Lifecycle action on trigger entity (certify, publish, etc.)
+
+/** Canonical step type value for lifecycle actions on the trigger entity */
+export const ENTITY_ACTION = 'entity_action' as const satisfies StepType;
 
 export type ExecutionStatus =
   | 'pending'
@@ -172,6 +186,24 @@ export interface WebhookStepConfig {
   retry_count?: number;        // Number of retries on failure (default: 0)
 }
 
+export type EntityActionKind = 'certify' | 'decertify' | 'publish' | 'unpublish';
+
+export type EntityActionLevelSource = 'from_request' | 'fixed' | 'from_approval';
+
+export type EntityActionScopeSource = 'from_request' | 'fixed' | 'from_approval';
+
+export type EntityActionFixedScope = 'domain' | 'organization' | 'external';
+
+export interface EntityActionStepConfig {
+  action: EntityActionKind;
+  /** Certification level source (certify only) */
+  level_source?: EntityActionLevelSource;
+  fixed_level?: number;
+  /** Publication scope source (publish only) */
+  scope_source?: EntityActionScopeSource;
+  fixed_scope?: EntityActionFixedScope;
+}
+
 // Reference to a UC HTTP Connection (for UI selection)
 export interface HttpConnectionRef {
   name: string;
@@ -201,6 +233,7 @@ export type StepConfig =
   | FailStepConfig
   | PolicyCheckStepConfig
   | WebhookStepConfig
+  | EntityActionStepConfig
   | Record<string, unknown>;
 
 // Workflow step

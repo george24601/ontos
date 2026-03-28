@@ -211,7 +211,7 @@ export function getRecommendedAction(currentStatus: string): string | null {
     case DataProductStatus.APPROVED:
       return 'Publish to Active to make available';
     case DataProductStatus.ACTIVE:
-      return 'Deprecate when retiring, or certify via the certification panel';
+      return 'Deprecate when retiring; use the certification panel for certification';
     case DataProductStatus.DEPRECATED:
       return 'Retire when no longer in use';
     case DataProductStatus.RETIRED:

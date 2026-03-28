@@ -218,6 +218,10 @@
       "three": "3 per row",
       "four": "4 per row"
     },
+    "scopeFilter": {
+      "placeholder": "Scope",
+      "all": "All Scopes"
+    },
     "openInDetails": "Open in details view"
   },
   "myProducts": {

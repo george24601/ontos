@@ -397,7 +397,6 @@ class DataContractUpdate(BaseModel):
     name: Optional[str] = None
     version: Optional[str] = None
     status: Optional[str] = None
-    published: Optional[bool] = None  # Marketplace publication status
     owner_team_id: Optional[str] = None  # No alias - always serializes as owner_team_id
     project_id: Optional[str] = None  # Project association
     kind: Optional[str] = None
@@ -432,7 +431,6 @@ class DataContractRead(BaseModel):
     name: str  # Required for app usability
     version: str  # Required by ODCS
     status: str  # Required by ODCS
-    published: bool = False  # Marketplace publication status
     owner_team_id: Optional[str] = None  # No alias - always serializes as owner_team_id
     owner_team_name: Optional[str] = None  # Resolved at query time
     project_id: Optional[str] = None  # Project association
@@ -492,9 +490,14 @@ class DataContractRead(BaseModel):
 
     # Personal draft visibility (three-tier model)
     # Tier 1: draft_owner_id set = personal draft, only owner can see
-    # Tier 2: draft_owner_id null, published=false = team/project visible
-    # Tier 3: published=true = marketplace visible to all
+    # Tier 2: draft_owner null, publication_scope none = team/project visible
+    # Tier 3: publication_scope not none = marketplace visible to all
     draftOwnerId: Optional[str] = Field(None, alias='draft_owner_id')
+
+    # Publication (canonical; replaces legacy boolean `published` column)
+    publication_scope: str = "none"
+    published_at: Optional[str] = None
+    published_by: Optional[str] = None
 
     class Config:
         populate_by_name = True
@@ -506,7 +509,6 @@ class DataContractSummary(BaseModel):
     name: str
     version: str
     status: str
-    published: bool = False
     owner_team_id: Optional[str] = None
     owner_team_name: Optional[str] = None
     project_id: Optional[str] = None
@@ -526,6 +528,9 @@ class DataContractSummary(BaseModel):
     changeSummary: Optional[str] = Field(None, alias='change_summary')
     draftOwnerId: Optional[str] = Field(None, alias='draft_owner_id')
     schema_object_count: int = Field(0, alias='schemaObjectCount')
+    publication_scope: str = "none"
+    published_at: Optional[str] = None
+    published_by: Optional[str] = None
 
     class Config:
         populate_by_name = True

@@ -4,7 +4,6 @@ export type DataContractListItem = {
   name: string
   version: string
   status: string
-  published?: boolean
   publication_scope?: string | null
   published_at?: string | null
   published_by?: string | null
@@ -225,7 +224,6 @@ export interface DataContract {
   apiVersion: string
   version: string
   status: string
-  published?: boolean // Marketplace publication status
   name: string
   tenant?: string
   domain?: string // Legacy field (domain name)

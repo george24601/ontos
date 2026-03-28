@@ -1443,3 +1443,190 @@ workflows:
         name: "Notification Sent"
         type: "pass"
 
+  # Certification Request Review Workflow
+  - id: "certification-request-review"
+    name: "Certification Request Review"
+    description: "Routes certification requests through an approval workflow. When approved, the entity is automatically certified at the requested level."
+    trigger:
+      type: "on_request_certify"
+      entity_types:
+        - "data_product"
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "notify-owner"
+        name: "Notify Entity Owner"
+        type: "notification"
+        config:
+          recipients: "entity_owner"
+          template: "action_required"
+          custom_message: "Certification has been requested for ${entity_type} '${entity_name}' by ${user_email}."
+        on_pass: "approval-gate"
+        on_fail: "approval-gate"
+
+      - id: "approval-gate"
+        name: "Certification Approval"
+        type: "approval"
+        config:
+          approver_role: "data_steward"
+          message: "Please review the certification request for ${entity_type} '${entity_name}'."
+          timeout_hours: 168
+        on_pass: "certify-entity"
+        on_fail: "notify-denied"
+
+      - id: "certify-entity"
+        name: "Apply Certification"
+        type: "entity_action"
+        config:
+          action: "certify"
+          level_source: "from_request"
+        on_pass: "notify-approved"
+        on_fail: "notify-error"
+
+      - id: "notify-approved"
+        name: "Notify Requester (Approved)"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "success"
+          custom_message: "Your certification request for '${entity_name}' has been approved."
+        on_pass: "done"
+        on_fail: "done"
+
+      - id: "notify-denied"
+        name: "Notify Requester (Denied)"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "warning"
+          custom_message: "Your certification request for '${entity_name}' has been denied."
+        on_pass: "done"
+        on_fail: "done"
+
+      - id: "notify-error"
+        name: "Notify Error"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "error"
+          custom_message: "An error occurred while processing the certification for '${entity_name}'."
+        on_pass: "fail-end"
+        on_fail: "fail-end"
+
+      - id: "done"
+        name: "Complete"
+        type: "pass"
+
+      - id: "fail-end"
+        name: "Failed"
+        type: "fail"
+        config:
+          message: "Certification workflow failed"
+
+  # Publication Request Review Workflow
+  - id: "publication-request-review"
+    name: "Publication Request Review"
+    description: "Routes publication requests through an approval workflow. When approved, the entity is automatically published with the requested scope."
+    trigger:
+      type: "on_request_publish"
+      entity_types:
+        - "data_product"
+        - "data_contract"
+    scope:
+      type: "all"
+    is_active: true
+    is_default: true
+    steps:
+      - id: "validate-status"
+        name: "Validate Entity Status"
+        type: "validation"
+        config:
+          rule: |
+            MATCH (obj:Object)
+            ASSERT obj.status == 'active'
+            ON_FAIL FAIL 'Entity must be in active status to be published'
+        on_pass: "notify-owner"
+        on_fail: "notify-invalid"
+
+      - id: "notify-owner"
+        name: "Notify Entity Owner"
+        type: "notification"
+        config:
+          recipients: "entity_owner"
+          template: "action_required"
+          custom_message: "Publication has been requested for ${entity_type} '${entity_name}' by ${user_email}."
+        on_pass: "approval-gate"
+        on_fail: "approval-gate"
+
+      - id: "approval-gate"
+        name: "Publication Approval"
+        type: "approval"
+        config:
+          approver_role: "data_steward"
+          message: "Please review the publication request for ${entity_type} '${entity_name}'."
+          timeout_hours: 168
+        on_pass: "publish-entity"
+        on_fail: "notify-denied"
+
+      - id: "publish-entity"
+        name: "Apply Publication"
+        type: "entity_action"
+        config:
+          action: "publish"
+          scope_source: "from_request"
+        on_pass: "notify-approved"
+        on_fail: "notify-error"
+
+      - id: "notify-approved"
+        name: "Notify Requester (Approved)"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "success"
+          custom_message: "Your publication request for '${entity_name}' has been approved and published."
+        on_pass: "done"
+        on_fail: "done"
+
+      - id: "notify-denied"
+        name: "Notify Requester (Denied)"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "warning"
+          custom_message: "Your publication request for '${entity_name}' has been denied."
+        on_pass: "done"
+        on_fail: "done"
+
+      - id: "notify-invalid"
+        name: "Notify Invalid Status"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "error"
+          custom_message: "Publication request for '${entity_name}' was rejected: entity must be in active status."
+        on_pass: "fail-end"
+        on_fail: "fail-end"
+
+      - id: "notify-error"
+        name: "Notify Error"
+        type: "notification"
+        config:
+          recipients: "trigger_user"
+          template: "error"
+          custom_message: "An error occurred while publishing '${entity_name}'."
+        on_pass: "fail-end"
+        on_fail: "fail-end"
+
+      - id: "done"
+        name: "Complete"
+        type: "pass"
+
+      - id: "fail-end"
+        name: "Failed"
+        type: "fail"
+        config:
+          message: "Publication workflow failed"
+

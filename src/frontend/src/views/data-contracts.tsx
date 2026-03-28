@@ -22,6 +22,10 @@ import { useProjectContext } from '@/stores/project-store';
 import { DataTable } from '@/components/ui/data-table';
 import { RelativeDate } from '@/components/common/relative-date';
 import EntityInfoDialog from '@/components/metadata/entity-info-dialog';
+import CertificationBadge from '@/components/common/certification-badge';
+import PublicationBadge from '@/components/common/publication-badge';
+import type { CertificationLevel } from '@/types/lifecycle';
+import { useApi } from '@/hooks/use-api';
 
 export default function DataContracts() {
   const { t } = useTranslation(['data-contracts', 'common']);
@@ -40,7 +44,9 @@ export default function DataContracts() {
   const [showErrorDetail, setShowErrorDetail] = useState(false)
   const [previewContractId, setPreviewContractId] = useState<string | null>(null);
   const [previewContractTitle, setPreviewContractTitle] = useState('');
+  const [certificationLevels, setCertificationLevels] = useState<CertificationLevel[]>([]);
 
+  const { get } = useApi();
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const { currentProject, hasProjectContext } = useProjectContext();
@@ -60,6 +66,12 @@ export default function DataContracts() {
         setDynamicTitle(null);
     };
   }, [setStaticSegments, setDynamicTitle, hasProjectContext, currentProject, t]);
+
+  useEffect(() => {
+    get<CertificationLevel[]>('/api/certification-levels').then(({ data }) => {
+      if (Array.isArray(data)) setCertificationLevels(data);
+    });
+  }, [get]);
 
   // Removed ODCS schema load for inline JSON validation
   // Removed inline JSON validation
@@ -366,7 +378,7 @@ export default function DataContracts() {
       cell: ({ row }) => {
         const contract = row.original;
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
             {contract.draftOwnerId && (
               <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
                 Personal
@@ -375,6 +387,19 @@ export default function DataContracts() {
             <Badge variant="outline" className={getStatusColor(row.getValue("status"))}>
               {row.getValue("status")}
             </Badge>
+            <CertificationBadge
+              certificationLevel={contract.certification_level}
+              inheritedCertificationLevel={contract.inherited_certification_level}
+              certifiedAt={contract.certified_at}
+              certifiedBy={contract.certified_by}
+              levels={certificationLevels}
+              size="sm"
+            />
+            <PublicationBadge
+              publicationScope={contract.publication_scope}
+              publishedAt={contract.published_at}
+              publishedBy={contract.published_by}
+            />
           </div>
         );
       },

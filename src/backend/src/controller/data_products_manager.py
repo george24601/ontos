@@ -734,7 +734,6 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
 
             # Set publication scope
             from datetime import datetime, timezone
-            product_db.published = True
             product_db.publication_scope = "organization"
             product_db.published_at = datetime.now(timezone.utc)
             product_db.published_by = current_user
@@ -1162,19 +1161,21 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         
         return result
 
-    def get_published_products(self, skip: int = 0, limit: int = 100) -> List[DataProductApi]:
+    def get_published_products(
+        self, skip: int = 0, limit: int = 100, scope: Optional[str] = None
+    ) -> List[DataProductApi]:
         """
-        Get all published (active status) data products for marketplace/discovery.
+        Get data products published to the marketplace (by publication scope).
 
-        Returns only products that are in 'active' status, meaning they have been
-        certified, published, and are available for consumption.
+        Returns products with a non-none publication_scope. Optionally filter to one scope.
 
         Args:
             skip: Number of products to skip (for pagination)
             limit: Maximum number of products to return
+            scope: If set, only products whose publication_scope matches (case-insensitive)
 
         Returns:
-            List of active data products
+            List of marketplace-visible data products
 
         Raises:
             SQLAlchemyError: If database operation fails
@@ -1183,9 +1184,16 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             all_products = self.list_products(skip=skip, limit=limit)
             published_products = [
                 product for product in all_products
-                if product.status and product.status.lower() == 'active'
+                if product.publication_scope and product.publication_scope.lower() != 'none'
             ]
-            logger.info(f"Retrieved {len(published_products)} published products (active status)")
+            if scope:
+                published_products = [
+                    p for p in published_products
+                    if p.publication_scope and p.publication_scope.lower() == scope.lower()
+                ]
+            logger.info(
+                f"Retrieved {len(published_products)} published products (scope={scope or 'all'})"
+            )
             return published_products
         except SQLAlchemyError as e:
             logger.error(f"Database error retrieving published products: {e}")
@@ -1397,7 +1405,6 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 parent_product_id=product_id,
                 base_name=base_name,
                 change_summary=change_summary,
-                published=False  # New versions are never published initially
             )
             db.add(new_product)
             db.flush()
@@ -1654,8 +1661,8 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             draft.version = new_version
             draft.change_summary = change_summary
             draft.draft_owner_id = None  # Remove personal draft ownership
-            # published remains False - marketplace publish is separate action
-            
+            # publication_scope stays none until an explicit marketplace publish
+
             db.commit()
             db.refresh(draft)
             

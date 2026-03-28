@@ -28,6 +28,9 @@ import DataProductGraphView from '@/components/data-products/data-product-graph-
 import useBreadcrumbStore from '@/stores/breadcrumb-store';
 import { useDomains } from '@/hooks/use-domains';
 import { useProjectContext } from '@/stores/project-store';
+import CertificationBadge from '@/components/common/certification-badge';
+import PublicationBadge from '@/components/common/publication-badge';
+import type { CertificationLevel } from '@/types/lifecycle';
 
 // --- Helper Function Type Definition --- 
 type CheckApiResponseFn = <T>(
@@ -78,6 +81,7 @@ export default function DataProducts() {
   const [showMySubscriptions, setShowMySubscriptions] = useState(false);
   const [mySubscribedProductIds, setMySubscribedProductIds] = useState<Set<string>>(new Set());
   const [_subscriptionsLoading, _setSubscriptionsLoading] = useState(false);
+  const [certificationLevels, setCertificationLevels] = useState<CertificationLevel[]>([]);
 
   const api = useApi();
   const { get, post, delete: deleteApi } = api;
@@ -187,6 +191,12 @@ export default function DataProducts() {
       fetchMySubscriptions();
     }
   }, [get, canRead, permissionsLoading]);
+
+  useEffect(() => {
+    get<CertificationLevel[]>('/api/certification-levels').then(({ data }) => {
+      if (Array.isArray(data)) setCertificationLevels(data);
+    });
+  }, [get]);
 
   // Toggle subscription filter
   const handleToggleMySubscriptions = () => {
@@ -572,11 +582,24 @@ export default function DataProducts() {
       ),
       cell: ({ row }) => (
         row.original.status ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant={getStatusColor(row.original.status)}>{row.original.status}</Badge>
             {row.original.draftOwnerId && (
               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Personal Draft</Badge>
             )}
+            <CertificationBadge
+              certificationLevel={row.original.certification_level}
+              inheritedCertificationLevel={row.original.inherited_certification_level}
+              certifiedAt={row.original.certified_at}
+              certifiedBy={row.original.certified_by}
+              levels={certificationLevels}
+              size="sm"
+            />
+            <PublicationBadge
+              publicationScope={row.original.publication_scope}
+              publishedAt={row.original.published_at}
+              publishedBy={row.original.published_by}
+            />
           </div>
         ) : t('common:states.notAvailable')
       ),
@@ -657,7 +680,7 @@ export default function DataProducts() {
         );
       },
     },
-  ], [handleOpenCreateDialog, handleDeleteProduct, getStatusColor, canWrite, canAdmin, permissionsLoading, navigate]);
+  ], [handleOpenCreateDialog, handleDeleteProduct, getStatusColor, canWrite, canAdmin, permissionsLoading, navigate, certificationLevels, getDomainIdByName, t]);
 
   // --- Button Variant Logic (Moved outside) ---
   // --- Render Logic ---

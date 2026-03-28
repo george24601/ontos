@@ -59,9 +59,9 @@ class DataProductDb(Base):
     base_name = Column(String, nullable=True, index=True)
     # Summary of changes in this version
     change_summary = Column(Text, nullable=True)
-    # Marketplace publication status (legacy boolean, to be removed)
+    # Deprecated: legacy marketplace flag; use publication_scope. Column retained for DB compatibility.
     published = Column(Boolean, nullable=False, default=False, index=True)
-    # Publication scope (replaces boolean `published`)
+    # Publication scope (canonical visibility for marketplace / discovery)
     publication_scope = Column(String, nullable=False, default="none", index=True)
     published_at = Column(DateTime(timezone=True), nullable=True)
     published_by = Column(String, nullable=True)

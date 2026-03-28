@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Shield, ShieldCheck, Globe, Lock, Eye, Building2 } from 'lucide-react';
+import { Globe, Lock, Eye, Building2 } from 'lucide-react';
 import CertificationBadge from '@/components/common/certification-badge';
 import {
   ENTITY_STATUS_LABELS,

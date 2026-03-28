@@ -37,6 +37,11 @@ class TriggerType(str, Enum):
     ON_SUBSCRIBE = "on_subscribe"  # When a user subscribes to an entity
     ON_UNSUBSCRIBE = "on_unsubscribe"  # When a user unsubscribes from an entity
     
+    # Certification triggers
+    ON_REQUEST_CERTIFY = "on_request_certify"  # When certification is requested
+    ON_CERTIFY = "on_certify"  # When certification is granted
+    ON_DECERTIFY = "on_decertify"  # When certification is removed
+
     # Publication triggers (separate from lifecycle status)
     ON_PUBLISH = "on_publish"  # When an entity is published to marketplace
     ON_UNPUBLISH = "on_unpublish"  # When an entity is unpublished from marketplace
@@ -52,6 +57,7 @@ class TriggerType(str, Enum):
     FOR_REQUEST_REVIEW = "for_request_review"  # Wizard before review request (matches ON_REQUEST_REVIEW)
     FOR_REQUEST_ACCESS = "for_request_access"  # Wizard before access request (matches ON_REQUEST_ACCESS)
     FOR_REQUEST_PUBLISH = "for_request_publish"  # Wizard before publish/deploy request (matches ON_REQUEST_PUBLISH)
+    FOR_REQUEST_CERTIFY = "for_request_certify"  # Wizard before certification request (matches ON_REQUEST_CERTIFY)
     FOR_REQUEST_STATUS_CHANGE = "for_request_status_change"  # Wizard before status change request (matches ON_REQUEST_STATUS_CHANGE)
 
 
@@ -104,6 +110,7 @@ class StepType(str, Enum):
     WEBHOOK = "webhook"  # Calls external HTTP endpoints via UC Connections or direct URL
     USER_ACTION = "user_action"  # Approval workflow: collect user input (reason, acceptances, fields)
     GENERATE_PDF = "generate_pdf"  # Approval workflow: build agreement PDF from step_results + pdf_contribution
+    ENTITY_ACTION = "entity_action"  # Performs an action on the trigger entity (certify, publish, etc.)
 
 
 class ExecutionStatus(str, Enum):

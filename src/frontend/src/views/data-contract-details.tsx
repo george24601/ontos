@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Download, Pencil, Trash2, Loader2, ArrowLeft, FileText, KeyRound, CopyPlus, Plus, Shapes, Columns2, Database, Sparkles, Table2, Package, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertCircle, Download, Pencil, Trash2, Loader2, ArrowLeft, FileText, KeyRound, CopyPlus, Plus, Shapes, Columns2, Database, Sparkles, Package, ChevronLeft, ChevronRight, ShieldCheck, Globe } from 'lucide-react'
 import { DetailViewSkeleton } from '@/components/common/list-view-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -52,6 +52,12 @@ import VersionSelector from '@/components/data-contracts/version-selector'
 import type { DataProduct } from '@/types/data-product'
 import type { DataProfilingRun } from '@/types/data-contract'
 import { useCopilotContext } from '@/hooks/use-copilot-context'
+import { useApi } from '@/hooks/use-api'
+import LifecycleSummaryPanel from '@/components/common/lifecycle-summary-panel'
+import { DirectCertifyDialog, DirectPublishDialog } from '@/components/common/direct-lifecycle-dialogs'
+import type { CertificationLevel, PublicationScope } from '@/types/lifecycle'
+import { userHasApprovalPrivilege } from '@/lib/permissions'
+import { ApprovalEntity } from '@/types/settings'
 
 // Status-based editability constants
 // Only draft/proposed contracts can be edited in place
@@ -181,7 +187,14 @@ export default function DataContractDetails() {
   const productBasePath = '/data-products'
   const { toast } = useToast()
   const { getDomainName } = useDomains()
-  const { getPermissionLevel } = usePermissions()
+  const {
+    getPermissionLevel,
+    hasPermission,
+    isLoading: permissionsLoading,
+    availableRoles,
+    appliedRoleId,
+  } = usePermissions()
+  const { post, get } = useApi()
   const { userInfo, fetchUserInfo } = useUserStore()
 
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments)
@@ -232,9 +245,24 @@ export default function DataContractDetails() {
   type ContractVersionInfo = { id: string; version: string; status: string; createdAt: string }
   const [versions, setVersions] = useState<ContractVersionInfo[]>([])
 
+  const [certificationLevels, setCertificationLevels] = useState<CertificationLevel[]>([])
+  const [certifyDialogOpen, setCertifyDialogOpen] = useState(false)
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const [selectedCertifyLevel, setSelectedCertifyLevel] = useState<number | null>(null)
+  const [selectedPublishScope, setSelectedPublishScope] = useState<PublicationScope>('organization')
+  const [lifecycleActionSubmitting, setLifecycleActionSubmitting] = useState(false)
+
   // Admin permission check — admins can edit/delete regardless of status
   const contractPermissionLevel = getPermissionLevel('data-contracts')
   const isContractAdmin = contractPermissionLevel === FeatureAccessLevel.ADMIN || contractPermissionLevel === FeatureAccessLevel.FULL
+  const canWriteContracts =
+    !permissionsLoading && hasPermission('data-contracts', FeatureAccessLevel.READ_WRITE)
+  const canApproveContractLifecycle = userHasApprovalPrivilege(
+    ApprovalEntity.CONTRACTS,
+    userInfo?.groups,
+    availableRoles,
+    appliedRoleId
+  )
 
   // Computed properties for status-based editability
   // Admins bypass status restrictions; others need draft/proposed
@@ -486,6 +514,48 @@ export default function DataContractDetails() {
     }
   }
 
+  const handleDirectCertify = async () => {
+    if (!contractId || selectedCertifyLevel == null) return
+    setLifecycleActionSubmitting(true)
+    try {
+      const response = await post<unknown>(`/api/data-contracts/${contractId}/certify`, {
+        certification_level: selectedCertifyLevel,
+      })
+      if (response.error) {
+        throw new Error(typeof response.error === 'string' ? response.error : 'Certify failed')
+      }
+      toast({ title: 'Certified', description: 'Certification level has been applied.' })
+      setCertifyDialogOpen(false)
+      await fetchDetails()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to certify'
+      toast({ title: 'Error', description: msg, variant: 'destructive' })
+    } finally {
+      setLifecycleActionSubmitting(false)
+    }
+  }
+
+  const handleDirectPublish = async () => {
+    if (!contractId) return
+    setLifecycleActionSubmitting(true)
+    try {
+      const response = await post<unknown>(`/api/data-contracts/${contractId}/set-publication-scope`, {
+        scope: selectedPublishScope,
+      })
+      if (response.error) {
+        throw new Error(typeof response.error === 'string' ? response.error : 'Publish scope update failed')
+      }
+      toast({ title: 'Publication updated', description: 'Publication scope has been saved.' })
+      setPublishDialogOpen(false)
+      await fetchDetails()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to set publication scope'
+      toast({ title: 'Error', description: msg, variant: 'destructive' })
+    } finally {
+      setLifecycleActionSubmitting(false)
+    }
+  }
+
   // DQX Profiling handlers - defined early to be used in initial useEffect
   const fetchProfileRuns = useCallback(async () => {
     if (!contractId) return
@@ -574,6 +644,12 @@ export default function DataContractDetails() {
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode)
   }, [viewMode])
+
+  useEffect(() => {
+    get<CertificationLevel[]>('/api/certification-levels').then(({ data }) => {
+      if (Array.isArray(data)) setCertificationLevels(data)
+    })
+  }, [get])
 
   useEffect(() => {
     setStaticSegments([{ label: 'Data Contracts', path: listPath }])
@@ -1607,6 +1683,34 @@ export default function DataContractDetails() {
               <Button size="sm" variant="destructive" onClick={handleReject}>Reject</Button>
             </>
           )}
+          {contract && contract.status?.toLowerCase() === 'active' && canApproveContractLifecycle && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const first = certificationLevels[0]?.level_order ?? null
+                setSelectedCertifyLevel(first)
+                setCertifyDialogOpen(true)
+              }}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" /> Certify
+            </Button>
+          )}
+          {contract &&
+            ['active', 'approved'].includes((contract.status || '').toLowerCase()) &&
+            canWriteContracts && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const cur = (contract.publication_scope || 'none') as PublicationScope
+                  setSelectedPublishScope(cur === 'none' ? 'organization' : cur)
+                  setPublishDialogOpen(true)
+                }}
+              >
+                <Globe className="mr-2 h-4 w-4" /> Publish
+              </Button>
+            )}
           <Button variant="outline" onClick={() => setIsRequestDialogOpen(true)} size="sm"><KeyRound className="mr-2 h-4 w-4" /> Request...</Button>
           <CommentSidebar
             entityType="data_contract"
@@ -1679,7 +1783,8 @@ export default function DataContractDetails() {
         </Alert>
       )}
 
-      {/* Core Metadata Card */}
+      {/* Core Metadata Card + lifecycle sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center">
@@ -1698,7 +1803,7 @@ export default function DataContractDetails() {
                 <Badge variant={getStatusColor(contract.status)} className="text-xs">
                   {contract.status || t('common:states.notAvailable')}
                 </Badge>
-                {contract.published && (
+                {contract.publication_scope && contract.publication_scope !== 'none' && (
                   <Badge variant="default" className="bg-green-600 text-xs">Published</Badge>
                 )}
               </div>
@@ -1818,6 +1923,22 @@ export default function DataContractDetails() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="space-y-4">
+        <LifecycleSummaryPanel
+          status={(contract.status || 'draft').toLowerCase()}
+          certificationLevel={contract.certification_level}
+          inheritedCertificationLevel={contract.inherited_certification_level}
+          certifiedAt={contract.certified_at}
+          certifiedBy={contract.certified_by}
+          certificationExpiresAt={contract.certification_expires_at}
+          publicationScope={contract.publication_scope}
+          publishedAt={contract.published_at}
+          publishedBy={contract.published_by}
+          certificationLevels={certificationLevels}
+        />
+      </div>
+      </div>
 
       {/* Structured Description (ODCS) */}
       {shouldShowSection('description') && contract.description && (contract.description.purpose || contract.description.usage || contract.description.limitations) && (
@@ -3114,6 +3235,24 @@ export default function DataContractDetails() {
         contractId={contractId!}
         contractName={contract?.name || 'this contract'}
         onSuccess={handleCommitSuccess}
+      />
+
+      <DirectCertifyDialog
+        open={certifyDialogOpen}
+        onOpenChange={setCertifyDialogOpen}
+        certificationLevels={certificationLevels}
+        selectedLevelOrder={selectedCertifyLevel}
+        onSelectedLevelOrderChange={setSelectedCertifyLevel}
+        isSubmitting={lifecycleActionSubmitting}
+        onConfirm={handleDirectCertify}
+      />
+      <DirectPublishDialog
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+        selectedScope={selectedPublishScope}
+        onSelectedScopeChange={setSelectedPublishScope}
+        isSubmitting={lifecycleActionSubmitting}
+        onConfirm={handleDirectPublish}
       />
     </div>
   )

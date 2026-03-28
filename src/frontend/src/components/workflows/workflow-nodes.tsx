@@ -23,11 +23,8 @@ import type { WorkflowStep, WorkflowTrigger } from '@/types/process-workflow';
 import { 
   getTriggerTypeLabel, 
   getEntityTypeLabel,
-  // getStepIcon - unused
-  // getStepColor - unused
+  getStepTypeLabel,
   resolveRecipientDisplay,
-  // STEP_ICONS - unused
-  // STEP_COLORS - unused
 } from '@/lib/workflow-labels';
 
 // Base node styles - fixed width for consistent compact sizing
@@ -96,6 +93,11 @@ const nodeColorStyles = {
     card: "border-sky-500 bg-sky-50 dark:bg-sky-900/50 dark:border-sky-400",
     icon: "text-sky-600 dark:text-sky-300",
     ring: "ring-sky-500 dark:ring-sky-400",
+  },
+  entity_action: {
+    card: "border-lime-500 bg-lime-50 dark:bg-lime-950/40 dark:border-lime-400",
+    icon: "text-lime-700 dark:text-lime-300",
+    ring: "ring-lime-500 dark:ring-lime-400",
   },
 } as const;
 
@@ -322,6 +324,38 @@ export const UserActionNode = memo((props: NodeProps<StepNodeData>) => {
   );
 });
 UserActionNode.displayName = 'UserActionNode';
+
+// Entity Action — certify, publish, etc. on the trigger entity
+export const EntityActionNode = memo((props: NodeProps<StepNodeData>) => {
+  const { t } = useTranslation(['common']);
+  const action = (props.data.step.config as { action?: string })?.action;
+  const styles = nodeColorStyles.entity_action;
+  return (
+    <Card className={`${baseNodeClass} ${styles.card} ${props.selected ? `ring-2 ${styles.ring}` : ''}`}>
+      <Handle type="target" position={Position.Top} className="!bg-slate-400 dark:!bg-slate-500" />
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className={`${nodeTextStyles.title} flex items-center gap-2`}>
+          <Zap className={`h-4 w-4 ${styles.icon}`} />
+          {props.data.step.name || getStepTypeLabel('entity_action', t)}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 pt-0">
+        <Badge variant="outline" className="text-xs dark:border-lime-400/50 dark:text-lime-200">
+          {getStepTypeLabel('entity_action', t)}
+        </Badge>
+        {action && (
+          <div className={nodeTextStyles.description + ' mt-1'}>Action: {action}</div>
+        )}
+        {!action && (
+          <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">No action set</div>
+        )}
+      </CardContent>
+      <Handle type="source" position={Position.Bottom} id="pass" className="!bg-green-500 dark:!bg-green-400" style={{ left: '30%' }} />
+      <Handle type="source" position={Position.Bottom} id="fail" className="!bg-red-500 dark:!bg-red-400" style={{ left: '70%' }} />
+    </Card>
+  );
+});
+EntityActionNode.displayName = 'EntityActionNode';
 
 // Default/unknown step node (fallback when step_type has no dedicated component)
 export const DefaultStepNode = memo((props: NodeProps<StepNodeData>) => {

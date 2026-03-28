@@ -190,8 +190,8 @@ class DataContractRepository(CRUDBase[DataContractDb, Dict[str, Any], Union[Dict
         """Get contracts visible to user based on three-tier visibility model.
         
         Tier 1: Personal drafts (draft_owner_id set) - only visible to owner
-        Tier 2: Team/project versions (draft_owner_id null, published=false) - visible to project members
-        Tier 3: Published versions (published=true) - visible to everyone
+        Tier 2: Team/project versions (draft_owner_id null, publication_scope none) - visible to project members
+        Tier 3: Published versions (publication_scope not none) - visible to everyone
         
         Args:
             db: Database session
@@ -208,7 +208,7 @@ class DataContractRepository(CRUDBase[DataContractDb, Dict[str, Any], Union[Dict
             query = db.query(self.model).filter(
                 or_(
                     # Tier 3: Published to marketplace (everyone can see)
-                    self.model.published == True,
+                    self.model.publication_scope != "none",
                     # Tier 2: Team/project versions (no personal owner, in user's projects)
                     and_(
                         self.model.draft_owner_id.is_(None),
@@ -285,7 +285,7 @@ class DataContractRepository(CRUDBase[DataContractDb, Dict[str, Any], Union[Dict
                 return False
             
             # Tier 3: Published to marketplace
-            if contract.published:
+            if (contract.publication_scope or "none") != "none":
                 return True
             
             # Tier 1: User's own personal draft

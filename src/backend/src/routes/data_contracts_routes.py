@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 from uuid import uuid4
@@ -303,6 +303,7 @@ class RequestReviewPayload(BaseModel):
 
 class RequestPublishPayload(BaseModel):
     justification: Optional[str] = None
+    scope: str = "organization"
 
 class RequestDeployPayload(BaseModel):
     catalog: Optional[str] = None
@@ -395,7 +396,8 @@ async def request_publish_to_marketplace(
             contract_id=contract_id,
             requester_email=current_user.email,
             justification=payload.justification,
-            current_user=current_user.username if current_user else None
+            current_user=current_user.username if current_user else None,
+            requested_scope=payload.scope,
         )
         
         # Audit
@@ -617,10 +619,10 @@ async def handle_publish_request_response(
             current_user=current_user.username if current_user else None
         )
         
-        # Get contract to check published status for audit
+        # Get contract for audit / response
         contract = data_contract_repo.get(db, id=contract_id)
-        published_status = contract.published if contract else None
-        
+        publication_scope = contract.publication_scope if contract else None
+
         # Audit
         audit_manager.log_action(
             db=db,
@@ -629,11 +631,14 @@ async def handle_publish_request_response(
             feature='data-contracts',
             action=f'PUBLISH_{payload.decision.upper()}',
             success=True,
-            details={'contract_id': contract_id, 'decision': payload.decision, 'published': published_status}
+            details={
+                'contract_id': contract_id,
+                'decision': payload.decision,
+                'publication_scope': publication_scope,
+            }
         )
-        
-        # Add published status to result for backward compatibility
-        result["published"] = published_status
+
+        result["publication_scope"] = publication_scope
         return result
         
     except ValueError as e:
@@ -645,6 +650,316 @@ async def handle_publish_request_response(
     except Exception as e:
         logger.exception("Handle publish failed for contract_id=%s", contract_id)
         raise HTTPException(status_code=500, detail="Failed to handle publish")
+
+
+@router.post('/data-contracts/{contract_id}/request-certify')
+async def request_contract_certification(
+    contract_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    body: dict = Body(...),
+    _: bool = Depends(PermissionChecker('data-contracts', FeatureAccessLevel.READ_WRITE)),
+):
+    """Request certification for a data contract (workflow trigger)."""
+    try:
+        certification_level = body.get("certification_level")
+        if certification_level is None or not isinstance(certification_level, int):
+            raise HTTPException(
+                status_code=400,
+                detail="certification_level is required and must be an integer",
+            )
+        message = body.get("message")
+        contract_db = data_contract_repo.get(db, id=contract_id)
+        if not contract_db:
+            raise HTTPException(status_code=404, detail="Contract not found")
+
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+
+        get_trigger_registry(db).on_request_certify(
+            EntityType.DATA_CONTRACT,
+            contract_id,
+            entity_name=contract_db.name,
+            entity_data={
+                "requested_certification_level": certification_level,
+                "message": message,
+                "requester": current_user.username if current_user else None,
+            },
+            user_email=current_user.username if current_user else None,
+            blocking=True,
+        )
+
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else 'anonymous',
+            ip_address=request.client.host if request.client else None,
+            feature='data-contracts',
+            action='REQUEST_CERTIFY',
+            success=True,
+            details={'contract_id': contract_id, 'certification_level': certification_level},
+        )
+
+        return JSONResponse(
+            status_code=202,
+            content={"status": "requested", "message": "Certification request submitted"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Request certify failed for contract_id=%s", contract_id)
+        raise HTTPException(status_code=500, detail="Failed to request certification")
+
+
+@router.post('/data-contracts/{contract_id}/handle-certify')
+async def handle_contract_certification(
+    contract_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    body: dict = Body(...),
+    manager: DataContractsManager = Depends(get_data_contracts_manager),
+    _: bool = Depends(ApprovalChecker('CONTRACTS')),
+):
+    """Approve or deny a data contract certification request."""
+    try:
+        approved = body.get("approved")
+        if not isinstance(approved, bool):
+            raise HTTPException(status_code=400, detail="approved must be a boolean")
+
+        if not approved:
+            audit_manager.log_action(
+                db=db,
+                username=current_user.username if current_user else 'anonymous',
+                ip_address=request.client.host if request.client else None,
+                feature='data-contracts',
+                action='CERTIFY_DENIED',
+                success=True,
+                details={'contract_id': contract_id},
+            )
+            return {"status": "denied"}
+
+        certification_level = body.get("certification_level")
+        if certification_level is not None and not isinstance(certification_level, int):
+            raise HTTPException(status_code=400, detail="certification_level must be an integer")
+        if certification_level is None:
+            raise HTTPException(
+                status_code=400,
+                detail="certification_level is required when approving",
+            )
+        notes = body.get("notes")
+
+        contract_db = data_contract_repo.get(db, id=contract_id)
+        if not contract_db:
+            raise HTTPException(status_code=404, detail="Contract not found")
+
+        now = datetime.now(timezone.utc)
+        contract_db.certification_level = certification_level
+        contract_db.certified_at = now
+        contract_db.certified_by = current_user.email if current_user else None
+        contract_db.certification_notes = notes
+        db.add(contract_db)
+        db.commit()
+        db.refresh(contract_db)
+
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+
+        try:
+            get_trigger_registry(db).on_certify(
+                entity_type=EntityType.DATA_CONTRACT,
+                entity_id=contract_id,
+                entity_name=contract_db.name,
+                entity_data={
+                    "certification_level": certification_level,
+                    "certification_notes": notes,
+                    "certified_by": contract_db.certified_by,
+                },
+                user_email=current_user.email if current_user else None,
+            )
+        except Exception as wf_err:
+            logger.warning("on_certify trigger error (non-fatal): %s", wf_err, exc_info=True)
+
+        manager._update_search_index(contract_db, db)
+
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else 'anonymous',
+            ip_address=request.client.host if request.client else None,
+            feature='data-contracts',
+            action='CERTIFY_APPROVED',
+            success=True,
+            details={
+                'contract_id': contract_id,
+                'certification_level': certification_level,
+            },
+        )
+
+        return {
+            "status": "approved",
+            "certification_level": certification_level,
+            "message": "Contract certified",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Handle certify failed for contract_id=%s", contract_id)
+        raise HTTPException(status_code=500, detail="Failed to handle certification")
+
+
+@router.post('/data-contracts/{contract_id}/certify')
+async def certify_contract_direct(
+    contract_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    body: dict = Body(...),
+    manager: DataContractsManager = Depends(get_data_contracts_manager),
+    _: bool = Depends(ApprovalChecker('CONTRACTS')),
+):
+    """Certify a data contract at a specific level (direct). Contract must be active."""
+    certification_level = body.get("certification_level")
+    if certification_level is None:
+        raise HTTPException(status_code=422, detail="certification_level is required")
+
+    try:
+        contract_db = data_contract_repo.get(db, id=contract_id)
+        if not contract_db:
+            raise HTTPException(status_code=404, detail="Contract not found")
+
+        if (contract_db.status or "").lower() != "active":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Contract must be active to certify. Current status: {contract_db.status}",
+            )
+
+        from src.repositories.certification_levels_repository import certification_levels_repo
+
+        level = certification_levels_repo.get_by_order(db, certification_level)
+        if not level:
+            raise HTTPException(status_code=404, detail=f"Certification level {certification_level} not found")
+
+        now = datetime.now(timezone.utc)
+        contract_db.certification_level = certification_level
+        contract_db.certified_at = now
+        contract_db.certified_by = current_user.username if current_user else None
+        contract_db.certification_notes = body.get("notes")
+        db.add(contract_db)
+        db.commit()
+        db.refresh(contract_db)
+
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="data-contracts",
+            action="CERTIFY",
+            success=True,
+            details={"contract_id": contract_id, "certification_level": certification_level},
+        )
+
+        from src.controller.certification_propagator import propagate_certification
+
+        propagate_certification(db, "DataContract", contract_id)
+        db.commit()
+
+        from src.common.workflow_triggers import get_trigger_registry
+        from src.models.process_workflows import EntityType
+
+        try:
+            get_trigger_registry(db).on_certify(
+                EntityType.DATA_CONTRACT,
+                contract_id,
+                entity_name=contract_db.name,
+                entity_data={"certification_level": contract_db.certification_level},
+                user_email=current_user.username if current_user else None,
+            )
+        except Exception as trigger_err:
+            logger.warning("on_certify trigger error (non-fatal): %s", trigger_err)
+
+        manager._update_search_index(contract_db, db)
+
+        return {
+            "certification_level": contract_db.certification_level,
+            "certified_at": str(contract_db.certified_at) if contract_db.certified_at else None,
+            "certified_by": contract_db.certified_by,
+            "certification_notes": contract_db.certification_notes,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception("Certify contract failed for contract_id=%s", contract_id)
+        raise HTTPException(status_code=500, detail="Failed to certify contract")
+
+
+@router.post('/data-contracts/{contract_id}/set-publication-scope')
+async def set_contract_publication_scope(
+    contract_id: str,
+    request: Request,
+    db: DBSessionDep,
+    audit_manager: AuditManagerDep,
+    current_user: AuditCurrentUserDep,
+    body: dict = Body(...),
+    manager: DataContractsManager = Depends(get_data_contracts_manager),
+    _: bool = Depends(PermissionChecker("data-contracts", FeatureAccessLevel.READ_WRITE)),
+):
+    """Set publication scope. Contract must be active or approved."""
+    scope = body.get("scope", "none")
+    valid_scopes = ["none", "domain", "organization", "external"]
+    if scope not in valid_scopes:
+        raise HTTPException(status_code=422, detail=f"Invalid scope. Must be one of: {valid_scopes}")
+
+    try:
+        contract_db = data_contract_repo.get(db, id=contract_id)
+        if not contract_db:
+            raise HTTPException(status_code=404, detail="Contract not found")
+
+        st = (contract_db.status or "").lower()
+        if scope != "none" and st not in ("active", "approved"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Contract must be active or approved to publish. Current status: {contract_db.status}",
+            )
+
+        if scope != "none":
+            contract_db.publication_scope = scope
+            contract_db.published_at = datetime.now(timezone.utc)
+            contract_db.published_by = current_user.username if current_user else None
+        else:
+            contract_db.publication_scope = "none"
+            contract_db.published_at = None
+            contract_db.published_by = None
+        db.add(contract_db)
+        db.commit()
+        db.refresh(contract_db)
+
+        audit_manager.log_action(
+            db=db,
+            username=current_user.username if current_user else "anonymous",
+            ip_address=request.client.host if request.client else None,
+            feature="data-contracts",
+            action="SET_PUBLICATION_SCOPE",
+            success=True,
+            details={"contract_id": contract_id, "scope": scope},
+        )
+
+        manager._update_search_index(contract_db, db)
+
+        return {
+            "publication_scope": contract_db.publication_scope,
+            "published_at": str(contract_db.published_at) if contract_db.published_at else None,
+            "published_by": contract_db.published_by,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception("Set publication scope failed for contract_id=%s", contract_id)
+        raise HTTPException(status_code=500, detail="Failed to set publication scope")
 
 
 @router.post('/data-contracts/{contract_id}/handle-deploy')

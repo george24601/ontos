@@ -440,6 +440,10 @@ class WorkflowsManager:
             if not config.get('code'):
                 errors.append(f"Step '{step.step_id}': Script step requires 'code' in config")
         
+        elif step.step_type == StepType.ENTITY_ACTION:
+            if not config.get('action'):
+                errors.append(f"Step '{step.step_id}': Entity action step requires 'action' in config")
+        
         return errors
 
     def get_step_type_schemas(self) -> List[StepTypeSchema]:
@@ -584,6 +588,46 @@ class WorkflowsManager:
                             },
                         },
                     },
+                },
+                has_pass_branch=True,
+                has_fail_branch=True,
+            ),
+            StepTypeSchema(
+                type=StepType.ENTITY_ACTION,
+                name="Entity Action",
+                description="Performs a lifecycle action on the trigger entity (certify, publish, etc.)",
+                icon="zap",
+                config_schema={
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["certify", "decertify", "publish", "unpublish"],
+                            "description": "The action to perform on the entity",
+                        },
+                        "level_source": {
+                            "type": "string",
+                            "enum": ["from_request", "fixed", "from_approval"],
+                            "default": "from_request",
+                            "description": "Source for certification level (certify action only)",
+                        },
+                        "fixed_level": {
+                            "type": "integer",
+                            "description": "Fixed certification level (when level_source is 'fixed')",
+                        },
+                        "scope_source": {
+                            "type": "string",
+                            "enum": ["from_request", "fixed", "from_approval"],
+                            "default": "from_request",
+                            "description": "Source for publication scope (publish action only)",
+                        },
+                        "fixed_scope": {
+                            "type": "string",
+                            "enum": ["domain", "organization", "external"],
+                            "description": "Fixed publication scope (when scope_source is 'fixed')",
+                        },
+                    },
+                    "required": ["action"],
                 },
                 has_pass_branch=True,
                 has_fail_branch=True,

@@ -8,10 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { useNotificationsStore } from '@/stores/notifications-store';
-import { Loader2, AlertCircle, FileText, Eye, Rocket, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, FileText, Eye, Rocket, RefreshCw, ShieldCheck } from 'lucide-react';
 import AccessRequestFields from '@/components/access/access-request-fields';
 
-type RequestType = 'access' | 'review' | 'publish' | 'status_change';
+type RequestType = 'access' | 'review' | 'publish' | 'certify' | 'status_change';
+
+interface CertificationLevelOption {
+  id: string;
+  level_order: number;
+  name: string;
+  color: string | null;
+}
 
 interface RequestProductActionDialogProps {
   isOpen: boolean;
@@ -47,10 +54,6 @@ const ALLOWED_TRANSITIONS: Record<string, { target: string; label: string }[]> =
     { target: 'draft', label: 'Return to Draft' },
   ],
   'active': [
-    { target: 'certified', label: 'Certify' },
-    { target: 'deprecated', label: 'Deprecate' },
-  ],
-  'certified': [
     { target: 'deprecated', label: 'Deprecate' },
   ],
   'deprecated': [
@@ -73,7 +76,7 @@ export default function RequestProductActionDialog({
   onSuccess,
   canDirectStatusChange = false
 }: RequestProductActionDialogProps) {
-  const { post } = useApi();
+  const { post, get } = useApi();
   const { toast } = useToast();
   const refreshNotifications = useNotificationsStore((state) => state.refreshNotifications);
   
@@ -84,6 +87,15 @@ export default function RequestProductActionDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(30);
+  const [certificationLevel, setCertificationLevel] = useState<number | null>(null);
+  const [certificationLevels, setCertificationLevels] = useState<CertificationLevelOption[]>([]);
+  const [publicationScope, setPublicationScope] = useState('organization');
+
+  useEffect(() => {
+    get<CertificationLevelOption[]>('/api/certification-levels').then(({ data }) => {
+      if (Array.isArray(data)) setCertificationLevels(data);
+    });
+  }, [get]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -94,6 +106,8 @@ export default function RequestProductActionDialog({
       setTargetStatus('');
       setError(null);
       setSelectedDuration(30);
+      setCertificationLevel(null);
+      setPublicationScope('organization');
     }
   }, [isOpen]);
 
@@ -122,6 +136,14 @@ export default function RequestProductActionDialog({
           description: 'Request to publish this approved product to the organization-wide marketplace.',
           enabled: productStatus?.toLowerCase() === 'approved' || productStatus?.toLowerCase() === 'active',
           endpoint: `/api/data-products/${productId}/request-publish`,
+        };
+      case 'certify':
+        return {
+          icon: <ShieldCheck className="h-5 w-5" />,
+          title: 'Request Certification',
+          description: 'Request that this product be certified at a specific level.',
+          enabled: true,
+          endpoint: `/api/data-products/${productId}/request-certify`,
         };
       case 'status_change':
         const allowedTransitions = productStatus ? getAllowedTransitions(productStatus) : [];
@@ -170,6 +192,13 @@ export default function RequestProductActionDialog({
         }
       }
     }
+
+    if (requestType === 'certify') {
+      if (!certificationLevel) {
+        setError('Please select a certification level');
+        return false;
+      }
+    }
     
     return true;
   };
@@ -205,7 +234,18 @@ export default function RequestProductActionDialog({
         };
       } else if (requestType === 'publish') {
         payload = {
+          scope: publicationScope,
           justification: justification.trim() || undefined,
+        };
+      } else if (requestType === 'certify') {
+        if (!certificationLevel) {
+          setError('Please select a certification level');
+          setSubmitting(false);
+          return;
+        }
+        payload = {
+          certification_level: certificationLevel,
+          message: message.trim() || undefined,
         };
       } else if (requestType === 'status_change') {
         if (canDirectStatusChange) {
@@ -252,6 +292,8 @@ export default function RequestProductActionDialog({
       setMessage('');
       setJustification('');
       setTargetStatus('');
+      setCertificationLevel(null);
+      setPublicationScope('organization');
       onOpenChange(false);
 
     } catch (e: any) {
@@ -308,6 +350,12 @@ export default function RequestProductActionDialog({
                   <div className="flex items-center gap-2">
                     <Rocket className="h-4 w-4" />
                     Request Publish
+                  </div>
+                </SelectItem>
+                <SelectItem value="certify" disabled={!getRequestTypeConfig('certify').enabled}>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    Request Certification
                   </div>
                 </SelectItem>
                 <SelectItem value="access">
@@ -392,18 +440,70 @@ export default function RequestProductActionDialog({
             </div>
           )}
 
-          {/* Publish Request Justification */}
+          {/* Publish Request — scope + justification */}
           {requestType === 'publish' && (
-            <div className="space-y-2">
-              <Label htmlFor="publish-justification">Justification (optional)</Label>
-              <Textarea
-                id="publish-justification"
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                placeholder="Explain why this product should be published to the marketplace..."
-                className="min-h-[80px] resize-none"
-                disabled={submitting}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="pub-scope">Publication Scope *</Label>
+                <Select value={publicationScope} onValueChange={setPublicationScope} disabled={submitting}>
+                  <SelectTrigger id="pub-scope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="domain">Domain</SelectItem>
+                    <SelectItem value="organization">Organization</SelectItem>
+                    <SelectItem value="external">External</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="publish-justification">Justification (optional)</Label>
+                <Textarea
+                  id="publish-justification"
+                  value={justification}
+                  onChange={(e) => setJustification(e.target.value)}
+                  placeholder="Why should this product be published?"
+                  className="min-h-[80px] resize-none"
+                  rows={3}
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+          )}
+
+          {requestType === 'certify' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="cert-level">Certification Level *</Label>
+                <Select
+                  value={certificationLevel !== null ? certificationLevel.toString() : ''}
+                  onValueChange={(v) => setCertificationLevel(parseInt(v, 10))}
+                  disabled={submitting}
+                >
+                  <SelectTrigger id="cert-level">
+                    <SelectValue placeholder="Select certification level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {certificationLevels.map((l) => (
+                      <SelectItem key={l.id} value={l.level_order.toString()}>
+                        {l.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cert-message">Message (optional)</Label>
+                <Textarea
+                  id="cert-message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Why should this product be certified?"
+                  rows={3}
+                  className="min-h-[80px] resize-none"
+                  disabled={submitting}
+                />
+              </div>
             </div>
           )}
 

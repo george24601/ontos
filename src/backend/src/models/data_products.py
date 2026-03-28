@@ -327,7 +327,6 @@ class DataProduct(BaseModel):
     parent_product_id: Optional[str] = Field(None, alias="parentProductId", description="Parent version ID for version lineage")
     base_name: Optional[str] = Field(None, alias="baseName", description="Base name without version for grouping versions")
     change_summary: Optional[str] = Field(None, alias="changeSummary", description="Summary of changes in this version")
-    published: bool = Field(False, description="Whether published to marketplace (legacy)")
 
     # Publication fields
     publication_scope: Optional[str] = Field("none", description="Publication scope: none, domain, organization, external")

@@ -1507,6 +1507,141 @@ class WebhookStepHandler(StepHandler):
         return 200 <= status_code < 300
 
 
+class EntityActionStepHandler(StepHandler):
+    """Performs lifecycle actions (certify, publish, etc.) on the trigger entity.
+
+    Config:
+        action: certify | decertify | publish | unpublish | set_publication_scope
+        level_source: from_request | fixed | from_approval  (certify only)
+        fixed_level: int  (when level_source == fixed)
+        scope_source: from_request | fixed | from_approval  (publish only)
+        fixed_scope: str  (when scope_source == fixed)
+    """
+
+    def execute(self, context: StepContext) -> StepResult:
+        from datetime import datetime, timezone
+
+        action = self._config.get('action')
+        if not action:
+            return StepResult(passed=False, error="No action configured for entity_action step")
+
+        entity_type = context.entity_type
+        entity_id = context.entity_id
+
+        try:
+            if action in ('certify', 'decertify'):
+                return self._handle_certification(action, entity_type, entity_id, context)
+            elif action in ('publish', 'set_publication_scope'):
+                return self._handle_publication(entity_type, entity_id, context)
+            elif action == 'unpublish':
+                return self._handle_unpublish(entity_type, entity_id, context)
+            else:
+                return StepResult(passed=False, error=f"Unknown entity_action: {action}")
+        except Exception as e:
+            logger.exception(f"entity_action step failed: {e}")
+            return StepResult(passed=False, error=str(e))
+
+    def _resolve_level(self, context: StepContext) -> Optional[int]:
+        source = self._config.get('level_source', 'from_request')
+        if source == 'fixed':
+            return self._config.get('fixed_level')
+        elif source == 'from_approval':
+            for step_data in reversed(list(context.step_results.values())):
+                if isinstance(step_data, dict) and 'certification_level' in step_data:
+                    return step_data['certification_level']
+            return None
+        else:  # from_request
+            entity = context.entity or {}
+            return entity.get('requested_certification_level') or entity.get('certification_level')
+
+    def _resolve_scope(self, context: StepContext) -> str:
+        source = self._config.get('scope_source', 'from_request')
+        if source == 'fixed':
+            return self._config.get('fixed_scope', 'organization')
+        elif source == 'from_approval':
+            for step_data in reversed(list(context.step_results.values())):
+                if isinstance(step_data, dict) and 'publication_scope' in step_data:
+                    return step_data['publication_scope']
+            return 'organization'
+        else:  # from_request
+            entity = context.entity or {}
+            return entity.get('requested_scope') or entity.get('publication_scope') or 'organization'
+
+    def _get_db_entity(self, entity_type: str, entity_id: str):
+        if entity_type in ('data_product', 'DataProduct'):
+            from src.repositories.data_products_repository import data_product_repo
+            return data_product_repo.get(db=self._db, id=entity_id), 'data_product'
+        elif entity_type in ('data_contract', 'DataContract'):
+            from src.repositories.data_contracts_repository import data_contract_repo
+            return data_contract_repo.get(db=self._db, id=entity_id), 'data_contract'
+        elif entity_type in ('dataset', 'Dataset'):
+            from src.repositories.datasets_repository import dataset_repo
+            return dataset_repo.get(db=self._db, id=entity_id), 'dataset'
+        return None, entity_type
+
+    def _handle_certification(self, action: str, entity_type: str, entity_id: str, context: StepContext) -> StepResult:
+        from datetime import datetime, timezone
+        db_entity, resolved_type = self._get_db_entity(entity_type, entity_id)
+        if not db_entity:
+            return StepResult(passed=False, error=f"{entity_type} {entity_id} not found")
+
+        if action == 'certify':
+            level = self._resolve_level(context)
+            if level is None:
+                return StepResult(passed=False, error="Could not resolve certification level")
+            db_entity.certification_level = level
+            db_entity.certified_at = datetime.now(timezone.utc)
+            db_entity.certified_by = context.user_email
+            db_entity.certification_notes = (context.entity or {}).get('certification_notes') or \
+                                            (context.entity or {}).get('message')
+            self._db.add(db_entity)
+            self._db.commit()
+            logger.info(f"entity_action: certified {entity_type} {entity_id} at level {level}")
+            return StepResult(passed=True, message=f"Certified at level {level}",
+                              data={'certification_level': level})
+        else:  # decertify
+            db_entity.certification_level = None
+            db_entity.inherited_certification_level = None
+            db_entity.certified_at = None
+            db_entity.certified_by = None
+            db_entity.certification_notes = None
+            if hasattr(db_entity, 'certification_expires_at'):
+                db_entity.certification_expires_at = None
+            self._db.add(db_entity)
+            self._db.commit()
+            logger.info(f"entity_action: decertified {entity_type} {entity_id}")
+            return StepResult(passed=True, message="Certification removed")
+
+    def _handle_publication(self, entity_type: str, entity_id: str, context: StepContext) -> StepResult:
+        from datetime import datetime, timezone
+        db_entity, resolved_type = self._get_db_entity(entity_type, entity_id)
+        if not db_entity:
+            return StepResult(passed=False, error=f"{entity_type} {entity_id} not found")
+
+        scope = self._resolve_scope(context)
+        db_entity.publication_scope = scope
+        db_entity.published_at = datetime.now(timezone.utc)
+        db_entity.published_by = context.user_email
+        self._db.add(db_entity)
+        self._db.commit()
+        logger.info(f"entity_action: published {entity_type} {entity_id} with scope={scope}")
+        return StepResult(passed=True, message=f"Published with scope {scope}",
+                          data={'publication_scope': scope})
+
+    def _handle_unpublish(self, entity_type: str, entity_id: str, context: StepContext) -> StepResult:
+        db_entity, resolved_type = self._get_db_entity(entity_type, entity_id)
+        if not db_entity:
+            return StepResult(passed=False, error=f"{entity_type} {entity_id} not found")
+
+        db_entity.publication_scope = 'none'
+        db_entity.published_at = None
+        db_entity.published_by = None
+        self._db.add(db_entity)
+        self._db.commit()
+        logger.info(f"entity_action: unpublished {entity_type} {entity_id}")
+        return StepResult(passed=True, message="Unpublished")
+
+
 class WorkflowExecutor:
     """Executes process workflows."""
 
@@ -1525,6 +1660,7 @@ class WorkflowExecutor:
         'delivery': DeliveryStepHandler,
         'create_asset_review': CreateAssetReviewStepHandler,
         'webhook': WebhookStepHandler,
+        'entity_action': EntityActionStepHandler,
     }
 
     def __init__(self, db: Session):

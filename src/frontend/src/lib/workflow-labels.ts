@@ -20,6 +20,7 @@ import {
   FileSearch,
   Globe,
   MessageSquare,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { TriggerType, EntityType, StepType } from '@/types/process-workflow';
@@ -42,6 +43,7 @@ export const STEP_ICONS: Record<StepType, LucideIcon> = {
   create_asset_review: FileSearch,
   webhook: Globe,
   user_action: MessageSquare,
+  entity_action: Zap,
 };
 
 /**
@@ -62,6 +64,7 @@ export const STEP_COLORS: Record<StepType, string> = {
   create_asset_review: 'teal',
   webhook: 'orange',
   user_action: 'sky',
+  entity_action: 'lime',
 };
 
 /**
@@ -147,6 +150,9 @@ export const ALL_TRIGGER_TYPES: TriggerType[] = [
   'on_request_access',
   'on_request_publish',
   'on_request_status_change',
+  'on_request_certify',
+  'on_certify',
+  'on_decertify',
   'on_job_success',
   'on_job_failure',
   'on_subscribe',
@@ -161,6 +167,7 @@ export const ALL_TRIGGER_TYPES: TriggerType[] = [
   'for_request_review',
   'for_request_access',
   'for_request_publish',
+  'for_request_certify',
   'for_request_status_change',
 ];
 
@@ -201,6 +208,8 @@ export const ALL_STEP_TYPES: StepType[] = [
   'delivery',
   'create_asset_review',
   'webhook',
+  'user_action',
+  'entity_action',
 ];
 
 /**

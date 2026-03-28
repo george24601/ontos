@@ -309,6 +309,12 @@
       "on_request_access": "Access Request",
       "on_request_publish": "Publish Request",
       "on_request_status_change": "Status Change Request",
+      "on_request_certify": "Certification Request",
+      "on_certify": "On Certify",
+      "on_decertify": "On Decertify",
+      "before_status_change": "Before Status Change",
+      "on_publish": "On Publish",
+      "on_unpublish": "On Unpublish",
       "on_job_success": "Job Success",
       "on_job_failure": "Job Failure",
       "on_subscribe": "Subscription",
@@ -320,6 +326,7 @@
       "for_request_review": "Request Review (Wizard)",
       "for_request_access": "Request Access (Wizard)",
       "for_request_publish": "Request Publish (Wizard)",
+      "for_request_certify": "Request Certification (Wizard)",
       "for_request_status_change": "Request Status Change (Wizard)"
     },
     "entityTypes": {
@@ -351,7 +358,9 @@
       "policy_check": "Policy Check",
       "delivery": "Delivery",
       "create_asset_review": "Create Asset Review",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "user_action": "User Action",
+      "entity_action": "Entity Action"
     }
   }
 }

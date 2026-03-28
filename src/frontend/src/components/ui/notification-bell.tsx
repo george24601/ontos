@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, Info, AlertCircle, CheckCircle2, X, CheckSquare, Loader2 } from 'lucide-react';
 import { Button } from './button';
 import { Progress } from './progress';
@@ -13,7 +14,51 @@ import HandlePublishRequestDialog from '@/components/data-contracts/handle-publi
 import HandleDeployRequestDialog from '@/components/data-contracts/handle-deploy-request-dialog';
 import WorkflowApprovalResponseDialog from '@/components/workflows/workflow-approval-response-dialog';
 import { useNotificationsStore } from '@/stores/notifications-store';
-import { NotificationType } from '@/types/notification';
+import { Notification, NotificationType } from '@/types/notification';
+
+/** Resolve detail URL for data product / contract notifications (workflow + API payloads). */
+function getEntityDetailPathFromPayload(payload: Record<string, unknown> | null | undefined): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const productId = payload.product_id ?? payload.data_product_id;
+  if (typeof productId === 'string' && productId.length > 0) {
+    return `/data-products/${productId}`;
+  }
+  const contractId = payload.contract_id ?? payload.data_contract_id;
+  if (typeof contractId === 'string' && contractId.length > 0) {
+    return `/data-contracts/${contractId}`;
+  }
+  const entityId = payload.entity_id;
+  const rawType = payload.entity_type;
+  if (typeof entityId !== 'string' || !entityId) return null;
+  const entityType = typeof rawType === 'string' ? rawType.toLowerCase() : '';
+  if (entityType === 'data_product' || entityType === 'dataproduct') {
+    return `/data-products/${entityId}`;
+  }
+  if (entityType === 'data_contract' || entityType === 'datacontract') {
+    return `/data-contracts/${entityId}`;
+  }
+  return null;
+}
+
+/** Only actionable rows should keep the dropdown open on select (Radix default). */
+function shouldPreventMenuCloseOnSelect(notification: Notification): boolean {
+  const at = notification.action_type;
+  if (!at) return false;
+  if (at === 'workflow_approval') {
+    const p = notification.action_payload;
+    return Boolean(p?.execution_id && !p?.handled);
+  }
+  if (at === 'job_progress') return true;
+  return (
+    at === 'handle_role_request' ||
+    at === 'handle_access_grant_request' ||
+    at === 'handle_steward_review' ||
+    at === 'handle_publish_request' ||
+    at === 'handle_deploy_request' ||
+    at === 'certification_requested' ||
+    at === 'publication_requested'
+  );
+}
 
 export default function NotificationBell() {
   // Use selective subscriptions to avoid unnecessary re-renders
@@ -188,13 +233,19 @@ export default function NotificationBell() {
               No notifications
             </div>
           ) : (
-            notifications.map((notification) => (
+            notifications.map((notification) => {
+              const certifyOrPublishDetailPath =
+                notification.action_type === 'certification_requested' ||
+                notification.action_type === 'publication_requested'
+                  ? getEntityDetailPathFromPayload(notification.action_payload ?? undefined)
+                  : null;
+              return (
               <DropdownMenuItem
                 key={notification.id}
                 className="flex items-start gap-2 p-2 cursor-pointer"
                 onClick={() => !notification.read && handleMarkRead(notification.id)}
                 onSelect={(e) => {
-                  if (notification.action_type) {
+                  if (shouldPreventMenuCloseOnSelect(notification)) {
                     e.preventDefault();
                   }
                 }}
@@ -322,6 +373,38 @@ export default function NotificationBell() {
                       </Button>
                     )
                   )}
+                  {notification.action_type === 'certification_requested' && certifyOrPublishDetailPath && (
+                      <Button
+                        asChild
+                        variant={notification.read ? 'outline' : 'default'}
+                        size="sm"
+                        className="mt-2 h-7 px-2 text-xs gap-1"
+                      >
+                        <Link
+                          to={certifyOrPublishDetailPath}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <CheckSquare className="h-3.5 w-3.5" />
+                          Review certification request
+                        </Link>
+                      </Button>
+                    )}
+                  {notification.action_type === 'publication_requested' && certifyOrPublishDetailPath && (
+                      <Button
+                        asChild
+                        variant={notification.read ? 'outline' : 'default'}
+                        size="sm"
+                        className="mt-2 h-7 px-2 text-xs gap-1"
+                      >
+                        <Link
+                          to={certifyOrPublishDetailPath}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <CheckSquare className="h-3.5 w-3.5" />
+                          Review publication request
+                        </Link>
+                      </Button>
+                    )}
                   {(notification.type === 'job_progress' || notification.action_type === 'job_progress') && (notification.data || notification.action_payload) && (
                     <div className="mt-2">
                       <Progress value={Number((notification.data || notification.action_payload)?.progress ?? 0)} />
@@ -360,7 +443,8 @@ export default function NotificationBell() {
                   )}
                 </div>
               </DropdownMenuItem>
-            ))
+              );
+            })
           )}
         </ScrollArea>
       </DropdownMenuContent>

@@ -442,6 +442,80 @@ class TriggerRegistry:
         return self.fire_trigger(event, blocking=blocking)
 
     # =========================================================================
+    # Certification Triggers
+    # =========================================================================
+
+    def on_request_certify(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        scope_type: Optional[str] = None,
+        scope_id: Optional[str] = None,
+        *,
+        blocking: bool = True,
+    ) -> List[WorkflowExecution]:
+        """Fire when certification is requested for an entity."""
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_REQUEST_CERTIFY,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        logger.info(f"on_request_certify fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_certify(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire after certification is granted."""
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_CERTIFY,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_certify fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    def on_decertify(
+        self,
+        entity_type: EntityType,
+        entity_id: str,
+        entity_name: Optional[str] = None,
+        entity_data: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        *,
+        blocking: bool = False,
+    ) -> List[WorkflowExecution]:
+        """Fire after certification is removed."""
+        event = TriggerEvent(
+            trigger_type=TriggerType.ON_DECERTIFY,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_data=entity_data,
+            user_email=user_email,
+        )
+        logger.info(f"on_decertify fired for {entity_type.value} '{entity_id}' by {user_email}")
+        return self.fire_trigger(event, blocking=blocking)
+
+    # =========================================================================
     # Request Triggers
     # =========================================================================
 

@@ -13,7 +13,7 @@ import ImportTeamMembersDialog from '@/components/data-contracts/import-team-mem
 import { useApi } from '@/hooks/use-api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Pencil, Trash2, AlertCircle, Sparkles, CopyPlus, ArrowLeft, Package, KeyRound, Plus, FileText, Download, Bell, BellOff, Users } from 'lucide-react';
+import { Loader2, Pencil, Trash2, AlertCircle, Sparkles, CopyPlus, ArrowLeft, Package, KeyRound, Plus, FileText, Download, Bell, BellOff, Users, ShieldCheck, Globe } from 'lucide-react';
 import { DetailViewSkeleton } from '@/components/common/list-view-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -53,6 +53,11 @@ import { useCopilotContext } from '@/hooks/use-copilot-context';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import type { QualitySummary } from '@/types/quality';
+import LifecycleSummaryPanel from '@/components/common/lifecycle-summary-panel';
+import { DirectCertifyDialog, DirectPublishDialog } from '@/components/common/direct-lifecycle-dialogs';
+import type { CertificationLevel, PublicationScope } from '@/types/lifecycle';
+import { userHasApprovalPrivilege } from '@/lib/permissions';
+import { ApprovalEntity } from '@/types/settings';
 
 /**
  * ODPS v1.0.0 Data Product Details View
@@ -220,7 +225,13 @@ export default function DataProductDetails() {
   const { toast } = useToast();
   const setDynamicTitle = useBreadcrumbStore((state) => state.setDynamicTitle);
   const setStaticSegments = useBreadcrumbStore((state) => state.setStaticSegments);
-  const { hasPermission, isLoading: permissionsLoading, getPermissionLevel } = usePermissions();
+  const {
+    hasPermission,
+    isLoading: permissionsLoading,
+    getPermissionLevel,
+    availableRoles,
+    appliedRoleId,
+  } = usePermissions();
   const { userInfo, fetchUserInfo } = useUserStore();
   const refreshNotifications = useNotificationsStore((state) => state.refreshNotifications);
   const { getDomainName, getDomainIdByName } = useDomains();
@@ -270,6 +281,14 @@ export default function DataProductDetails() {
   // Quality summary for sidebar
   const [qualitySummary, setQualitySummary] = useState<QualitySummary | null>(null);
 
+  // Lifecycle direct actions
+  const [certificationLevels, setCertificationLevels] = useState<CertificationLevel[]>([]);
+  const [certifyDialogOpen, setCertifyDialogOpen] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [selectedCertifyLevel, setSelectedCertifyLevel] = useState<number | null>(null);
+  const [selectedPublishScope, setSelectedPublishScope] = useState<PublicationScope>('organization');
+  const [lifecycleActionSubmitting, setLifecycleActionSubmitting] = useState(false);
+
   // Clone/Commit draft states
   const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
@@ -280,6 +299,13 @@ export default function DataProductDetails() {
   const canRead = !permissionsLoading && hasPermission(featureId, Settings.FeatureAccessLevel.READ_ONLY);
   const canWrite = !permissionsLoading && hasPermission(featureId, Settings.FeatureAccessLevel.READ_WRITE);
   const canAdmin = !permissionsLoading && hasPermission(featureId, Settings.FeatureAccessLevel.ADMIN);
+
+  const canApproveProductLifecycle = userHasApprovalPrivilege(
+    ApprovalEntity.PRODUCTS,
+    userInfo?.groups,
+    availableRoles,
+    appliedRoleId
+  );
 
   // Versioned editing: determine if product can be edited in place based on status
   // Products with status 'draft', 'sandbox', 'proposed' can be edited directly
@@ -329,6 +355,12 @@ export default function DataProductDetails() {
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    get<CertificationLevel[]>('/api/certification-levels').then(({ data }) => {
+      if (Array.isArray(data)) setCertificationLevels(data);
+    });
+  }, [get]);
 
   useCopilotContext(
     'Data Product Details',
@@ -415,6 +447,48 @@ export default function DataProductDetails() {
       toast({ title: 'Error', description: `Failed to load data: ${errorMessage}`, variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDirectCertify = async () => {
+    if (!productId || selectedCertifyLevel == null) return;
+    setLifecycleActionSubmitting(true);
+    try {
+      const response = await post<unknown>(`/api/data-products/${productId}/certify`, {
+        certification_level: selectedCertifyLevel,
+      });
+      if (response.error) {
+        throw new Error(typeof response.error === 'string' ? response.error : 'Certify failed');
+      }
+      toast({ title: 'Certified', description: 'Certification level has been applied.' });
+      setCertifyDialogOpen(false);
+      await fetchProductDetails();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to certify';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setLifecycleActionSubmitting(false);
+    }
+  };
+
+  const handleDirectPublish = async () => {
+    if (!productId) return;
+    setLifecycleActionSubmitting(true);
+    try {
+      const response = await post<unknown>(`/api/data-products/${productId}/set-publication-scope`, {
+        scope: selectedPublishScope,
+      });
+      if (response.error) {
+        throw new Error(typeof response.error === 'string' ? response.error : 'Publish scope update failed');
+      }
+      toast({ title: 'Publication updated', description: 'Publication scope has been saved.' });
+      setPublishDialogOpen(false);
+      await fetchProductDetails();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to set publication scope';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setLifecycleActionSubmitting(false);
     }
   };
 
@@ -1196,6 +1270,32 @@ export default function DataProductDetails() {
           <Button variant="outline" onClick={() => setIsRequestDialogOpen(true)} size="sm">
             <KeyRound className="mr-2 h-4 w-4" /> Request...
           </Button>
+          {product.status?.toLowerCase() === 'active' && canApproveProductLifecycle && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const first = certificationLevels[0]?.level_order ?? null;
+                setSelectedCertifyLevel(first);
+                setCertifyDialogOpen(true);
+              }}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" /> Certify
+            </Button>
+          )}
+          {product.status?.toLowerCase() === 'active' && canWrite && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const cur = (product.publication_scope || 'none') as PublicationScope;
+                setSelectedPublishScope(cur === 'none' ? 'organization' : cur);
+                setPublishDialogOpen(true);
+              }}
+            >
+              <Globe className="mr-2 h-4 w-4" /> Publish
+            </Button>
+          )}
           <CommentSidebar
             entityType="data_product"
             entityId={productId!}
@@ -1487,6 +1587,19 @@ export default function DataProductDetails() {
               })()}
             </CardContent>
           </Card>
+
+          <LifecycleSummaryPanel
+            status={(product.status || 'draft').toLowerCase()}
+            certificationLevel={product.certification_level}
+            inheritedCertificationLevel={product.inherited_certification_level}
+            certifiedAt={product.certified_at}
+            certifiedBy={product.certified_by}
+            certificationExpiresAt={product.certification_expires_at}
+            publicationScope={product.publication_scope}
+            publishedAt={product.published_at}
+            publishedBy={product.published_by}
+            certificationLevels={certificationLevels}
+          />
 
           {/* Overall Data Quality */}
           <Card>
@@ -2165,6 +2278,24 @@ export default function DataProductDetails() {
         userCanOverride={versioningUserCanOverride}
         onUpdateInPlace={handleVersioningUpdateInPlace}
         onCreateNewVersion={handleVersioningCreateNewVersion}
+      />
+
+      <DirectCertifyDialog
+        open={certifyDialogOpen}
+        onOpenChange={setCertifyDialogOpen}
+        certificationLevels={certificationLevels}
+        selectedLevelOrder={selectedCertifyLevel}
+        onSelectedLevelOrderChange={setSelectedCertifyLevel}
+        isSubmitting={lifecycleActionSubmitting}
+        onConfirm={handleDirectCertify}
+      />
+      <DirectPublishDialog
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+        selectedScope={selectedPublishScope}
+        onSelectedScopeChange={setSelectedPublishScope}
+        isSubmitting={lifecycleActionSubmitting}
+        onConfirm={handleDirectPublish}
       />
     </div>
   );

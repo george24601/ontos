@@ -55,7 +55,7 @@ class ContractCloner:
             'name': f"{base_name}_v{new_version}",  # Append new version to base name
             'version': new_version,
             'status': 'draft',  # New versions start as draft
-            'published': False,  # Not published by default
+            'publication_scope': 'none',
 
             # Semantic versioning fields
             'parent_contract_id': source_contract_db.id,

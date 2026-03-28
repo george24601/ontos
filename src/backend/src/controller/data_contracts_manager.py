@@ -4288,7 +4288,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             draft.version = new_version
             draft.change_summary = change_summary
             draft.draft_owner_id = None  # Promote from tier 1 (personal) to tier 2 (team)
-            # draft.published remains False - marketplace publish is separate action
+            # publication_scope stays none until an explicit marketplace publish
             draft.updated_by = current_user
             
             db.commit()
@@ -4803,7 +4803,8 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         contract_id: str,
         requester_email: str,
         justification: Optional[str] = None,
-        current_user: Optional[str] = None
+        current_user: Optional[str] = None,
+        requested_scope: str = "organization",
     ) -> dict:
         """Request to publish an APPROVED contract to the marketplace via workflow.
         
@@ -4817,6 +4818,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             requester_email: Email of user requesting publish
             justification: Optional justification
             current_user: Username requesting publish
+            requested_scope: Target publication scope (e.g. organization, domain)
             
         Returns:
             Dict with message and workflow execution info
@@ -4836,7 +4838,8 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         if current_status != 'approved':
             raise ValueError(f"Cannot request publish from status {contract.status}. Must be APPROVED.")
         
-        if contract.published:
+        pub_scope = (contract.publication_scope or "none").lower()
+        if pub_scope != "none":
             raise ValueError("Contract is already published to marketplace.")
         
         now = datetime.utcnow()
@@ -4854,6 +4857,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 "current_status": current_status,
                 "justification": justification,
                 "request_id": request_id,
+                "requested_scope": requested_scope,
             },
             user_email=requester_email,
         )
@@ -4869,6 +4873,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             details={
                 "requester_email": requester_email,
                 "justification": justification,
+                "requested_scope": requested_scope,
                 "timestamp": now.isoformat(),
                 "summary": f"Publish requested by {requester_email}" + (f": {justification}" if justification else ""),
                 "workflow_triggered": len(executions) > 0,
@@ -5186,7 +5191,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
     ) -> dict:
         """Handle a publish request decision (approve/deny).
         
-        Updates published flag, notifications, and change log.
+        Updates publication_scope, notifications, and change log.
         
         Args:
             db: Database session
@@ -5203,7 +5208,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         Raises:
             ValueError: If contract not found, invalid decision, or invalid status
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
         from src.models.notifications import NotificationType, Notification
         
         contract = data_contract_repo.get(db, id=contract_id)
@@ -5214,18 +5219,34 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         if decision not in ('approve', 'deny'):
             raise ValueError("Decision must be 'approve' or 'deny'")
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
-        # Update published flag based on decision
+        # Resolve requester and requested publication scope from change log (one pass)
+        requester_email = None
+        requested_scope = "organization"
+        try:
+            from src.controller.change_log_manager import change_log_manager
+            recent_changes = change_log_manager.get_changes_for_entity(db, "data_contract", contract_id)
+            for change in recent_changes:
+                if change.action == "publish_requested":
+                    requester_email = change.details.get("requester_email")
+                    requested_scope = change.details.get("requested_scope") or "organization"
+                    break
+        except Exception:
+            pass
+        
+        # Update publication based on decision
         if decision == 'approve':
             if contract.status.lower() != 'approved':
                 raise ValueError("Contract must be APPROVED to publish")
-            was_published = contract.published
-            contract.published = True
+            was_effectively_published = (contract.publication_scope or "none").lower() != "none"
+            contract.publication_scope = requested_scope
+            contract.published_at = now
+            contract.published_by = approver_email
             notification_title = "Contract Published to Marketplace"
             notification_desc = f"Your contract '{contract.name}' has been published to the marketplace."
         else:  # deny
-            was_published = None
+            was_effectively_published = None
             notification_title = "Contract Publish Request Denied"
             notification_desc = f"Your publish request for contract '{contract.name}' was denied."
         
@@ -5236,7 +5257,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         db.flush()
 
         # Fire on_publish trigger when newly published
-        if decision == 'approve' and not was_published:
+        if decision == 'approve' and not was_effectively_published:
             try:
                 from src.common.workflow_triggers import get_trigger_registry
                 from src.models.process_workflows import EntityType as WFEntityType
@@ -5245,7 +5266,13 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                     entity_type=WFEntityType.DATA_CONTRACT,
                     entity_id=contract_id,
                     entity_name=contract.name,
-                    entity_data={"name": contract.name, "status": contract.status},
+                    entity_data={
+                        "name": contract.name,
+                        "status": contract.status,
+                        "publication_scope": contract.publication_scope,
+                        "published_at": contract.published_at.isoformat() if contract.published_at else None,
+                        "published_by": contract.published_by,
+                    },
                     user_email=approver_email,
                 )
             except Exception as e:
@@ -5258,18 +5285,6 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 action_type="handle_publish_request",
                 action_payload={"contract_id": contract_id},
             )
-        except Exception:
-            pass
-        
-        # Find requester from change log
-        requester_email = None
-        try:
-            from src.controller.change_log_manager import change_log_manager
-            recent_changes = change_log_manager.get_changes_for_entity(db, "data_contract", contract_id)
-            for change in recent_changes:
-                if change.action == "publish_requested":
-                    requester_email = change.details.get("requester_email")
-                    break
         except Exception:
             pass
         
@@ -5299,7 +5314,7 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 "approver_email": approver_email,
                 "decision": decision,
                 "message": message,
-                "published": contract.published,
+                "publication_scope": contract.publication_scope,
                 "timestamp": now.isoformat(),
                 "summary": f"Publish {decision} by {approver_email}" + (f": {message}" if message else ""),
             },
@@ -5858,7 +5873,6 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 name=c.name,
                 version=c.version,
                 status=c.status,
-                published=c.published if hasattr(c, 'published') else False,
                 owner_team_id=c.owner_team_id,
                 owner_team_name=team_map.get(c.owner_team_id),
                 project_id=c.project_id,
@@ -5874,6 +5888,9 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 created=c.created_at.isoformat() if c.created_at else None,
                 updated=c.updated_at.isoformat() if c.updated_at else None,
                 schemaObjectCount=schema_counts.get(c.id, 0),
+                publication_scope=getattr(c, "publication_scope", None) or "none",
+                published_at=c.published_at.isoformat() if getattr(c, "published_at", None) else None,
+                published_by=c.published_by,
             ))
         return results
     
@@ -6105,7 +6122,6 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             name=db_contract.name,
             version=db_contract.version,
             status=db_contract.status,
-            published=db_contract.published if hasattr(db_contract, 'published') else False,
             owner_team_id=db_contract.owner_team_id,
             owner_team_name=owner_team_name,
             project_id=db_contract.project_id,
@@ -6128,6 +6144,9 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
             qualityRules=quality_rules,
             created=db_contract.created_at.isoformat() if db_contract.created_at else None,
             updated=db_contract.updated_at.isoformat() if db_contract.updated_at else None,
+            publication_scope=getattr(db_contract, "publication_scope", None) or "none",
+            published_at=db_contract.published_at.isoformat() if getattr(db_contract, "published_at", None) else None,
+            published_by=db_contract.published_by,
         )
 
     def compare_contracts(self, old_contract: Dict, new_contract: Dict) -> Dict:

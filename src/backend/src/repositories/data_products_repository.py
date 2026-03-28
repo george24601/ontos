@@ -695,7 +695,7 @@ class DataProductRepository(CRUDBase[DataProductDb, DataProductCreate, DataProdu
             return db.query(self.model).filter(
                 or_(
                     # Tier 3: Published to marketplace (everyone can see)
-                    self.model.published == True,
+                    self.model.publication_scope != "none",
                     # Tier 2: Team/project versions (no personal owner, in user's projects)
                     and_(
                         self.model.draft_owner_id.is_(None),
@@ -757,7 +757,7 @@ class DataProductRepository(CRUDBase[DataProductDb, DataProductCreate, DataProdu
                 return False
 
             # Tier 3: Published to marketplace
-            if product.published:
+            if (product.publication_scope or "none") != "none":
                 return True
             # Tier 1: User's own personal draft
             if product.draft_owner_id == current_user:
