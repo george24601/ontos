@@ -2262,6 +2262,17 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 else:
                     domain_id = self._resolve_domain(db, domain_id=domain_id)
             
+            # Extract description fields from nested dict or flat keys
+            description = data_dict.get('description')
+            if isinstance(description, str):
+                description = {"purpose": description}
+            elif not isinstance(description, dict):
+                description = None
+
+            desc_usage = data_dict.get('descriptionUsage') or (description.get('usage') if description else None)
+            desc_purpose = data_dict.get('descriptionPurpose') or (description.get('purpose') if description else None)
+            desc_limitations = data_dict.get('descriptionLimitations') or (description.get('limitations') if description else None)
+
             # Build update payload
             update_payload = {}
             payload_map = {
@@ -2272,9 +2283,9 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 'project_id': data_dict.get('project_id'),
                 'tenant': data_dict.get('tenant'),
                 'data_product': data_dict.get('dataProduct'),
-                'description_usage': data_dict.get('descriptionUsage'),
-                'description_purpose': data_dict.get('descriptionPurpose'),
-                'description_limitations': data_dict.get('descriptionLimitations'),
+                'description_usage': desc_usage,
+                'description_purpose': desc_purpose,
+                'description_limitations': desc_limitations,
                 'api_version': data_dict.get('apiVersion'),
                 'kind': data_dict.get('kind'),
                 'domain_id': domain_id,
@@ -5525,21 +5536,18 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
         )
         notifications_manager.create_notification(notification=requester_note, db=db)
         
-        # Create actionable notification for admins
-        notifications_manager.create_actionable_notification(
-            db=db,
+        # Create notification for admins about the pending request
+        admin_note = Notification(
+            id=str(uuid4()),
+            created_at=now,
+            type=NotificationType.ACTION_REQUIRED,
             title="Status Change Request Pending",
             subtitle=f"Contract: {contract.name}",
             description=f"{requester_email} is requesting to change status from '{current_status}' to '{target_status}'.\n\nJustification: {justification}",
-            action_type="handle_status_change_request",
-            action_payload={
-                "contract_id": contract_id,
-                "target_status": target_status,
-                "requester_email": requester_email,
-                "current_status": current_status,
-            },
-            recipient_role="Admin",
+            recipient="admins",
+            can_delete=True,
         )
+        notifications_manager.create_notification(notification=admin_note, db=db)
         
         # Log change
         from src.controller.change_log_manager import change_log_manager
@@ -5956,29 +5964,70 @@ class DataContractsManager(DeliveryMixin, SearchableAsset):
                 limitations=db_contract.description_limitations
             )
         
-        # Build schema objects -- metadata only, no properties (loaded on-demand via /schemas/{name}/properties)
+        # Build schema objects with their properties included
         schema_objects = []
-        from sqlalchemy import func as sa_func
-        schema_rows = (
-            db.query(SchemaObjectDb.id, SchemaObjectDb.name, SchemaObjectDb.physical_name,
-                     SchemaObjectDb.business_name, SchemaObjectDb.physical_type,
-                     SchemaObjectDb.description,
-                     sa_func.count(SchemaPropertyDb.id).label("prop_count"))
-            .outerjoin(SchemaPropertyDb, SchemaPropertyDb.object_id == SchemaObjectDb.id)
+        schema_obj_rows = (
+            db.query(SchemaObjectDb)
             .filter(SchemaObjectDb.contract_id == db_contract.id)
-            .group_by(SchemaObjectDb.id)
             .order_by(SchemaObjectDb.name)
             .all()
         )
-        for row in schema_rows:
+        # Batch-load all properties for all schema objects in one query
+        schema_obj_ids = [s.id for s in schema_obj_rows]
+        all_props = []
+        if schema_obj_ids:
+            all_props = (
+                db.query(SchemaPropertyDb)
+                .filter(SchemaPropertyDb.object_id.in_(schema_obj_ids))
+                .order_by(SchemaPropertyDb.name)
+                .all()
+            )
+        # Group properties by object_id
+        props_by_object: Dict[str, list] = {}
+        for p in all_props:
+            props_by_object.setdefault(p.object_id, []).append(p)
+
+        for schema_obj in schema_obj_rows:
+            # Convert DB properties to API dicts
+            prop_items = []
+            for p in props_by_object.get(schema_obj.id, []):
+                options = {}
+                if p.logical_type_options_json:
+                    try:
+                        options = json.loads(p.logical_type_options_json)
+                    except Exception:
+                        pass
+                item = {
+                    "name": p.name,
+                    "logicalType": p.logical_type or "string",
+                    "physicalType": p.physical_type,
+                    "required": p.required,
+                    "unique": p.unique,
+                    "primaryKey": p.primary_key,
+                    "primaryKeyPosition": p.primary_key_position,
+                    "partitioned": p.partitioned,
+                    "partitionKeyPosition": p.partition_key_position,
+                    "classification": p.classification,
+                    "description": p.transform_description,
+                    "businessName": p.business_name,
+                    "criticalDataElement": p.critical_data_element,
+                    "examples": p.examples,
+                    "transformLogic": p.transform_logic,
+                    "transformSourceObjects": p.transform_source_objects,
+                    "transformDescription": p.transform_description,
+                    "encryptedName": p.encrypted_name,
+                }
+                item.update(options)
+                prop_items.append(item)
+
             schema_objects.append(SchemaObject(
-                name=row.name,
-                physicalName=row.physical_name,
-                businessName=row.business_name,
-                physicalType=row.physical_type,
-                description=row.description,
-                properties=[],
-                propertyCount=row.prop_count,
+                name=schema_obj.name,
+                physicalName=schema_obj.physical_name,
+                businessName=schema_obj.business_name,
+                physicalType=schema_obj.physical_type,
+                description=schema_obj.description,
+                properties=prop_items,
+                propertyCount=len(prop_items),
             ))
         
         # Build team (ODCS compliant)

@@ -943,6 +943,8 @@ async def update_knowledge_collection(
         if not collection:
             raise HTTPException(status_code=404, detail=f"Collection not found: {collection_iri}")
         return collection
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -963,6 +965,8 @@ async def delete_knowledge_collection(
         if not success:
             raise HTTPException(status_code=404, detail=f"Collection not found: {collection_iri}")
         return {'success': True, 'message': f"Collection deleted: {collection_iri}"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1043,6 +1047,8 @@ async def update_concept(
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1063,6 +1069,8 @@ async def delete_concept(
         if not success:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return {'success': True, 'message': f"Concept deleted: {concept_iri}"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1085,15 +1093,25 @@ async def add_concept_owner(
     """Add an owner to a concept."""
     try:
         data = await request.json()
+        # Accept user_email directly or extract from user_uri (e.g. "mailto:user@example.com")
+        user_email = data.get('user_email')
+        if not user_email:
+            user_uri = data.get('user_uri', '')
+            if user_uri.startswith('mailto:'):
+                user_email = user_uri[len('mailto:'):]
+            elif user_uri:
+                user_email = user_uri
         concept = manager.add_concept_owner(
             concept_iri=concept_iri,
-            user_email=data.get('user_email'),
+            user_email=user_email,
             role=data.get('role'),
             assigned_by=current_user.email,
         )
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1119,6 +1137,8 @@ async def remove_concept_owner(
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1140,7 +1160,10 @@ async def submit_concept_for_review(
 ) -> dict:
     """Submit a concept for review."""
     try:
-        data = await request.json()
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
         review_data = manager.submit_concept_for_review(
             concept_iri=concept_iri,
             reviewer_email=data.get('reviewer_email'),
@@ -1155,11 +1178,39 @@ async def submit_concept_for_review(
             updated_by=current_user.email,
         )
         return {'review_data': review_data, 'concept': updated}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error submitting for review: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to submit for review")
+
+
+@router.post('/knowledge/concepts/{concept_iri:path}/approve')
+async def approve_concept(
+    concept_iri: str,
+    current_user: CurrentUserDep,
+    manager: SemanticModelsManager = Depends(get_semantic_models_manager),
+    _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_WRITE))
+) -> dict:
+    """Approve a concept that is under review."""
+    try:
+        concept = manager.update_concept_status(
+            concept_iri=concept_iri,
+            new_status="approved",
+            updated_by=current_user.email,
+        )
+        if not concept:
+            raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
+        return concept
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error approving concept: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to approve concept")
 
 
 @router.post('/knowledge/concepts/{concept_iri:path}/publish')
@@ -1169,8 +1220,20 @@ async def publish_concept(
     manager: SemanticModelsManager = Depends(get_semantic_models_manager),
     _: bool = Depends(PermissionChecker('semantic-models', FeatureAccessLevel.READ_WRITE))
 ) -> dict:
-    """Publish an approved concept."""
+    """Publish an approved concept.
+
+    If the concept is currently ``under_review``, it is automatically
+    approved first so callers do not need a separate ``/approve`` step.
+    """
     try:
+        # Auto-approve if still under_review so publish works in one step
+        existing = manager.get_concept(concept_iri)
+        if existing and existing.get("status") == "under_review":
+            manager.update_concept_status(
+                concept_iri=concept_iri,
+                new_status="approved",
+                updated_by=current_user.email,
+            )
         concept = manager.update_concept_status(
             concept_iri=concept_iri,
             new_status="published",
@@ -1179,6 +1242,8 @@ async def publish_concept(
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1203,6 +1268,8 @@ async def certify_concept(
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1227,6 +1294,8 @@ async def deprecate_concept(
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1251,6 +1320,8 @@ async def archive_concept(
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept not found: {concept_iri}")
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1280,6 +1351,8 @@ async def promote_concept(
             promoted_by=current_user.email,
         )
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1305,6 +1378,8 @@ async def migrate_concept(
             migrated_by=current_user.email,
         )
         return concept
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
