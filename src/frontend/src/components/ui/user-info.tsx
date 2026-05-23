@@ -76,7 +76,12 @@ export default function UserInfo() {
       appliedRoleId,
       setRoleOverride,
       initializeStore,
+      hasPermission,
   } = usePermissions();
+
+  // Hide the Settings menu item when the user lacks the layout gate;
+  // the route would otherwise redirect them home anyway.
+  const hasSettingsAccess = hasPermission('settings', FeatureAccessLevel.READ_ONLY);
 
   // Use a string state for the radio group value, mapping null to 'actual'
   const [radioValue, setRadioValue] = useState<string>(appliedRoleId || 'actual');
@@ -245,10 +250,12 @@ export default function UserInfo() {
                 <UserIcon className="mr-2 h-4 w-4" />
                 <span>{t('userMenu.profile')}</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>{t('userMenu.settings', 'Settings')}</span>
-            </DropdownMenuItem>
+            {hasSettingsAccess && (
+                <DropdownMenuItem onSelect={() => navigate('/settings')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>{t('userMenu.settings', 'Settings')}</span>
+                </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={() => navigate('/about')}>
                 <Info className="mr-2 h-4 w-4" />
                 <span>{t('userMenu.about', 'About')}</span>

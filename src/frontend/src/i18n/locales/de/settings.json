@@ -218,6 +218,14 @@
       "featurePermissions": {
         "title": "Funktionsberechtigungen",
         "description": "Zugriffsebenen für jede Funktion in der Anwendung konfigurieren."
+      },
+      "groups": {
+        "discover": "Entdecken",
+        "build": "Erstellen",
+        "govern": "Verwalten",
+        "deploy": "Bereitstellen",
+        "settings": "Einstellungen",
+        "other": "Sonstige"
       }
     },
     "deployment": {

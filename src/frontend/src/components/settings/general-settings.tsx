@@ -29,7 +29,7 @@ export default function GeneralSettings() {
   const { hasPermission } = usePermissions();
   const { toast } = useToast();
 
-  const hasWriteAccess = hasPermission('settings', FeatureAccessLevel.READ_WRITE);
+  const hasWriteAccess = hasPermission('settings-general', FeatureAccessLevel.READ_WRITE);
 
   const [settings, setSettings] = useState<AppSettings>({
     enableBackgroundJobs: false,

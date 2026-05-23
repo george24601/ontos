@@ -315,6 +315,14 @@
       "featurePermissions": {
         "title": "Feature Permissions",
         "description": "Configure access levels for each feature in the application."
+      },
+      "groups": {
+        "discover": "Discover",
+        "build": "Build",
+        "govern": "Govern",
+        "deploy": "Deploy",
+        "settings": "Settings",
+        "other": "Other"
       }
     },
     "deployment": {

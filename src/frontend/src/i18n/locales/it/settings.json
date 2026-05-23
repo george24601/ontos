@@ -218,6 +218,14 @@
       "featurePermissions": {
         "title": "Permessi delle funzionalità",
         "description": "Configurare i livelli di accesso per ogni funzionalità nell'applicazione."
+      },
+      "groups": {
+        "discover": "Scopri",
+        "build": "Costruisci",
+        "govern": "Governa",
+        "deploy": "Distribuisci",
+        "settings": "Impostazioni",
+        "other": "Altro"
       }
     },
     "deployment": {

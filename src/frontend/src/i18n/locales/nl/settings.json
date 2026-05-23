@@ -218,6 +218,14 @@
       "featurePermissions": {
         "title": "Functie Machtigingen",
         "description": "Configureer toegangsniveaus voor elke functie in de applicatie."
+      },
+      "groups": {
+        "discover": "Ontdekken",
+        "build": "Bouwen",
+        "govern": "Beheren",
+        "deploy": "Implementeren",
+        "settings": "Instellingen",
+        "other": "Overig"
       }
     },
     "deployment": {
