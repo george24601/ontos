@@ -228,6 +228,11 @@ APP_FEATURES: Dict[str, Dict[str, str | List[FeatureAccessLevel]]] = {
         'allowed_levels': READ_WRITE_ADMIN_LEVELS,
         'group': GROUP_SETTINGS,
     },
+    'settings-directory': {
+        'name': 'Settings — Directory',
+        'allowed_levels': READ_WRITE_ADMIN_LEVELS,
+        'group': GROUP_SETTINGS,
+    },
     'settings-semantic-models': {
         'name': 'Settings — RDF Sources',
         'allowed_levels': READ_WRITE_ADMIN_LEVELS,

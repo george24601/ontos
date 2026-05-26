@@ -11,6 +11,7 @@ import {
   Plug2,
   GitBranch,
   Bot,
+  Contact,
   Network,
   Search,
   Briefcase,
@@ -70,6 +71,7 @@ const settingsNavGroups: SettingsNavGroup[] = [
     items: [
       { path: '/settings/git', labelKey: 'settings:tabs.git', defaultLabel: 'Git', icon: GitBranch, permissionId: 'settings-git' },
       { path: '/settings/mcp', labelKey: 'settings:tabs.mcp', defaultLabel: 'MCP', icon: Bot, permissionId: 'settings-mcp' },
+      { path: '/settings/directory', labelKey: 'settings:tabs.directory', defaultLabel: 'Directory', icon: Contact, permissionId: 'settings-directory' },
       { path: '/settings/semantic-models', labelKey: 'settings:tabs.rdfSources', defaultLabel: 'RDF Sources', icon: Network, permissionId: 'settings-semantic-models' },
       { path: '/settings/search', labelKey: 'settings:tabs.search', defaultLabel: 'Search', icon: Search, permissionId: 'settings-search' },
     ],
