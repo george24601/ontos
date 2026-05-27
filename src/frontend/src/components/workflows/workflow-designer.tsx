@@ -44,11 +44,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
-  Save, 
-  ArrowLeft, 
-  // Plus - unused
-  Trash2, 
+import {
+  Save,
+  ArrowLeft,
+  Plus,
+  Trash2,
   Loader2,
   Shield,
   Bell,
@@ -129,6 +129,119 @@ import {
   joinRoleAndPrincipals,
   splitRoleAndPrincipals,
 } from '@/lib/workflow-principals';
+
+// -------------------------------------------------------------------------
+// KeyValueEditor — small inline editor for Record<string, string> config
+// fields. Used by the webhook step config panel for `additional_headers`
+// and `additional_query_params` (issue #401). Kept inline because it is
+// only used here; if a second caller needs it, lift to a shared file.
+// -------------------------------------------------------------------------
+interface KeyValueEditorProps {
+  label: string;
+  helpText?: string;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+  value: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}
+
+function KeyValueEditor({
+  label,
+  helpText,
+  keyPlaceholder,
+  valuePlaceholder,
+  value,
+  onChange,
+}: KeyValueEditorProps) {
+  // Stable rendering: we render entries in insertion order. To preserve order
+  // while the user is mid-edit on a key, we keep an internal entries array
+  // mirroring the prop dict.
+  const entries = useMemo(
+    () => Object.entries(value || {}),
+    [value],
+  );
+
+  const commit = (next: Array<[string, string]>) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of next) {
+      // Skip rows with empty key — they're "in progress" and shouldn't
+      // be persisted as an empty-string key.
+      if (k.length === 0) continue;
+      out[k] = v;
+    }
+    onChange(out);
+  };
+
+  const updateKey = (idx: number, newKey: string) => {
+    const next = entries.map((e) => [...e] as [string, string]);
+    next[idx][0] = newKey;
+    commit(next);
+  };
+  const updateValue = (idx: number, newVal: string) => {
+    const next = entries.map((e) => [...e] as [string, string]);
+    next[idx][1] = newVal;
+    commit(next);
+  };
+  const removeRow = (idx: number) => {
+    const next = entries.filter((_, i) => i !== idx);
+    commit(next);
+  };
+  const addRow = () => {
+    // We can't persist an empty-key row, so we don't commit yet — instead
+    // we add a row with a synthetic placeholder key so the UI shows the row,
+    // then the user types the real key.
+    const placeholder = `__new_${entries.length}`;
+    commit([...entries, [placeholder, '']]);
+  };
+
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="space-y-2 mt-1">
+        {entries.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No entries.</p>
+        )}
+        {entries.map(([k, v], idx) => (
+          <div key={idx} className="flex gap-2 items-center">
+            <Input
+              value={k.startsWith('__new_') ? '' : k}
+              onChange={(e) => updateKey(idx, e.target.value)}
+              placeholder={keyPlaceholder || 'key'}
+              className="flex-1 font-mono text-sm"
+            />
+            <Input
+              value={v}
+              onChange={(e) => updateValue(idx, e.target.value)}
+              placeholder={valuePlaceholder || 'value'}
+              className="flex-1 font-mono text-sm"
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => removeRow(idx)}
+              aria-label="Remove row"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={addRow}
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          Add row
+        </Button>
+      </div>
+      {helpText && (
+        <p className="text-xs text-muted-foreground mt-1">{helpText}</p>
+      )}
+    </div>
+  );
+}
 
 // Node types registry (default = fallback for unknown step_type)
 const nodeTypes = {
@@ -2157,7 +2270,7 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                         <Label>Body Template</Label>
                         <Textarea
                           value={(selectedStep.config as { body_template?: string })?.body_template || ''}
-                          onChange={(e) => updateStep(selectedStep.step_id, { 
+                          onChange={(e) => updateStep(selectedStep.step_id, {
                             config: { ...selectedStep.config, body_template: e.target.value }
                           })}
                           placeholder={'{\n  "description": "Alert for ${entity_name}",\n  "entity_type": "${entity_type}"\n}'}
@@ -2168,7 +2281,47 @@ export default function WorkflowDesigner({ workflowId }: WorkflowDesignerProps) 
                           Use {'${variable}'} for substitution: entity_type, entity_id, entity_name, user_email, workflow_name
                         </p>
                       </div>
-                      
+
+                      {/* Extra parameters forwarded into the UC HTTPConnection call (issue #401).
+                          These augment what the connection's static config provides — useful when
+                          the downstream service needs context-derived headers, query string params,
+                          or path segments computed from ${entity.*} / ${trigger.*}. */}
+                      <KeyValueEditor
+                        label="Additional Headers"
+                        helpText="Merged into the request headers. Override `headers` on key collision. Values support ${variable} substitution."
+                        keyPlaceholder="X-Trace-Id"
+                        valuePlaceholder="${execution_id}"
+                        value={(selectedStep.config as { additional_headers?: Record<string, string> })?.additional_headers || {}}
+                        onChange={(next) => updateStep(selectedStep.step_id, {
+                          config: { ...selectedStep.config, additional_headers: next },
+                        })}
+                      />
+
+                      <KeyValueEditor
+                        label="Additional Query Parameters"
+                        helpText="Appended to the request URL/path as query string. Values support ${variable} substitution and are URL-encoded."
+                        keyPlaceholder="caller"
+                        valuePlaceholder="ontos"
+                        value={(selectedStep.config as { additional_query_params?: Record<string, string> })?.additional_query_params || {}}
+                        onChange={(next) => updateStep(selectedStep.step_id, {
+                          config: { ...selectedStep.config, additional_query_params: next },
+                        })}
+                      />
+
+                      <div>
+                        <Label>Path Suffix</Label>
+                        <Input
+                          value={(selectedStep.config as { path_suffix?: string })?.path_suffix || ''}
+                          onChange={(e) => updateStep(selectedStep.step_id, {
+                            config: { ...selectedStep.config, path_suffix: e.target.value },
+                          })}
+                          placeholder="/${entity_id}"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Appended to Path before the query string. Supports {'${variable}'} substitution.
+                        </p>
+                      </div>
+
                       <div>
                         <Label>Timeout (seconds)</Label>
                         <Input
