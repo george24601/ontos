@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MessageSquare, Plus, Trash2, Edit, Send, Users, Filter, Clock, FileText, FolderOpen } from 'lucide-react';
+import { MessageSquare, Plus, Trash2, Edit, Send, Users, Filter, Clock, FileText, FolderOpen, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,19 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PrincipalPicker } from '@/components/common/principal-picker';
 import { buildAudienceTokens, parseAudienceTokens, resolveRoleTokenLabel } from '@/lib/audience';
-// Select components removed - unused
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface CommentFormData {
   title: string;
@@ -80,7 +92,13 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({
 }) => {
   const { get, post, put, delete: deleteApi, loading } = useApi();
   const { toast } = useToast();
-  const { currentProject } = useProjectContext();
+  const { currentProject, availableProjects } = useProjectContext();
+
+  // Compute the "default" project_id for the composer: matches main-window context.
+  const defaultComposerProjectId = currentProject?.id ?? null;
+
+  // Local picker state: null = Global, string = project id.
+  const [composerProjectId, setComposerProjectId] = useState<string | null>(defaultComposerProjectId);
   
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -94,6 +112,11 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({
     selectedRoles: [],
     selectedPrincipals: [],
   });
+
+  // Keep composer picker default in sync when the main-window project changes.
+  useEffect(() => {
+    setComposerProjectId(currentProject?.id ?? null);
+  }, [currentProject?.id]);
 
   // Ref for the ScrollArea viewport to control scrolling
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -254,7 +277,7 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({
         title: formData.title || null,
         comment: formData.comment,
         audience: audienceTokens.length > 0 ? audienceTokens : null,
-        project_id: currentProject?.id || null,
+        project_id: composerProjectId,
       };
       
       const response = await post<Comment>(
@@ -279,6 +302,8 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({
     
     // Reset form and refresh timeline
     setFormData({ title: '', comment: '', selectedTeams: [], selectedRoles: [], selectedPrincipals: [] });
+    // Reset project picker back to the main-window default (don't keep override sticky).
+    setComposerProjectId(currentProject?.id ?? null);
     setEditingComment(null);
     setIsFormOpen(false);
     await fetchTimeline();
@@ -404,6 +429,45 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({
         />
       </div>
       
+      {/* Project scope picker — post-time only, does not affect the timeline list */}
+      {!editingComment && (
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <Label htmlFor="composer-project">Post in project</Label>
+            {composerProjectId !== defaultComposerProjectId && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 text-amber-500 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-[220px]">
+                    You&apos;re posting under a different project than the main view. The timeline list is unaffected.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+          <Select
+            value={composerProjectId ?? '__global__'}
+            onValueChange={(val) => setComposerProjectId(val === '__global__' ? null : val)}
+          >
+            <SelectTrigger id="composer-project" className="mt-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__global__">Global (no project)</SelectItem>
+              {[...availableProjects]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="space-y-3">
         <div className="text-sm text-muted-foreground">
           Target specific teams or roles (optional). Leave empty for visibility to all project members.
@@ -535,7 +599,7 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({
         )}
       </div>
     </form>
-  ), [formData, editingComment, loading, availableTeams, availableRoles, handleSubmit, resetForm]);
+  ), [formData, editingComment, loading, availableTeams, availableRoles, handleSubmit, resetForm, composerProjectId, defaultComposerProjectId, availableProjects]);
 
   const TimelineItem: React.FC<{ entry: TimelineEntry; canModify: boolean }> = ({ 
     entry, 
