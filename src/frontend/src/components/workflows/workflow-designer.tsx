@@ -71,6 +71,9 @@ import {
   Send,
   KeyRound,
   Eye,
+  Edit2,
+  Check,
+  X,
 } from 'lucide-react';
 import ApprovalWizardDialog from './approval-wizard-dialog';
 
@@ -131,11 +134,28 @@ import {
 } from '@/lib/workflow-principals';
 
 // -------------------------------------------------------------------------
-// KeyValueEditor — small inline editor for Record<string, string> config
-// fields. Used by the webhook step config panel for `additional_headers`
-// and `additional_query_params` (issue #401). Kept inline because it is
-// only used here; if a second caller needs it, lift to a shared file.
+// KeyValueEditor — explicit add/edit editor for Record<string, string>
+// config fields. Used by the webhook step config panel for
+// `additional_headers` and `additional_query_params` (issue #401 follow-up).
+// Kept inline because it is only used here; if a second caller needs it,
+// lift to a shared file.
+//
+// UX contract:
+//   • "Add entry" row at the top — explicit Add button, validated on click.
+//   • Saved entries render read-only below with Edit (pencil) + Remove (trash).
+//   • Clicking Edit enters per-row edit mode: Save (check) + Cancel (X).
+//   • Validation: empty key blocked; duplicate key blocked (both Add + Edit).
+//   • Template warning: if a value contains an unclosed ${ show amber badge.
+//   • Empty state: muted italic "No entries." text.
 // -------------------------------------------------------------------------
+
+/** Returns true when a value string has an unclosed ${ template expression. */
+function hasUnclosedTemplate(val: string): boolean {
+  const opens = (val.match(/\$\{/g) || []).length;
+  const closes = (val.match(/\}/g) || []).length;
+  return opens > closes;
+}
+
 interface KeyValueEditorProps {
   label: string;
   helpText?: string;
@@ -153,89 +173,239 @@ function KeyValueEditor({
   value,
   onChange,
 }: KeyValueEditorProps) {
-  // Stable rendering: we render entries in insertion order. To preserve order
-  // while the user is mid-edit on a key, we keep an internal entries array
-  // mirroring the prop dict.
-  const entries = useMemo(
-    () => Object.entries(value || {}),
-    [value],
-  );
+  // Entries derived from the controlled prop — insertion-order preserved.
+  const entries = useMemo(() => Object.entries(value || {}), [value]);
 
-  const commit = (next: Array<[string, string]>) => {
+  // ---- Add-row state ----
+  const [addKey, setAddKey] = useState('');
+  const [addValue, setAddValue] = useState('');
+  const [addKeyError, setAddKeyError] = useState<string | null>(null);
+
+  // ---- Per-row edit state ----
+  // editIdx: which saved row is currently being edited (null = none)
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editKey, setEditKey] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [editKeyError, setEditKeyError] = useState<string | null>(null);
+
+  const commitEntries = (next: Array<[string, string]>) => {
     const out: Record<string, string> = {};
     for (const [k, v] of next) {
-      // Skip rows with empty key — they're "in progress" and shouldn't
-      // be persisted as an empty-string key.
-      if (k.length === 0) continue;
-      out[k] = v;
+      if (k.length > 0) out[k] = v;
     }
     onChange(out);
   };
 
-  const updateKey = (idx: number, newKey: string) => {
-    const next = entries.map((e) => [...e] as [string, string]);
-    next[idx][0] = newKey;
-    commit(next);
+  // ---- Add handlers ----
+  const handleAdd = () => {
+    const trimmedKey = addKey.trim();
+    if (!trimmedKey) {
+      setAddKeyError('Key required');
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(value || {}, trimmedKey)) {
+      setAddKeyError('Key already exists — edit the existing entry');
+      return;
+    }
+    commitEntries([...entries, [trimmedKey, addValue]]);
+    setAddKey('');
+    setAddValue('');
+    setAddKeyError(null);
   };
-  const updateValue = (idx: number, newVal: string) => {
-    const next = entries.map((e) => [...e] as [string, string]);
-    next[idx][1] = newVal;
-    commit(next);
+
+  // ---- Edit handlers ----
+  const startEdit = (idx: number) => {
+    setEditIdx(idx);
+    setEditKey(entries[idx][0]);
+    setEditValue(entries[idx][1]);
+    setEditKeyError(null);
   };
+
+  const cancelEdit = () => {
+    setEditIdx(null);
+    setEditKeyError(null);
+  };
+
+  const commitEdit = () => {
+    const trimmedKey = editKey.trim();
+    if (!trimmedKey) {
+      setEditKeyError('Key required');
+      return;
+    }
+    // Duplicate check: allow the same key if it's the row being edited.
+    const isDuplicate = entries.some(
+      ([k], i) => k === trimmedKey && i !== editIdx,
+    );
+    if (isDuplicate) {
+      setEditKeyError('Key already exists — choose a different name');
+      return;
+    }
+    const next = entries.map((e, i) =>
+      i === editIdx ? ([trimmedKey, editValue] as [string, string]) : (e as [string, string]),
+    );
+    commitEntries(next);
+    setEditIdx(null);
+    setEditKeyError(null);
+  };
+
   const removeRow = (idx: number) => {
-    const next = entries.filter((_, i) => i !== idx);
-    commit(next);
-  };
-  const addRow = () => {
-    // We can't persist an empty-key row, so we don't commit yet — instead
-    // we add a row with a synthetic placeholder key so the UI shows the row,
-    // then the user types the real key.
-    const placeholder = `__new_${entries.length}`;
-    commit([...entries, [placeholder, '']]);
+    if (editIdx === idx) cancelEdit();
+    commitEntries(entries.filter((_, i) => i !== idx));
   };
 
   return (
     <div>
       <Label>{label}</Label>
-      <div className="space-y-2 mt-1">
+
+      {/* Add-entry row */}
+      <div className="mt-2 p-2 rounded-md border border-dashed bg-muted/30 space-y-1">
+        <p className="text-xs text-muted-foreground font-medium">Add entry</p>
+        <div className="flex gap-2 items-start">
+          <div className="flex-1 space-y-1">
+            <Input
+              value={addKey}
+              onChange={(e) => {
+                setAddKey(e.target.value);
+                if (addKeyError) setAddKeyError(null);
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              placeholder={keyPlaceholder || 'key'}
+              className="font-mono text-sm"
+              aria-label="New entry key"
+            />
+            {addKeyError && (
+              <p className="text-xs text-destructive">{addKeyError}</p>
+            )}
+          </div>
+          <div className="flex-1">
+            <Input
+              value={addValue}
+              onChange={(e) => setAddValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              placeholder={valuePlaceholder || 'value'}
+              className="font-mono text-sm"
+              aria-label="New entry value"
+            />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleAdd}
+            aria-label="Add entry"
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Add
+          </Button>
+        </div>
+      </div>
+
+      {/* Saved entries list */}
+      <div className="space-y-1 mt-2">
         {entries.length === 0 && (
           <p className="text-xs text-muted-foreground italic">No entries.</p>
         )}
-        {entries.map(([k, v], idx) => (
-          <div key={idx} className="flex gap-2 items-center">
-            <Input
-              value={k.startsWith('__new_') ? '' : k}
-              onChange={(e) => updateKey(idx, e.target.value)}
-              placeholder={keyPlaceholder || 'key'}
-              className="flex-1 font-mono text-sm"
-            />
-            <Input
-              value={v}
-              onChange={(e) => updateValue(idx, e.target.value)}
-              placeholder={valuePlaceholder || 'value'}
-              className="flex-1 font-mono text-sm"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => removeRow(idx)}
-              aria-label="Remove row"
+        {entries.map(([k, v], idx) => {
+          const isEditing = editIdx === idx;
+          return (
+            <div
+              key={k}
+              className={`flex gap-2 items-start rounded-md px-2 py-1 ${
+                isEditing ? 'ring-1 ring-primary/40 bg-primary/5' : 'bg-background'
+              }`}
             >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={addRow}
-        >
-          <Plus className="w-3 h-3 mr-1" />
-          Add row
-        </Button>
+              {isEditing ? (
+                <>
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      value={editKey}
+                      onChange={(e) => {
+                        setEditKey(e.target.value);
+                        if (editKeyError) setEditKeyError(null);
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); else if (e.key === 'Escape') cancelEdit(); }}
+                      placeholder={keyPlaceholder || 'key'}
+                      className="font-mono text-sm"
+                      aria-label="Edit entry key"
+                      autoFocus
+                    />
+                    {editKeyError && (
+                      <p className="text-xs text-destructive">{editKeyError}</p>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); else if (e.key === 'Escape') cancelEdit(); }}
+                      placeholder={valuePlaceholder || 'value'}
+                      className="font-mono text-sm"
+                      aria-label="Edit entry value"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={commitEdit}
+                      aria-label="Save edit"
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={cancelEdit}
+                      aria-label="Cancel edit"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 font-mono text-sm py-1 truncate">{k}</span>
+                  <div className="flex-1 flex items-center gap-1 min-w-0">
+                    <span className="font-mono text-sm py-1 truncate">{v}</span>
+                    {hasUnclosedTemplate(v) && (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 text-amber-700 border-amber-400 bg-amber-100 text-xs px-1 py-0"
+                      >
+                        Check template
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => startEdit(idx)}
+                      aria-label="Edit row"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeRow(idx)}
+                      aria-label="Remove row"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
+
       {helpText && (
         <p className="text-xs text-muted-foreground mt-1">{helpText}</p>
       )}
