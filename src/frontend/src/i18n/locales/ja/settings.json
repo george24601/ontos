@@ -218,6 +218,14 @@
       "featurePermissions": {
         "title": "機能の権限",
         "description": "アプリケーション内の各機能のアクセスレベルを設定します。"
+      },
+      "groups": {
+        "discover": "発見",
+        "build": "構築",
+        "govern": "管理",
+        "deploy": "展開",
+        "settings": "設定",
+        "other": "その他"
       }
     },
     "deployment": {
