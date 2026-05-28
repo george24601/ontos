@@ -18,6 +18,7 @@ from ..common.dependencies import (
     get_search_manager,
     AuditManagerDep,
     AuditCurrentUserDep,
+    CurrentUserDep,
     DBSessionDep,
 )
 from ..models.settings import HandleRoleRequest
@@ -99,8 +100,8 @@ async def update_settings(
         )
 
 @router.get('/settings/llm')
-async def get_llm_config():
-    """Get LLM configuration (publicly accessible for UI)"""
+async def get_llm_config(_current_user: CurrentUserDep):
+    """Get LLM configuration (any authenticated user; consumed by frontend bootstrap)."""
     try:
         app_settings = get_settings()
         return {
@@ -115,8 +116,8 @@ async def get_llm_config():
 
 
 @router.get('/settings/ui-customization')
-async def get_ui_customization():
-    """Get UI customization settings (publicly accessible for UI theming and branding).
+async def get_ui_customization(_current_user: CurrentUserDep):
+    """Get UI customization settings (any authenticated user; drives UI theming and branding).
     
     Returns settings for:
     - i18n_enabled: Whether internationalization is enabled (disable forces English)
@@ -150,7 +151,10 @@ async def health_check(manager: SettingsManager = Depends(get_settings_manager))
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get('/settings/job-clusters', response_model=List[JobCluster])
-async def list_job_clusters(manager: SettingsManager = Depends(get_settings_manager)):
+async def list_job_clusters(
+    manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('settings-jobs', FeatureAccessLevel.READ_ONLY)),
+):
     """List all available job clusters"""
     try:
         return manager.get_job_clusters()
@@ -161,8 +165,16 @@ async def list_job_clusters(manager: SettingsManager = Depends(get_settings_mana
 # --- RBAC Routes ---
 
 @router.get("/settings/features", response_model=Dict[str, Dict[str, Any]])
-async def get_features_config(manager: SettingsManager = Depends(get_settings_manager)):
-    """Get the application feature configuration including allowed access levels."""
+async def get_features_config(
+    _current_user: CurrentUserDep,
+    manager: SettingsManager = Depends(get_settings_manager),
+):
+    """Get the application feature configuration including allowed access levels.
+
+    Any authenticated user can read the feature catalog (it is permission
+    metadata, not sensitive data, and is consumed by role-request flows that
+    every user must be able to use).
+    """
     try:
         features = manager.get_features_with_access_levels()
         return features
@@ -171,7 +183,10 @@ async def get_features_config(manager: SettingsManager = Depends(get_settings_ma
         raise HTTPException(status_code=500, detail="Failed to get features configuration")
 
 @router.get("/settings/roles", response_model=List[AppRole])
-async def list_roles(manager: SettingsManager = Depends(get_settings_manager)):
+async def list_roles(
+    manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('settings-roles', FeatureAccessLevel.READ_ONLY)),
+):
     """List all application roles."""
     try:
         roles = manager.list_app_roles()
@@ -181,8 +196,15 @@ async def list_roles(manager: SettingsManager = Depends(get_settings_manager)):
         raise HTTPException(status_code=500, detail="Failed to list roles")
 
 @router.get("/settings/roles/summary", response_model=List[dict])
-async def list_roles_summary(manager: SettingsManager = Depends(get_settings_manager)):
-    """Get a simple summary list of role names for dropdowns/selection."""
+async def list_roles_summary(
+    _current_user: CurrentUserDep,
+    manager: SettingsManager = Depends(get_settings_manager),
+):
+    """Get a simple summary list of role names for dropdowns/selection.
+
+    Available to any authenticated user since this powers the role-request
+    dropdown that everyone must be able to use.
+    """
     try:
         roles = manager.list_app_roles()
         return [{"name": role.name} for role in roles]
@@ -238,7 +260,8 @@ async def create_role(
 @router.get("/settings/roles/{role_id}", response_model=AppRole)
 async def get_role(
     role_id: str,
-    manager: SettingsManager = Depends(get_settings_manager)
+    manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('settings-roles', FeatureAccessLevel.READ_ONLY)),
 ):
     """Get a specific application role by ID."""
     try:
@@ -398,6 +421,7 @@ async def load_demo_data(
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
     manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('settings-general', FeatureAccessLevel.ADMIN)),
     preset: str = Query(
         default="retail",
         description=(
@@ -537,7 +561,8 @@ async def clear_demo_data(
     db: DBSessionDep,
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
-    manager: SettingsManager = Depends(get_settings_manager)
+    manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('settings-general', FeatureAccessLevel.ADMIN)),
 ):
     """
     Clear all demo data from the database.
@@ -777,7 +802,9 @@ def register_routes(app):
 # --- Compliance mapping (object-type policies) ---
 
 @router.get('/settings/compliance-mapping')
-async def get_compliance_mapping():
+async def get_compliance_mapping(
+    _: bool = Depends(PermissionChecker('compliance', FeatureAccessLevel.READ_ONLY)),
+):
     """Return compliance mapping YAML content as JSON.
 
     See structure documented in self_service_routes._load_compliance_mapping.
@@ -801,7 +828,8 @@ async def save_compliance_mapping(
     audit_manager: AuditManagerDep,
     current_user: AuditCurrentUserDep,
     payload: Dict[str, Any] = Body(...),
-    manager: SettingsManager = Depends(get_settings_manager)
+    manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('compliance', FeatureAccessLevel.ADMIN)),
 ):
     """Persist compliance mapping to YAML."""
     try:
@@ -871,7 +899,10 @@ async def get_user_guide(manager: SettingsManager = Depends(get_settings_manager
 # --- Database Schema ERD ---
 
 @router.get('/database-schema')
-async def get_database_schema(manager: SettingsManager = Depends(get_settings_manager)):
+async def get_database_schema(
+    manager: SettingsManager = Depends(get_settings_manager),
+    _: bool = Depends(PermissionChecker('settings-general', FeatureAccessLevel.READ_ONLY)),
+):
     """Extract database schema from SQLAlchemy models for ERD visualization"""
     try:
         return manager.extract_database_schema()

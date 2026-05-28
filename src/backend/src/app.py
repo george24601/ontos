@@ -418,7 +418,16 @@ async def health_check():
 
 @app.post("/api/health/retry", tags=["System"])
 async def retry_startup():
-    """Re-attempt database init + manager init after a maintenance-mode failure."""
+    """Re-attempt database init + manager init after a maintenance-mode failure.
+
+    NOTE: intentionally NOT gated by ``PermissionChecker`` — that dependency
+    transitively requires ``auth_manager`` from ``app.state.managers``, which
+    is the very thing this endpoint is meant to recover. Gating here would
+    make recovery from a failed startup impossible. Edge authentication by
+    the Databricks Apps platform still blocks anonymous callers in prod. The
+    operation is idempotent. Tracked for a dedicated maintenance-mode admin
+    token in a follow-up.
+    """
     settings = get_settings()
     try:
         initialize_database(settings=settings)
