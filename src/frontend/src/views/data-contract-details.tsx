@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Download, Pencil, Trash2, Loader2, ArrowLeft, FileText, KeyRound, CopyPlus, Plus, Shapes, Columns2, Database, Sparkles, Package, ChevronLeft, ChevronRight, ShieldCheck, Globe, Link2 } from 'lucide-react'
+import { AlertCircle, Download, Pencil, Trash2, Loader2, ArrowLeft, FileText, KeyRound, CopyPlus, Plus, Shapes, Columns2, Database, Sparkles, Package, ShieldCheck, Globe, Link2 } from 'lucide-react'
 import { DetailViewSkeleton } from '@/components/common/list-view-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -44,12 +44,11 @@ import CreateFromContractDialog from '@/components/data-products/create-from-con
 import DqxSchemaSelectDialog from '@/components/data-contracts/dqx-schema-select-dialog'
 import DqxSuggestionsDialog from '@/components/data-contracts/dqx-suggestions-dialog'
 import AuthoritativeDefinitionFormDialog from '@/components/data-contracts/authoritative-definition-form-dialog'
-import ImportTeamMembersDialog from '@/components/data-contracts/import-team-members-dialog'
 import LinkProductToContractDialog from '@/components/data-contracts/link-product-to-contract-dialog'
 import VersioningRecommendationDialog from '@/components/common/versioning-recommendation-dialog'
 import CustomPropertyFormDialog from '@/components/data-contracts/custom-property-form-dialog'
 import CommitDraftDialog from '@/components/data-contracts/commit-draft-dialog'
-import VersionSelector from '@/components/data-contracts/version-selector'
+import VersionNavigator from '@/components/common/version-navigator'
 import type { DataProduct } from '@/types/data-product'
 import type { DataProfilingRun } from '@/types/data-contract'
 import { useCopilotContext } from '@/hooks/use-copilot-context'
@@ -271,7 +270,6 @@ export default function DataContractDetails() {
   const [isCreateProductDialogOpen, setIsCreateProductDialogOpen] = useState(false)
 
   // Team import state
-  const [isImportTeamMembersOpen, setIsImportTeamMembersOpen] = useState(false)
 
   // Team metadata (ODCS v3.1.0)
   const [, setTeamMetadata] = useState<{ name?: string; description?: string }>({})
@@ -284,10 +282,6 @@ export default function DataContractDetails() {
 
   // Commit draft dialog state
   const [isCommitDraftDialogOpen, setIsCommitDraftDialogOpen] = useState(false)
-
-  // Version navigation state
-  type ContractVersionInfo = { id: string; version: string; status: string; createdAt: string }
-  const [versions, setVersions] = useState<ContractVersionInfo[]>([])
 
   const [certificationLevels, setCertificationLevels] = useState<CertificationLevel[]>([])
   const [certifyDialogOpen, setCertifyDialogOpen] = useState(false)
@@ -315,11 +309,6 @@ export default function DataContractDetails() {
   const isPersonalDraft = contract?.draftOwnerId != null
   // Contract is read-only if it's not editable and not a personal draft
   const isReadOnly = !canEditInPlace
-
-  // Version navigation helpers
-  const currentVersionIndex = versions.findIndex(v => v.id === contractId)
-  const prevVersion = currentVersionIndex > 0 ? versions[currentVersionIndex - 1] : null
-  const nextVersion = currentVersionIndex >= 0 && currentVersionIndex < versions.length - 1 ? versions[currentVersionIndex + 1] : null
 
   // View mode state for filtering sections - initialize from localStorage
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -402,21 +391,6 @@ export default function DataContractDetails() {
     }
   }
 
-  const fetchVersions = async () => {
-    if (!contractId) return
-    try {
-      const response = await fetch(`/api/data-contracts/${contractId}/versions`)
-      if (response.ok) {
-        const data = await response.json()
-        setVersions(Array.isArray(data) ? data : [])
-      } else {
-        setVersions([])
-      }
-    } catch (e) {
-      console.warn('Failed to fetch contract versions:', e)
-      setVersions([])
-    }
-  }
 
   const fetchContractAuthDefs = async () => {
     if (!contractId) return
@@ -712,7 +686,6 @@ export default function DataContractDetails() {
     fetchLinkedProducts()
     fetchContractAuthDefs()
     fetchProfileRuns()
-    fetchVersions()
 
     return () => {
       setStaticSegments([])
@@ -1564,36 +1537,6 @@ export default function DataContractDetails() {
     fetchProfileRuns()
   }
 
-  const handleImportTeamMembers = async (members: TeamMember[]) => {
-    if (!contract) return
-    
-    try {
-      // Append to existing team array
-      const updatedTeam = [...(contract.team || []), ...members]
-      
-      // Store team assignment metadata in customProperties
-      const customProps = contract.customProperties || {}
-      const now = new Date().toISOString()
-      
-      await updateContract({
-        team: updatedTeam,
-        customProperties: {
-          ...customProps,
-          assignedTeamId: contract.owner_team_id,
-          assignedTeamName: contract.owner_team_name,
-          assignedTeamDate: now
-        }
-      }, false)  // Suppress generic toast, show custom one below
-      
-      toast({
-        title: 'Team Members Imported',
-        description: `Successfully imported ${members.length} team ${members.length === 1 ? 'member' : 'members'} to the contract.`
-      })
-    } catch (e) {
-      // Error already handled by updateContract
-      throw e
-    }
-  }
 
   const handleSaveTeamMetadata = async () => {
     if (!contractId) return
@@ -1686,36 +1629,14 @@ export default function DataContractDetails() {
             Back to List
           </Button>
 
-          {/* Version Navigation */}
-          {versions.length > 1 && (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={!prevVersion}
-                onClick={() => prevVersion && navigate(`${listPath}/${prevVersion.id}`)}
-                title={prevVersion ? `Previous version: ${prevVersion.version}` : 'No previous version'}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <VersionSelector
-                currentContractId={contractId!}
-                currentVersion={contract?.version}
-                onVersionChange={(id) => navigate(`${listPath}/${id}`)}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={!nextVersion}
-                onClick={() => nextVersion && navigate(`${listPath}/${nextVersion.id}`)}
-                title={nextVersion ? `Next version: ${nextVersion.version}` : 'No next version'}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          {/* Version Navigation — unified across contracts and products (PRD #442). */}
+          <VersionNavigator
+            entityKind="contract"
+            currentEntityId={contractId!}
+            currentVersion={contract?.version}
+            onVersionChange={(id) => navigate(`${listPath}/${id}`)}
+          />
+
 
           {/* View Mode Toggle */}
           <div className="inline-flex items-stretch h-8 gap-px border rounded-md bg-background overflow-hidden">
@@ -1927,7 +1848,7 @@ export default function DataContractDetails() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground min-w-[4rem]">Owner:</Label>
+              <Label className="text-xs text-muted-foreground min-w-[4rem]">Team:</Label>
               {contract.owner_team_id && contract.owner_team_name ? (
                 <span
                   className="text-xs cursor-pointer text-primary hover:underline truncate"
@@ -2724,84 +2645,33 @@ export default function DataContractDetails() {
       </Card>
       )}
 
-      {/* Team & Roles Section */}
-      {shouldShowSection('team-members') && (
+      {/* ODCS Team Metadata (read-only provenance) */}
+      {shouldShowSection('team-members') && (contract.team?.length || teamMetaName || teamMetaDesc) && (
         <Card>
           <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl">Team Members ({contract.team?.length || 0})</CardTitle>
-              <CardDescription>Team responsible for this contract</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              {(() => {
-                console.log('[DEBUG] Rendering Team Members buttons:', {
-                  owner_team_id: contract.owner_team_id,
-                  owner_team_name: contract.owner_team_name,
-                  hasOwnerTeamId: !!contract.owner_team_id,
-                  shouldShowButton: !!contract.owner_team_id
-                })
-                return null
-              })()}
-              {canEditInPlace && contract.owner_team_id && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => setIsImportTeamMembersOpen(true)}
-                  disabled={!contract.owner_team_name}
-                  title={contract.owner_team_name ? `Import members from ${contract.owner_team_name}` : 'No team assigned'}
-                >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Import from Team
-                </Button>
-              )}
-              {canEditInPlace && (
-                <Button size="sm" onClick={() => { setEditingTeamMemberIndex(null); setIsTeamMemberFormOpen(true); }}>
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Add Member
-                </Button>
-              )}
+              <CardTitle className="text-xl">ODCS Team Metadata</CardTitle>
+              <CardDescription>Read-only provenance from imported contract YAML. Manage ownership via the Owners panel above.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Team metadata (ODCS v3.1.0) */}
-          <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-muted/30">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Team Name</Label>
-              {canEditInPlace ? (
-                <Input
-                  value={teamMetaName}
-                  onChange={(e) => { setTeamMetaName(e.target.value); setTeamMetaDirty(true) }}
-                  placeholder="e.g. Data Engineering"
-                  className="h-8"
-                />
-              ) : (
+          {(teamMetaName || teamMetaDesc) && (
+            <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-muted/30">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Team Name</Label>
                 <p className="text-sm">{teamMetaName || '—'}</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Team Description</Label>
-              {canEditInPlace ? (
-                <Textarea
-                  value={teamMetaDesc}
-                  onChange={(e) => { setTeamMetaDesc(e.target.value); setTeamMetaDirty(true) }}
-                  placeholder="Brief description of the team"
-                  className="min-h-[32px] resize-none"
-                  rows={1}
-                />
-              ) : (
-                <p className="text-sm">{teamMetaDesc || '—'}</p>
-              )}
-            </div>
-            {canEditInPlace && teamMetaDirty && (
-              <div className="col-span-2 flex justify-end">
-                <Button size="sm" onClick={handleSaveTeamMetadata}>Save Team Info</Button>
               </div>
-            )}
-          </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Team Description</Label>
+                <p className="text-sm">{teamMetaDesc || '—'}</p>
+              </div>
+            </div>
+          )}
 
-          {/* Team members list */}
+          {/* Team members list (read-only) */}
           {contract.team && contract.team.length > 0 ? (
             <div className="space-y-2">
               {contract.team.map((member, idx) => (
@@ -2810,21 +2680,11 @@ export default function DataContractDetails() {
                     <Badge variant="outline">{member.role}</Badge>
                     <span className="text-sm">{member.name || member.username || member.email}</span>
                   </div>
-                  {canEditInPlace && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => { setEditingTeamMemberIndex(idx); setIsTeamMemberFormOpen(true); }}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDeleteTeamMember(idx)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">No team members defined. Click "Add Member" to add one.</p>
+            <p className="text-sm text-muted-foreground text-center py-4">No imported team members.</p>
           )}
         </CardContent>
       </Card>
@@ -3134,9 +2994,26 @@ export default function DataContractDetails() {
       </Card>
       )}
 
-      {/* Ownership Panel */}
+      {/* Ownership Panel (with imported ODCS contacts) */}
       {shouldShowSection('metadata-panel') && contract.id && (
-        <OwnershipPanel objectType="data_contract" objectId={contract.id} canAssign={canEditInPlace} className="mb-6" />
+        <OwnershipPanel
+          objectType="data_contract"
+          objectId={contract.id}
+          canAssign={canEditInPlace}
+          className="mb-6"
+          importedContacts={contract.team?.map((m) => ({
+            username: m.username,
+            name: m.name,
+            email: m.email,
+            role: m.role,
+            description: m.description,
+            dateIn: m.dateIn,
+            dateOut: m.dateOut,
+          }))}
+          importedContactsLabel="Imported Contacts"
+          ownerTeamId={contract.owner_team_id}
+          ownerTeamName={contract.owner_team_name}
+        />
       )}
 
       {/* Entity Relationships Panel */}
@@ -3315,18 +3192,6 @@ export default function DataContractDetails() {
         level="property"
       />
 
-      {/* Import Team Members Dialog */}
-      {contract?.owner_team_id && (
-        <ImportTeamMembersDialog
-          isOpen={isImportTeamMembersOpen}
-          onOpenChange={setIsImportTeamMembersOpen}
-          entityId={contractId!}
-          entityType="contract"
-          teamId={contract.owner_team_id}
-          teamName={contract.owner_team_name || contract.owner_team_id}
-          onImport={handleImportTeamMembers}
-        />
-      )}
 
       {/* Link Product to Contract Dialog */}
       <LinkProductToContractDialog
