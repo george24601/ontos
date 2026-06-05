@@ -29,6 +29,7 @@ from src.models.process_workflows import (
     WorkflowExecutionListResponse,
     WorkflowValidationResult,
     StepTypeSchema,
+    TemplateVarsResponse,
     TriggerContext,
     TriggerType,
     EntityType,
@@ -72,6 +73,26 @@ async def get_step_types(
 ) -> List[StepTypeSchema]:
     """Get schemas for all available step types."""
     return manager.get_step_type_schemas()
+
+
+@router.get("/template-vars", response_model=TemplateVarsResponse)
+async def get_template_vars(
+    request: Request,
+    trigger: TriggerType = Query(..., description="Trigger type the workflow listens for"),
+    entity_type: EntityType = Query(..., description="Entity type the trigger targets"),
+    manager: WorkflowsManager = Depends(get_workflows_manager),
+    _: bool = Depends(PermissionChecker('settings', FeatureAccessLevel.READ_ONLY)),
+) -> TemplateVarsResponse:
+    """Return ``${...}`` variables available for a given (trigger, entity_type).
+
+    Powers the workflow designer's webhook-template-variable inspector
+    panel. Returns groups of descriptors (entity, flat) so the UI can
+    render an organized side panel next to the body_template Textarea.
+    Combinations without a curated registry entry return an empty
+    ``groups`` list rather than 404 so the UI can show a friendly
+    "no descriptors yet" state.
+    """
+    return manager.get_template_vars(trigger, entity_type)
 
 
 @router.get("/executions", response_model=WorkflowExecutionListResponse)

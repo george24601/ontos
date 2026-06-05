@@ -27,6 +27,9 @@ from src.models.process_workflows import (
     StepPosition,
     WorkflowValidationResult,
     StepTypeSchema,
+    TemplateVarDescriptor,
+    TemplateVarGroup,
+    TemplateVarsResponse,
 )
 from src.repositories.process_workflows_repository import process_workflow_repo
 from src.common.logging import get_logger
@@ -612,6 +615,278 @@ class WorkflowsManager:
                 has_fail_branch=False,
             ),
         ]
+
+    # ========================================================================
+    # Template Variable Inspector
+    # ========================================================================
+    #
+    # Static registry of ``${...}`` variables surfaced to workflow authors
+    # in the designer's webhook body_template panel. The registry is
+    # hand-curated rather than introspected because the underlying source
+    # of truth (each manager's entity_data enrichment) lives in three
+    # different files and has no schema. Drift is the obvious risk; the
+    # mitigation lives in ``tests/unit/test_template_vars_registry.py``
+    # which walks every descriptor path through ``substitute_template``
+    # against a realistic fixture and fails CI if any path doesn't
+    # resolve. When you add a new field to a manager's entity_data,
+    # update ``_build_template_var_registry`` here too.
+
+    def _build_template_var_registry(
+        self,
+    ) -> Dict[tuple, List[TemplateVarGroup]]:
+        """Build the (trigger, entity_type) → groups lookup.
+
+        Returns a fresh dict per call so callers can mutate without
+        affecting other consumers. Could be cached if it shows up in
+        profiling, but it's only hit from the GET endpoint.
+        """
+        # Variables that always exist regardless of trigger — surfaced
+        # in their own group so the inspector can collapse them by
+        # default once authors get familiar.
+        flat_group = TemplateVarGroup(
+            namespace="flat",
+            description=(
+                "Universal variables available in every workflow. Map "
+                "to attributes on the workflow execution itself."
+            ),
+            variables=[
+                TemplateVarDescriptor(
+                    path="entity_type",
+                    type="string",
+                    description="Type slug of the triggering entity (e.g. ``data_product``).",
+                    sample="data_product",
+                ),
+                TemplateVarDescriptor(
+                    path="entity_id",
+                    type="string",
+                    description="Stable identifier of the triggering entity.",
+                    sample="prd-2f1a-...-9c",
+                ),
+                TemplateVarDescriptor(
+                    path="entity_name",
+                    type="string",
+                    description="Human-readable name of the triggering entity.",
+                    sample="customer_360",
+                ),
+                TemplateVarDescriptor(
+                    path="user_email",
+                    type="string",
+                    description="Email of the user whose action fired the trigger.",
+                    sample="alice@example.com",
+                ),
+                TemplateVarDescriptor(
+                    path="workflow_name",
+                    type="string",
+                    description="Name of the workflow this step belongs to.",
+                    sample="Access Request Notification",
+                ),
+                TemplateVarDescriptor(
+                    path="workflow_id",
+                    type="string",
+                    description="Database ID of the workflow.",
+                    sample="wf-7e3d-...-22",
+                ),
+                TemplateVarDescriptor(
+                    path="execution_id",
+                    type="string",
+                    description="Database ID of the current workflow execution.",
+                    sample="exe-4a1b-...-08",
+                ),
+            ],
+        )
+
+        # ----- on_request_access × data_product -----
+        # Entity-data shape comes from
+        # ``AccessGrantsManager.create_request`` →
+        # ``enrich_entity_data_with_data_product``.
+        on_request_access_dp_entity = TemplateVarGroup(
+            namespace="entity",
+            description=(
+                "Fields on the access-grant request and the underlying "
+                "data product. ``output_ports`` / ``catalogs`` are "
+                "resolved from the DP's UC asset identifiers."
+            ),
+            variables=[
+                TemplateVarDescriptor(
+                    path="entity.request_id",
+                    type="string",
+                    description="Access-grant request ID.",
+                    sample="agr-3f...-c1",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.entity_type",
+                    type="string",
+                    description="Underlying entity type the user requested access to.",
+                    sample="data_product",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.entity_id",
+                    type="string",
+                    description="ID of the underlying entity (data product) being requested.",
+                    sample="prd-2f...-9c",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.entity_name",
+                    type="string",
+                    description="Display name of the underlying entity.",
+                    sample="customer_360",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.requested_duration_days",
+                    type="number",
+                    description="How many days of access the requester asked for.",
+                    sample=30,
+                ),
+                TemplateVarDescriptor(
+                    path="entity.permission_level",
+                    type="enum",
+                    description="Permission level requested.",
+                    sample="READ",
+                    enum_values=["READ", "WRITE", "MANAGE"],
+                ),
+                TemplateVarDescriptor(
+                    path="entity.reason",
+                    type="string",
+                    description="Free-text justification from the requester.",
+                    sample="Need to validate Q3 churn metrics.",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.data_product_name",
+                    type="string",
+                    description="Name of the data product being requested.",
+                    sample="customer_360",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.output_ports",
+                    type="array",
+                    description=(
+                        "Per-output-port records parsed from the DP's "
+                        "asset identifiers. Each item has ``name``, "
+                        "``catalog``, ``schema``, ``table``, ``fqn``."
+                    ),
+                    sample=[
+                        {
+                            "name": "customers",
+                            "catalog": "main",
+                            "schema": "marts",
+                            "table": "customers",
+                            "fqn": "main.marts.customers",
+                        }
+                    ],
+                ),
+                TemplateVarDescriptor(
+                    path="entity.catalogs",
+                    type="array",
+                    description=(
+                        "Sorted, deduplicated catalog names across "
+                        "every output port. Useful for per-catalog "
+                        "grant requests."
+                    ),
+                    sample=["main", "prod"],
+                ),
+            ],
+        )
+
+        # ----- on_subscribe × data_product -----
+        # Entity-data shape comes from
+        # ``DataProductsManager.subscribe`` (mirrors the access-grant
+        # enrichment).
+        on_subscribe_dp_entity = TemplateVarGroup(
+            namespace="entity",
+            description=(
+                "Fields on the subscription event and the underlying "
+                "data product."
+            ),
+            variables=[
+                TemplateVarDescriptor(
+                    path="entity.product_id",
+                    type="string",
+                    description="ID of the data product being subscribed to.",
+                    sample="prd-2f...-9c",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.subscriber_email",
+                    type="string",
+                    description="Email of the user creating the subscription.",
+                    sample="alice@example.com",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.reason",
+                    type="string",
+                    description="Optional reason supplied with the subscription.",
+                    sample="Onboarding analytics dashboard.",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.data_product_name",
+                    type="string",
+                    description="Name of the data product being subscribed to.",
+                    sample="customer_360",
+                ),
+                TemplateVarDescriptor(
+                    path="entity.output_ports",
+                    type="array",
+                    description=(
+                        "Per-output-port records (see "
+                        "``on_request_access`` for shape)."
+                    ),
+                    sample=[
+                        {
+                            "name": "customers",
+                            "catalog": "main",
+                            "schema": "marts",
+                            "table": "customers",
+                            "fqn": "main.marts.customers",
+                        }
+                    ],
+                ),
+                TemplateVarDescriptor(
+                    path="entity.catalogs",
+                    type="array",
+                    description="Sorted, deduplicated catalog names across every output port.",
+                    sample=["main", "prod"],
+                ),
+            ],
+        )
+
+        return {
+            (TriggerType.ON_REQUEST_ACCESS, EntityType.DATA_PRODUCT): [
+                on_request_access_dp_entity,
+                flat_group,
+            ],
+            (TriggerType.ON_SUBSCRIBE, EntityType.DATA_PRODUCT): [
+                on_subscribe_dp_entity,
+                flat_group,
+            ],
+        }
+
+    def get_template_vars(
+        self,
+        trigger_type: TriggerType,
+        entity_type: EntityType,
+    ) -> TemplateVarsResponse:
+        """Return the ``${...}`` variables available for a given trigger.
+
+        Used by the workflow designer to render a side panel next to
+        webhook ``body_template`` editors so authors know what's in
+        scope. Combinations without curated descriptors return an empty
+        ``groups`` list — the UI surfaces a friendly "no descriptors
+        yet" state rather than treating that as an error.
+
+        Args:
+            trigger_type: The trigger the workflow listens for.
+            entity_type: The entity type the trigger targets.
+
+        Returns:
+            ``TemplateVarsResponse`` with grouped descriptors. Always a
+            valid response — never raises ``HTTPException``.
+        """
+        registry = self._build_template_var_registry()
+        groups = registry.get((trigger_type, entity_type), [])
+        return TemplateVarsResponse(
+            trigger=trigger_type,
+            entity_type=entity_type,
+            groups=groups,
+        )
 
     @staticmethod
     def _safe_trigger_type(value: str) -> TriggerType:
