@@ -848,8 +848,13 @@ class WorkflowsManager:
             ],
         )
 
+        # NOTE: the trigger fires with entity_type=ACCESS_GRANT (the AGR
+        # is the proxy entity; the data product is the *target*, referenced
+        # via enriched entity_data fields like ${entity.entity_id} and
+        # ${entity.catalogs}). Workflows that listen to on_request_access
+        # therefore filter on access_grant, not data_product.
         return {
-            (TriggerType.ON_REQUEST_ACCESS, EntityType.DATA_PRODUCT): [
+            (TriggerType.ON_REQUEST_ACCESS, EntityType.ACCESS_GRANT): [
                 on_request_access_dp_entity,
                 flat_group,
             ],

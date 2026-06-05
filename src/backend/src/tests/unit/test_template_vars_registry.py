@@ -41,7 +41,7 @@ from src.models.process_workflows import (
 # describes. Update this list AND the registry together — the drift
 # detector below uses this list as the canonical scope.
 SUPPORTED_COMBOS = [
-    (TriggerType.ON_REQUEST_ACCESS, EntityType.DATA_PRODUCT),
+    (TriggerType.ON_REQUEST_ACCESS, EntityType.ACCESS_GRANT),
     (TriggerType.ON_SUBSCRIBE, EntityType.DATA_PRODUCT),
 ]
 
@@ -101,7 +101,7 @@ def _build_dp_entity_data_for_subscribe() -> Dict[str, Any]:
 
 
 ENTITY_DATA_BUILDERS = {
-    (TriggerType.ON_REQUEST_ACCESS, EntityType.DATA_PRODUCT): _build_dp_entity_data_for_access_grant,
+    (TriggerType.ON_REQUEST_ACCESS, EntityType.ACCESS_GRANT): _build_dp_entity_data_for_access_grant,
     (TriggerType.ON_SUBSCRIBE, EntityType.DATA_PRODUCT): _build_dp_entity_data_for_subscribe,
 }
 
