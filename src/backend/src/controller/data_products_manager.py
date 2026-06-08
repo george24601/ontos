@@ -246,6 +246,7 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         caller_email: Optional[str] = None,
         caller_team_ids: Optional[List[str]] = None,
         caller_project_ids: Optional[List[str]] = None,
+        include_history: bool = False,
     ) -> List[DataProductApi]:
         """List ODPS v1.0.0 data products.
 
@@ -281,9 +282,97 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 caller_team_ids=caller_team_ids,
                 caller_project_ids=caller_project_ids,
             )
+
+            # Role-aware visibility collapse (PRD #442). Elevation for
+            # products is broader than for contracts because we have a
+            # subscriptions table — subscribers see in-flight versions
+            # of families they consume.
+            from src.common.version_visibility import (
+                collapse_by_family,
+                family_counts as compute_family_counts,
+                is_admin_only_status,
+                is_visible_consumer,
+            )
+            # Import here to avoid widening the module-level import graph;
+            # this branch only fires during list_products which is also
+            # the only place we need the subscription join.
+            from src.db_models.data_products import DataProductSubscriptionDb
+
+            elevated_families: Set[str] = set()
+            if not is_admin:
+                team_set = set(caller_team_ids or [])
+                project_set = set(caller_project_ids or [])
+                for p in products_db:
+                    fid = getattr(p, "version_family_id", None) or p.id
+                    if fid in elevated_families:
+                        continue
+                    if caller_email and p.draft_owner_id == caller_email:
+                        elevated_families.add(fid)
+                        continue
+                    if p.owner_team_id and p.owner_team_id in team_set:
+                        elevated_families.add(fid)
+                        continue
+                    if p.project_id and p.project_id in project_set:
+                        elevated_families.add(fid)
+                # Subscription-based elevation: query once for the caller's
+                # subscribed product ids, then map back to families. The
+                # query is bounded by the set we already loaded so this
+                # stays O(rows_loaded) regardless of total subscriptions.
+                if caller_email:
+                    try:
+                        product_ids = [p.id for p in products_db]
+                        if product_ids:
+                            subs = (
+                                self._db.query(DataProductSubscriptionDb.product_id)
+                                .filter(
+                                    DataProductSubscriptionDb.subscriber_email == caller_email,
+                                    DataProductSubscriptionDb.product_id.in_(product_ids),
+                                )
+                                .all()
+                            )
+                            subbed_pids = {row.product_id for row in subs}
+                            for p in products_db:
+                                if p.id in subbed_pids:
+                                    fid = getattr(p, "version_family_id", None) or p.id
+                                    elevated_families.add(fid)
+                    except Exception:
+                        # Subscriptions are a soft elevation signal — a
+                        # failure here downgrades the caller to ownership-
+                        # only elevation, which is still safer than
+                        # over-disclosing.
+                        logger.exception(
+                            f"Subscription lookup failed for {caller_email}; "
+                            "falling back to ownership-only elevation"
+                        )
+
+                # Pre-filter for the expanded view too so a consumer who
+                # flips "Show all versions" doesn't see drafts of families
+                # they don't own (PRD #442 consumer-visibility rule).
+                products_db = [
+                    p
+                    for p in products_db
+                    if (getattr(p, "version_family_id", None) or p.id) in elevated_families
+                    or (not is_admin_only_status(p) and is_visible_consumer(p))
+                ]
+
+            family_counts = compute_family_counts(products_db)
+
+            if not include_history:
+                products_db = collapse_by_family(
+                    products_db,
+                    elevated_family_ids=elevated_families,
+                    is_admin=is_admin,
+                )
+
             products_with_tags = []
             for product_db in products_db:
                 product_with_tags = self._load_product_with_tags(product_db)
+                fid = getattr(product_db, "version_family_id", None) or product_db.id
+                # Only emit a count on the collapsed view; on the expanded
+                # view the rows speak for themselves and a per-row count
+                # would be misleading.
+                if not include_history:
+                    product_with_tags.version_count = family_counts.get(fid)
                 products_with_tags.append(product_with_tags)
             return products_with_tags
         except SQLAlchemyError as e:
@@ -1430,8 +1519,13 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         new_product_data['id'] = str(uuid.uuid4())
         new_product_data['version'] = request.new_version
 
-        # Link new version back to the original product
+        # Link new version back to the original product (lineage edge) and
+        # propagate the family id (set-membership). PRD #442.
         new_product_data['parent_product_id'] = original_product_id
+        new_product_data['version_family_id'] = (
+            getattr(original_product, 'version_family_id', None)
+            or original_product_id
+        )
 
         # Reset status to DRAFT
         new_product_data['status'] = DataProductStatus.DRAFT.value
@@ -1453,6 +1547,42 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
         except SQLAlchemyError as e:
             logger.error(f"Database error creating new version: {e}")
             raise
+
+    def get_product_versions(
+        self,
+        db: Session,
+        product_id: str,
+        *,
+        user_email: Optional[str] = None,
+        is_admin: bool = False,
+    ) -> List["DataProductDb"]:
+        """Get every visible version of a product's family, newest first.
+
+        Uses the canonical ``version_family_id`` grouping key (PRD #442).
+        Personal drafts owned by other users are hidden unless ``is_admin``.
+
+        Args:
+            db: Database session
+            product_id: Any product ID in the family.
+            user_email: Caller email (personal-draft owner check).
+            is_admin: If True, bypasses the personal-draft filter.
+
+        Returns:
+            List of DataProductDb rows ordered by created_at DESC.
+
+        Raises:
+            ValueError: If product not found.
+        """
+        source = data_product_repo.get(db, id=product_id)
+        if not source:
+            raise ValueError("Product not found")
+        family_id = getattr(source, 'version_family_id', None) or source.id
+        return data_product_repo.get_family_versions(
+            db,
+            family_id=family_id,
+            user_email=user_email,
+            is_admin=is_admin,
+        )
 
     # ==================== Versioned Editing Methods ====================
 
@@ -1514,6 +1644,9 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             # Extract base_name from source (strip version suffix if present)
             base_name = source_product.base_name or source_product.name
             
+            # Carry the family id forward unchanged on clone (PRD #442).
+            family_id = getattr(source_product, 'version_family_id', None) or source_product.id
+
             # Create new product with core fields
             new_product = DataProductDb(
                 id=new_id,
@@ -1530,6 +1663,7 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 # Versioning fields
                 draft_owner_id=current_user if as_personal_draft else None,
                 parent_product_id=product_id,
+                version_family_id=family_id,
                 base_name=base_name,
                 change_summary=change_summary,
             )
@@ -2740,6 +2874,50 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
             "datasets": datasets_out,
         }
 
+    # Role mapping from Business Role names to ODPS team role strings
+    BUSINESS_ROLE_TO_TEAM_ROLE = {
+        "data owner": "owner",
+        "technical owner": "technical steward",
+        "business sponsor": "business steward",
+    }
+
+    def _merge_business_owners_into_team(
+        self, members_list: list, db_session, object_type: str, object_id: str
+    ) -> list:
+        """Merge active Business Owners into the team members list for YAML export.
+        Deduplicates by (username/email, role). Owners take precedence over existing members."""
+        from src.repositories.business_owners_repository import business_owner_repo
+
+        try:
+            active_owners = business_owner_repo.get_for_object(
+                db_session, object_type=object_type, object_id=object_id, active_only=True
+            )
+        except Exception:
+            return members_list
+
+        if not active_owners:
+            return members_list
+
+        existing_keys = {
+            (m.get('username', '').lower(), m.get('role', '').lower())
+            for m in members_list
+        }
+
+        for owner in active_owners:
+            role_name = owner.role.name if owner.role else 'owner'
+            team_role = self.BUSINESS_ROLE_TO_TEAM_ROLE.get(role_name.lower(), role_name.lower())
+            username = owner.user_email
+            key = (username.lower(), team_role.lower())
+
+            if key not in existing_keys:
+                member_dict = {'role': team_role, 'username': username}
+                if owner.user_name:
+                    member_dict['name'] = owner.user_name
+                members_list.append(member_dict)
+                existing_keys.add(key)
+
+        return members_list
+
     def build_odps_export(
         self,
         product_id: str,
@@ -2810,16 +2988,24 @@ class DataProductsManager(DeliveryMixin, SearchableAsset):
                 for s in product.support_channels
             ]
 
+        # Build team members from ODPS data, then merge active Business Owners
+        team_members = []
         if product.team and product.team.members:
-            odps["team"] = {
-                "name": product.team.name,
-                "members": [
-                    {k: v for k, v in {
-                        "username": m.username, "role": m.role,
-                    }.items() if v}
-                    for m in product.team.members
-                ],
-            }
+            team_members = [
+                {k: v for k, v in {
+                    "username": m.username, "role": m.role,
+                    "name": getattr(m, 'name', None),
+                }.items() if v}
+                for m in product.team.members
+            ]
+        team_members = self._merge_business_owners_into_team(
+            team_members, session, 'data_product', product_id
+        )
+        if team_members:
+            team_name = product.team.name if product.team else None
+            odps["team"] = {"members": team_members}
+            if team_name:
+                odps["team"]["name"] = team_name
 
         if product.custom_properties:
             odps["customProperties"] = [

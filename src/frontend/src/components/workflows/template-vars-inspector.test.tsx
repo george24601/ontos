@@ -116,6 +116,7 @@ describe('TemplateVarsInspector', () => {
   it('renders every group and variable path', async () => {
     mockUseApi({ data: fakeResponse });
     mockUseToast();
+    const user = userEvent.setup();
 
     renderWithProviders(
       <TemplateVarsInspector
@@ -124,11 +125,13 @@ describe('TemplateVarsInspector', () => {
       />,
     );
 
-    // Group headers (with counts) render.
+    // Group headers (with counts) render even while collapsed.
     expect(await screen.findByText('entity')).toBeInTheDocument();
     expect(screen.getByText('flat')).toBeInTheDocument();
-    // Variable paths render as placeholders.
-    expect(screen.getByText('${entity.catalogs}')).toBeInTheDocument();
+    // Groups start collapsed (Radix unmounts their content) — expand
+    // the entity group so the placeholder rows hydrate before asserting.
+    await user.click(screen.getByText('entity'));
+    expect(await screen.findByText('${entity.catalogs}')).toBeInTheDocument();
     expect(screen.getByText('${entity.entity_id}')).toBeInTheDocument();
   });
 
@@ -155,8 +158,9 @@ describe('TemplateVarsInspector', () => {
       />,
     );
 
-    // Wait for data to render — the placeholder text in the row is the
-    // most reliable signal that the accordion content has hydrated.
+    // Groups start collapsed — expand entity so the row hydrates.
+    await screen.findByText('entity');
+    await user.click(screen.getByText('entity'));
     await screen.findByText('${entity.catalogs}');
 
     // Find all copy buttons (one per variable) and pick the one whose
