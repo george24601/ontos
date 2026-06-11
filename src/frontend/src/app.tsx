@@ -102,6 +102,7 @@ import SettingsConnectorsView from './views/settings-connectors';
 import SettingsDirectoryView from './views/settings-directory';
 import SettingsSemanticModelsView from './views/settings-semantic-models';
 import SettingsCertificationLevelsView from './views/settings-certification-levels';
+import SettingsMaturityLevelsView from './views/settings-maturity-levels';
 
 export default function App() {
   const fetchUserInfo = useUserStore((state: any) => state.fetchUserInfo);
@@ -256,6 +257,7 @@ export default function App() {
                 <Route path="directory" element={<SettingsDirectoryView />} />
                 <Route path="semantic-models" element={<SettingsSemanticModelsView />} />
                 <Route path="certification-levels" element={<SettingsCertificationLevelsView />} />
+                <Route path="maturity-levels" element={<SettingsMaturityLevelsView />} />
                 <Route path="workflows" element={<Workflows />} />
                 <Route path="workflows/new" element={<WorkflowDesignerView />} />
                 <Route path="workflows/:workflowId" element={<WorkflowDesignerView />} />
